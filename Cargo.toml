@@ -1,0 +1,23 @@
+[package]
+name = "turbo-genesis-sdk"
+version = "0.3.5"
+description = "Turbo Genesis SDK"
+license = "MIT"
+authors = ["@jozanza (hello@jsavary.com)"]
+edition = "2021"
+
+[lib]
+crate-type = ["lib"]
+
+[dependencies]
+base64 = "0.21.2"
+binary-layout = "3.2.0"
+borsh = "0.10.3"
+bytemuck = { version = "1.13.1", features = ["derive"] }
+default-args = "1.0.0"
+structstruck = "0.4.1"
+solana-sdk = { version = "1.16", optional = true }
+
+[features]
+no-host = []
+solana = ["solana-sdk"]
