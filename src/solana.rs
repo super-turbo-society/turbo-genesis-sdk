@@ -20,8 +20,8 @@ pub fn user_pubkey() -> Pubkey {
             let ptr = pubkey_array.as_mut_ptr();
             if solana_user(ptr) == 0 {
                 SOL_USER_PUBKEY.1 = pubkey_array;
+                SOL_USER_PUBKEY.0 = true;
             }
-            SOL_USER_PUBKEY.0 = true;
         }
         Pubkey::new_from_array(SOL_USER_PUBKEY.1)
     }
