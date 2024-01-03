@@ -281,8 +281,7 @@ pub mod anchor {
                     sighash.copy_from_slice(
                         &solana_sdk::hash::hash(self.name.as_bytes()).to_bytes()[..8],
                     );
-                    let len = (self.data.len() as u32).to_le_bytes();
-                    [sighash.as_ref(), len.as_ref(), self.data.clone().deref()].concat()
+                    [sighash.as_ref(), self.data.clone().deref()].concat()
                 },
             }
         }
