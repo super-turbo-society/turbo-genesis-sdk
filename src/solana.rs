@@ -166,12 +166,14 @@ pub mod rpc {
 
             let pk_ptr = pubkey.as_ptr();
             let pk_len = pubkey.len() as u32;
-            let mut data = vec![0; 2048];
+            // Solana's account size limit (~10mb) + a little padding for QueryResult fields
+            static mut SOLANA_QUERY_RESULT_DATA: [u8; 11 * 1024] = [0; 11 * 1024];
+            SOLANA_QUERY_RESULT_DATA.fill(0);
             let mut data_len: u32 = 0;
             if 0 == solana_get_account(
                 pk_ptr,
                 pk_len,
-                data.as_mut_ptr(),
+                SOLANA_QUERY_RESULT_DATA.as_mut_ptr(),
                 &mut data_len,
                 cache_status,
                 cache_slot,
@@ -181,7 +183,7 @@ pub mod rpc {
                     .or_insert(QueryResult::new())
                     .clone();
             }
-            match <QueryResult<AccountInfo, String>>::try_from_slice(&data[..data_len as usize]) {
+            match <QueryResult<AccountInfo, String>>::try_from_slice(&SOLANA_QUERY_RESULT_DATA[..data_len as usize]) {
                 Ok(data) => {
                     // crate::println!("UPDATING CACHE: {:?}", data);
                     cache.insert(pubkey.to_string(), data);
