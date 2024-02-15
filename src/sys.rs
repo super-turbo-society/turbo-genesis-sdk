@@ -1,5 +1,9 @@
 use crate::ffi;
 
+pub fn tick() -> usize {
+    ffi::sys::tick() as usize
+}
+
 pub fn rand() -> u32 {
     ffi::sys::rand()
 }

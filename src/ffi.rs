@@ -100,6 +100,26 @@ pub(crate) mod internal {
 
 #[allow(unused)]
 pub mod sys {
+
+    #[cfg(not(target_family = "wasm"))]
+    pub fn tick() -> u32 {
+        0
+    }
+    #[cfg(all(target_family = "wasm", feature = "no-host"))]
+    pub fn tick() -> u32 {
+        0
+    }
+    #[cfg(all(target_family = "wasm", not(feature = "no-host")))]
+    pub fn tick() -> u32 {
+        unsafe {
+            #[link(wasm_import_module = "@turbo_genesis/sys")]
+            extern "C" {
+                fn tick() -> u32;
+            }
+            tick()
+        }
+    }
+
     #[cfg(not(target_family = "wasm"))]
     pub fn rand() -> u32 {
         0
@@ -306,7 +326,7 @@ pub mod canvas {
         fill: u32,
         rotation_deg: i32,
         rotation_origin: i32, // xy
-        border_radius: u32, // wh
+        border_radius: u32,   // wh
         border_size: u32,
         border_color: u32, // trbl
     ) {
@@ -395,11 +415,11 @@ pub mod canvas {
         }
     }
 
-    // #[cfg(not(target_family = "wasm"))]
-    // pub fn sprite_by_key(ptr: *const u8, len: u32, x: i32, y: i32, fps: u32) {}
-    // #[cfg(all(target_family = "wasm", feature = "no-host"))]
-    // pub fn sprite_by_key(ptr: *const u8, len: u32, x: i32, y: i32, fps: u32) {}
-    // #[cfg(all(target_family = "wasm", not(feature = "no-host")))]
+    #[cfg(not(target_family = "wasm"))]
+    pub fn sprite_by_key(ptr: *const u8, len: u32, x: i32, y: i32, fps: u32, deg: i32) {}
+    #[cfg(all(target_family = "wasm", feature = "no-host"))]
+    pub fn sprite_by_key(ptr: *const u8, len: u32, x: i32, y: i32, fps: u32, deg: i32) {}
+    #[cfg(all(target_family = "wasm", not(feature = "no-host")))]
     pub fn sprite_by_key(ptr: *const u8, len: u32, x: i32, y: i32, fps: u32, deg: i32) {
         #[cfg(all(target_family = "wasm", not(feature = "no-host")))]
         unsafe {
@@ -423,6 +443,111 @@ pub mod canvas {
                 fn text(x: i32, y: i32, font: u8, color: u32, ptr: *const u8, len: u32);
             }
             text(x, y, font, color, ptr, len)
+        }
+    }
+
+    #[cfg(not(target_family = "wasm"))]
+    pub fn get_sprite_data_nonce_v1() -> u64 {}
+    #[cfg(all(target_family = "wasm", feature = "no-host"))]
+    pub fn get_sprite_data_nonce_v1() -> u64 {}
+    #[cfg(all(target_family = "wasm", not(feature = "no-host")))]
+    pub fn get_sprite_data_nonce_v1() -> u64 {
+        #[cfg(all(target_family = "wasm", not(feature = "no-host")))]
+        unsafe {
+            #[link(wasm_import_module = "@turbo_genesis/canvas")]
+            extern "C" {
+                fn get_sprite_data_nonce_v1() -> u64;
+            }
+            return get_sprite_data_nonce_v1();
+        }
+    }
+
+    #[cfg(not(target_family = "wasm"))]
+    pub fn get_sprite_data_v1(data_ptr: *mut u8, len_ptr: *mut u32) {}
+    #[cfg(all(target_family = "wasm", feature = "no-host"))]
+    pub fn get_sprite_data_v1(data_ptr: *mut u8, len_ptr: *mut u32) {}
+    #[cfg(all(target_family = "wasm", not(feature = "no-host")))]
+    pub fn get_sprite_data_v1(data_ptr: *mut u8, len_ptr: *mut u32) {
+        #[cfg(all(target_family = "wasm", not(feature = "no-host")))]
+        unsafe {
+            #[link(wasm_import_module = "@turbo_genesis/canvas")]
+            extern "C" {
+                fn get_sprite_data_v1(data_ptr: *mut u8, len_ptr: *mut u32);
+            }
+            return get_sprite_data_v1(data_ptr, len_ptr);
+        }
+    }
+
+    #[cfg(not(target_family = "wasm"))]
+    pub fn draw_quad_v1(
+        dest_xy: u64,
+        dest_wh: u64,
+        sprite_xy: u64,
+        sprite_wh: u64,
+        fill_ab: u64,
+        border_radius: u32,
+        border_size: u32,
+        border_color: u32,
+        origin_xy: u64,
+        rotation_deg: i32,
+    ) {
+    }
+    #[cfg(all(target_family = "wasm", feature = "no-host"))]
+    pub fn draw_quad_v1(
+        dest_xy: u64,
+        dest_wh: u64,
+        sprite_xy: u64,
+        sprite_wh: u64,
+        fill_ab: u64,
+        border_radius: u32,
+        border_size: u32,
+        border_color: u32,
+        origin_xy: u64,
+        rotation_deg: i32,
+    ) {
+    }
+    #[cfg(all(target_family = "wasm", not(feature = "no-host")))]
+    pub fn draw_quad_v1(
+        dest_xy: u64,
+        dest_wh: u64,
+        sprite_xy: u64,
+        sprite_wh: u64,
+        fill_ab: u64,
+        border_radius: u32,
+        border_size: u32,
+        border_color: u32,
+        origin_xy: u64,
+        rotation_deg: i32,
+    ) {
+        #[cfg(all(target_family = "wasm", not(feature = "no-host")))]
+        unsafe {
+            #[link(wasm_import_module = "@turbo_genesis/canvas")]
+            extern "C" {
+                fn draw_quad_v1(
+                    dest_xy: u64,
+                    dest_wh: u64,
+                    sprite_xy: u64,
+                    sprite_wh: u64,
+                    fill_ab: u64,
+                    border_radius: u32,
+                    border_size: u32,
+                    border_color: u32,
+                    origin_xy: u64,
+                    rotation_deg: i32,
+                );
+            }
+            return draw_quad_v1(
+                dest_xy,
+                dest_wh,
+                sprite_xy,
+                sprite_wh,
+                fill_ab,
+                border_radius,
+                border_size,
+                border_color,
+                origin_xy,
+                rotation_deg,
+            );
         }
     }
 }

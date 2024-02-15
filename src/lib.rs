@@ -9,8 +9,8 @@ pub mod solana;
 
 pub use binary_layout;
 pub use borsh;
+pub use paste;
 pub use structstruck;
-pub use default_args;
 
 pub mod prelude {
     pub use crate::canvas::*;
