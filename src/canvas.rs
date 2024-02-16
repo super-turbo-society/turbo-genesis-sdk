@@ -127,8 +127,6 @@ pub fn draw_sprite(
     sw: i32,
     sh: i32,
     color: u32,
-    origin_x: i32,
-    origin_y: i32,
     rotatation_deg: i32,
 ) {
     let dest_xy = ((dx as u64) << 32) | (dy as u64 & 0xffffffff);
@@ -136,7 +134,6 @@ pub fn draw_sprite(
     let sprite_xy = ((sx as u64) << 32) | (sy as u64);
     let sprite_wh = ((sw as u64) << 32) | (sh as u32 as u64);
     let fill_ab = color as u64;
-    let origin_xy = ((origin_x as u64) << 32) | (origin_y as u64 & 0xffffffff);
     ffi::canvas::draw_quad_v1(
         dest_xy,
         dest_wh,
@@ -146,7 +143,7 @@ pub fn draw_sprite(
         0,
         0,
         0,
-        origin_xy,
+        0,
         rotatation_deg,
     )
 }
@@ -164,8 +161,6 @@ macro_rules! sprite {
             let mut h: u32 = 0;
             let mut color: u32 = 0xffffffff;
             let mut opacity: f32 = -1.0;
-            let mut origin_x: i32 = 0;
-            let mut origin_y: i32 = 0;
             let mut rotate: i32 = 0;
             let mut scale_x: f32 = 1.0;
             let mut scale_y: f32 = 1.0;
@@ -188,7 +183,7 @@ macro_rules! sprite {
                 let frame_rate = (60_usize).checked_div(fps as usize).unwrap_or(1);
                 let i = $crate::sys::tick().checked_div(frame_rate).unwrap_or(0) % sprite_data.frames.len();
                 let (sx, sy) = sprite_data.frames[i];
-                $crate::canvas::draw_sprite(x, y, dw, dh, sx, sy, sw, sh, color, origin_x, origin_y, rotate);
+                $crate::canvas::draw_sprite(x, y, dw, dh, sx, sy, sw, sh, color, rotate);
             }
             // Draw all frames as one image
             else {
@@ -206,7 +201,7 @@ macro_rules! sprite {
                     let frame_x = (x as f32 + dx) as i32;
                     let frame_y = (y as f32 + dy) as i32;
 
-                    $crate::canvas::draw_sprite(frame_x, frame_y, dw, dh, sx, sy, sw, sh, color, origin_x, origin_y, rotate);
+                    $crate::canvas::draw_sprite(frame_x, frame_y, dw, dh, sx, sy, sw, sh, color, rotate);
                 }
             };
         }
@@ -226,14 +221,11 @@ pub fn draw_rect(
     border_radius: u32,
     border_size: u32,
     border_color: u32,
-    origin_x: i32,
-    origin_y: i32,
     rotation_deg: i32,
 ) {
     let dest_xy = ((dx as u64) << 32) | (dy as u32 as u64);
     let dest_wh = ((dw as u64) << 32) | (dh as u32 as u64);
     let fill_ab = (color as u64) << 32;
-    let origin_xy = ((origin_x as u64) << 32) | (origin_y as u32 as u64);
     ffi::canvas::draw_quad_v1(
         dest_xy,
         dest_wh,
@@ -243,7 +235,7 @@ pub fn draw_rect(
         border_radius,
         border_size,
         border_color,
-        origin_xy,
+        0,
         rotation_deg,
     )
 }
@@ -259,8 +251,6 @@ macro_rules! rect {
         let mut border_radius: u32 = 0;
         let mut border_width: u32 = 0;
         let mut border_color: u32 = 0xffffffff;
-        let mut origin_x: i32 = 0;
-        let mut origin_y: i32 = 0;
         let mut rotate: i32 = 0;
         let mut scale_x: f32 = 1.0;
         let mut scale_y: f32 = 1.0;
@@ -271,7 +261,6 @@ macro_rules! rect {
             color,
             x, y, w, h,
             border_radius, border_width, border_color,
-            origin_x, origin_y,
             rotate
         )
     }};
@@ -290,8 +279,6 @@ macro_rules! circ {
         let mut d: u32 = 0;
         let mut border_width: u32 = 0;
         let mut border_color: u32 = 0xffffffff;
-        let mut origin_x: i32 = 0;
-        let mut origin_y: i32 = 0;
         let mut rotate: i32 = 0;
         let mut scale_x: f32 = 1.0;
         let mut scale_y: f32 = 1.0;
@@ -305,7 +292,6 @@ macro_rules! circ {
             color,
             x, y, w, h,
             border_radius, border_width, border_color,
-            origin_x, origin_y,
             rotate
         )
     }};
@@ -325,8 +311,6 @@ macro_rules! ellipse {
         let mut h: u32 = 0;
         let mut border_width: u32 = 0;
         let mut border_color: u32 = 0xffffffff;
-        let mut origin_x: i32 = 0;
-        let mut origin_y: i32 = 0;
         let mut rotate: i32 = 0;
         let mut scale_x: f32 = 1.0;
         let mut scale_y: f32 = 1.0;
@@ -338,7 +322,6 @@ macro_rules! ellipse {
             color,
             x, y, w, h,
             border_radius, border_width, border_color,
-            origin_x, origin_y,
             rotate
         )
     }};
