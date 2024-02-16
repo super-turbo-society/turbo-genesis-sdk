@@ -447,7 +447,9 @@ pub mod canvas {
     }
 
     #[cfg(not(target_family = "wasm"))]
-    pub fn get_sprite_data_nonce_v1() -> u64 {}
+    pub fn get_sprite_data_nonce_v1() -> u64 {
+        0
+    }
     #[cfg(all(target_family = "wasm", feature = "no-host"))]
     pub fn get_sprite_data_nonce_v1() -> u64 {}
     #[cfg(all(target_family = "wasm", not(feature = "no-host")))]
