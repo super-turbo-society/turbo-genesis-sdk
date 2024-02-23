@@ -4,6 +4,24 @@ use crate::ffi;
 use borsh::{BorshDeserialize, BorshSerialize};
 
 //------------------------------------------------------------------------------
+// Canvas Size
+//------------------------------------------------------------------------------
+
+pub fn canvas_size() -> [u32; 2] {
+    let res = ffi::sys::resolution();
+    let w = res & 0xffff;
+    let h = res >> 16;
+    [w, h]
+}
+
+#[macro_export]
+macro_rules! canvas_size {
+    () => {{
+        $crate::canvas::canvas_size()
+    }};
+}
+
+//------------------------------------------------------------------------------
 // Clear
 //------------------------------------------------------------------------------
 
@@ -40,15 +58,19 @@ pub fn get_camera() -> [i32; 2] {
     [x, y]
 }
 
-pub fn set_camera(x: i32, y: i32) {
-    ffi::canvas::set_camera(x, y)
-}
-
 #[macro_export]
 macro_rules! cam {
     () => {{
         $crate::canvas::get_camera()
     }};
+}
+
+pub fn set_camera(x: i32, y: i32) {
+    ffi::canvas::set_camera(x, y)
+}
+
+#[macro_export]
+macro_rules! set_cam {
     ($( $key:ident = $val:expr ),* $(,)*) => {{
         let [mut x, mut y] = $crate::canvas::get_camera();
         $($crate::paste::paste!{ [< $key >] = $val; })*

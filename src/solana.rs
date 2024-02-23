@@ -8,22 +8,22 @@ use std::collections::HashMap;
 pub use solana_sdk;
 
 // Function to sign and send a transaction using FFI
-pub fn user_pubkey() -> Pubkey {
+pub fn signer() -> Pubkey {
     unsafe {
         #[link(wasm_import_module = "@turbo_genesis/solana")]
         extern "C" {
             fn solana_user(ptr: *mut u8) -> u32;
         }
-        static mut SOL_USER_PUBKEY: (bool, [u8; 32]) = (false, [0; 32]);
-        if !SOL_USER_PUBKEY.0 {
+        static mut SOL_SIGNER_PUBKEY: (bool, [u8; 32]) = (false, [0; 32]);
+        if !SOL_SIGNER_PUBKEY.0 {
             let mut pubkey_array = [0u8; 32];
             let ptr = pubkey_array.as_mut_ptr();
             if solana_user(ptr) == 0 {
-                SOL_USER_PUBKEY.1 = pubkey_array;
-                SOL_USER_PUBKEY.0 = true;
+                SOL_SIGNER_PUBKEY.1 = pubkey_array;
+                SOL_SIGNER_PUBKEY.0 = true;
             }
         }
-        Pubkey::new_from_array(SOL_USER_PUBKEY.1)
+        Pubkey::new_from_array(SOL_SIGNER_PUBKEY.1)
     }
 }
 

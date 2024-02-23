@@ -14,6 +14,12 @@ pub fn log(text: &str) {
     ffi::sys::log(ptr, len)
 }
 
+#[macro_export]
+macro_rules! log {
+    ($fmt:expr $(, $($arg:tt)*)?) => { $crate::sys::log(&format!($fmt, $($($arg)*)?)) };
+}
+
+/// @deprecated - use $crate::canvas::canvas_size
 pub fn resolution() -> [u32; 2] {
     let res = ffi::sys::resolution();
     let w = res & 0xffff;
