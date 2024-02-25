@@ -173,7 +173,7 @@ pub fn draw_sprite(
 #[macro_export]
 macro_rules! sprite {
     ($name:expr) => {{
-        $crate::spr!($name,)
+        $crate::sprite!($name,)
     }};
     ($name:expr, $( $key:ident = $val:expr ),* $(,)*) => {{
         if let Some(sprite_data) = &$crate::canvas::get_sprite_data($name) {
