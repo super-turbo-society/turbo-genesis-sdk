@@ -288,6 +288,44 @@ macro_rules! rect {
     }};
 }
 
+#[macro_export]
+macro_rules! path {
+    ($( $key:ident = $val:expr ),* $(,)*) => {{
+        let mut start: (i32, i32) = (0, 0);
+        let mut end: (i32, i32) = (0, 0);
+        let mut color: u32 = 0xffffffff;
+        let mut width: u32 = 1;
+        let mut border_radius: u32 = 0;
+        $($crate::paste::paste!{ [< $key >] = $val; })*
+
+        // Calculate differences and distance
+        let delta_x = (end.0 - start.0) as f64;
+        let delta_y = (end.1 - start.1) as f64;
+        // let distance = ((delta_x * delta_x + delta_y * delta_y) as f64).sqrt() as u32;
+        let distance = (delta_x.powi(2) + delta_y.powi(2)).sqrt() as u32;
+
+        // Calculate the angle in radians
+        let angle = ((delta_y).atan2(delta_x) * (180.0 / std::f64::consts::PI)) as i32;
+
+        // Calculate the midpoint for placing the rectangle
+        let x = (start.0 + end.0) / 2;
+        let y = (start.1 + end.1) / 2;
+
+        // Draw the rectangle as a thin line with rotation around its center
+        $crate::canvas::draw_rect(
+            color,
+            x - (distance / 2) as i32, // Adjust x to start from the midpoint
+            y - (width / 2) as i32,   // Center y based on line width
+            distance,                 // Width of the rectangle is the distance
+            width,                    // Height of the rectangle is the line width
+            border_radius,            // Border radius (if any)
+            0,                        // Border width (none)
+            0,                        // Border color (none)
+            angle                     // Rotation angle
+        )
+    }};
+}
+
 //------------------------------------------------------------------------------
 // Circle
 //------------------------------------------------------------------------------

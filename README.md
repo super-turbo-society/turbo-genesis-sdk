@@ -42,5 +42,5 @@ cargo build --target wasm32-unknown-unknown
 Run your game with [Turbo](https://docs.turbo.computer)
 
 ```sh
-turbo-cli run -w .
+turbo run -w .
 ```
