@@ -391,21 +391,20 @@ macro_rules! ellipse {
 // Text
 //------------------------------------------------------------------------------
 
+#[derive(Debug, Clone, Copy)]
 pub enum Font {
     S = 0,
     M = 1,
     L = 2,
+    XL = 3,
 }
-
+impl Font {
+    pub const ALL: [Self; 4] = [Self::S, Self::M, Self::L, Self::XL];
+}
 impl From<u8> for Font {
     /// Converts a u8 value into its corresponding Font.
     fn from(value: u8) -> Self {
-        match value {
-            0 => Font::S,
-            1 => Font::M,
-            2 => Font::L,
-            n => Self::from(n % 3),
-        }
+        Self::ALL[value as usize % Self::ALL.len()]
     }
 }
 
