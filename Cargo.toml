@@ -5,6 +5,7 @@ description = "Turbo Genesis SDK"
 license = "MIT"
 authors = ["@jozanza (hello@jsavary.com)"]
 edition = "2021"
+repository = "https://github.com/super-turbo-society/turbo-genesis-sdk"
 
 [lib]
 crate-type = ["lib"]
