@@ -42,9 +42,10 @@ macro_rules! clear {
     }};
     ($( $key:ident = $val:expr ),* $(,)*) => {{
         let mut color: u32 = 0x000000ff;
-        $($crate::paste::paste!{ [< $key >] = $val; })*
+        $($crate::paste::paste!{ [< $key >] = clear!(@coerce $key, $val); })*
         $crate::canvas::clear(color)
     }};
+    (@coerce color, $val:expr) => { $val as u32; };
 }
 
 //------------------------------------------------------------------------------
@@ -73,9 +74,11 @@ pub fn set_camera(x: i32, y: i32) {
 macro_rules! set_cam {
     ($( $key:ident = $val:expr ),* $(,)*) => {{
         let [mut x, mut y] = $crate::canvas::get_camera();
-        $($crate::paste::paste!{ [< $key >] = $val; })*
+        $(paste::paste! { [< $key >] = set_cam!(@coerce $key, $val); })*
         $crate::canvas::set_camera(x, y)
     }};
+    (@coerce x, $val:expr) => { $val as i32; };
+    (@coerce y, $val:expr) => { $val as i32; };
 }
 
 #[macro_export]
@@ -83,10 +86,12 @@ macro_rules! move_cam {
     ($( $key:ident = $val:expr ),* $(,)*) => {{
         let mut x: i32 = 0;
         let mut y: i32 = 0;
-        $($crate::paste::paste!{ [< $key >] = $val; })*
+        $(paste::paste! { [< $key >] = move_cam!(@coerce $key, $val); })*
         let [cx, cy] = $crate::canvas::get_camera();
         $crate::canvas::set_camera(cx + x, cy + y)
     }};
+    (@coerce x, $val:expr) => { $val as i32; };
+    (@coerce y, $val:expr) => { $val as i32; };
 }
 
 //------------------------------------------------------------------------------
@@ -189,7 +194,7 @@ macro_rules! sprite {
             let mut flip_x: bool = false;
             let mut flip_y: bool = false;
             let mut fps: u32 = 0;
-            $($crate::paste::paste!{ [< $key >] = $val; })*
+            $($crate::paste::paste!{ [< $key >] = sprite!(@coerce $key, $val); })*
             if opacity >= 0.0 {
                 let x = (255.0 * opacity);
                 color = 0xffffffff << 8 | (x as u32);
@@ -228,6 +233,18 @@ macro_rules! sprite {
             };
         }
     }};
+    (@coerce x, $val:expr) => { $val as i32; };
+    (@coerce y, $val:expr) => { $val as i32; };
+    (@coerce w, $val:expr) => { $val as u32; };
+    (@coerce h, $val:expr) => { $val as u32; };
+    (@coerce color, $val:expr) => { $val as u32; };
+    (@coerce opacity, $val:expr) => { $val as u32; };
+    (@coerce rotate, $val:expr) => { $val as i32; };
+    (@coerce scale_x, $val:expr) => { $val as f32; };
+    (@coerce scale_y, $val:expr) => { $val as f32; };
+    (@coerce flip_x, $val:expr) => { $val as bool; };
+    (@coerce flip_y, $val:expr) => { $val as bool; };
+    (@coerce fps, $val:expr) => { $val as u32; };
 }
 
 //------------------------------------------------------------------------------
@@ -276,9 +293,12 @@ macro_rules! rect {
         let mut rotate: i32 = 0;
         let mut scale_x: f32 = 1.0;
         let mut scale_y: f32 = 1.0;
-        $($crate::paste::paste!{ [< $key >] = $val; })*
+
+        $($crate::paste::paste!{ [< $key >] = rect!(@coerce $key, $val); })*
+
         w = (w as f32 * scale_x) as u32;
         h = (h as f32 * scale_y) as u32;
+
         $crate::canvas::draw_rect(
             color,
             x, y, w, h,
@@ -286,6 +306,17 @@ macro_rules! rect {
             rotate
         )
     }};
+    (@coerce color, $val:expr) => { $val as u32; };
+    (@coerce x, $val:expr) => { $val as i32; };
+    (@coerce y, $val:expr) => { $val as i32; };
+    (@coerce w, $val:expr) => { $val as u32; };
+    (@coerce h, $val:expr) => { $val as u32; };
+    (@coerce border_radius, $val:expr) => { $val as u32; };
+    (@coerce border_width, $val:expr) => { $val as u32; };
+    (@coerce border_color, $val:expr) => { $val as u32; };
+    (@coerce rotate, $val:expr) => { $val as i32; };
+    (@coerce scale_x, $val:expr) => { $val as f32; };
+    (@coerce scale_y, $val:expr) => { $val as f32; };
 }
 
 #[macro_export]
@@ -296,7 +327,7 @@ macro_rules! path {
         let mut color: u32 = 0xffffffff;
         let mut width: u32 = 1;
         let mut border_radius: u32 = 0;
-        $($crate::paste::paste!{ [< $key >] = $val; })*
+        $($crate::paste::paste!{ [< $key >] = path!(@coerce $key, $val); })*
 
         // Calculate differences and distance
         let delta_x = (end.0 - start.0) as f64;
@@ -324,6 +355,11 @@ macro_rules! path {
             angle                     // Rotation angle
         )
     }};
+    (@coerce start, $val:expr) => { ($val.0 as i32, $val.1 as i32); };
+    (@coerce end, $val:expr) => { ($val.0 as i32, $val.1 as i32); };
+    (@coerce color, $val:expr) => { $val as u32; };
+    (@coerce width, $val:expr) => { $val as u32; };
+    (@coerce border_radius, $val:expr) => { $val as u32; };
 }
 
 //------------------------------------------------------------------------------
@@ -342,7 +378,7 @@ macro_rules! circ {
         let mut rotate: i32 = 0;
         let mut scale_x: f32 = 1.0;
         let mut scale_y: f32 = 1.0;
-        $($crate::paste::paste!{ [< $key >] = $val; })*
+        $($crate::paste::paste!{ [< $key >] = circ!(@coerce $key, $val); })*
         let border_radius = d;
         let mut w = d;
         let mut h = d;
@@ -355,6 +391,15 @@ macro_rules! circ {
             rotate
         )
     }};
+    (@coerce color, $val:expr) => { $val as u32; };
+    (@coerce x, $val:expr) => { $val as i32; };
+    (@coerce y, $val:expr) => { $val as i32; };
+    (@coerce d, $val:expr) => { $val as u32; };
+    (@coerce border_width, $val:expr) => { $val as u32; };
+    (@coerce border_color, $val:expr) => { $val as u32; };
+    (@coerce rotate, $val:expr) => { $val as i32; };
+    (@coerce scale_x, $val:expr) => { $val as f32; };
+    (@coerce scale_y, $val:expr) => { $val as f32; };
 }
 
 //------------------------------------------------------------------------------
@@ -374,7 +419,7 @@ macro_rules! ellipse {
         let mut rotate: i32 = 0;
         let mut scale_x: f32 = 1.0;
         let mut scale_y: f32 = 1.0;
-        $($crate::paste::paste!{ [< $key >] = $val; })*
+        $($crate::paste::paste!{ [< $key >] = ellipse!(@coerce $key, $val); })*
         w = (w as f32 * scale_x) as u32;
         h = (h as f32 * scale_y) as u32;
         let border_radius = w.max(h);
@@ -385,6 +430,16 @@ macro_rules! ellipse {
             rotate
         )
     }};
+    (@coerce color, $val:expr) => { $val as u32; };
+    (@coerce x, $val:expr) => { $val as i32; };
+    (@coerce y, $val:expr) => { $val as i32; };
+    (@coerce w, $val:expr) => { $val as u32; };
+    (@coerce h, $val:expr) => { $val as u32; };
+    (@coerce border_width, $val:expr) => { $val as u32; };
+    (@coerce border_color, $val:expr) => { $val as u32; };
+    (@coerce rotate, $val:expr) => { $val as i32; };
+    (@coerce scale_x, $val:expr) => { $val as f32; };
+    (@coerce scale_y, $val:expr) => { $val as f32; };
 }
 
 //------------------------------------------------------------------------------
@@ -431,7 +486,19 @@ macro_rules! text {
         let mut y: i32 = 0;
         let mut font: Font = Font::M;
         let mut color: u32 = 0xffffffff;
-        $($crate::paste::paste!{ [< $key >] = $val; })*
+        $($crate::paste::paste!{ [< $key >] = text!(@coerce $key, $val); })*
         $crate::canvas::text(x, y, font, color, $text)
     }};
+    ($text:expr, $( $arg:expr ),* ; $( $key:ident = $val:expr ),* $(,)*) => {{
+        let mut x: i32 = 0;
+        let mut y: i32 = 0;
+        let mut font: Font = Font::M;
+        let mut color: u32 = 0xffffffff;
+        $(paste::paste! { [< $key >] = text!(@coerce $key, $val); })*
+        $crate::canvas::text(x, y, font, color, &format!($text, $($arg),*))
+    }};
+    (@coerce x, $val:expr) => { $val as i32; };
+    (@coerce y, $val:expr) => { $val as i32; };
+    (@coerce font, $val:expr) => { $val as Font; };
+    (@coerce color, $val:expr) => { $val as u32; };
 }
