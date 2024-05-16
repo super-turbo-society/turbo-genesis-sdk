@@ -1,6 +1,6 @@
 [package]
 name = "turbo-genesis-sdk"
-version = "1.2.2"
+version = "1.2.3"
 description = "Turbo Genesis SDK"
 license = "MIT"
 authors = ["@jozanza (hello@jsavary.com)"]
@@ -14,7 +14,7 @@ crate-type = ["lib"]
 base64 = "0.21.2"
 binary-layout = "3.2.0"
 borsh = "0.10.3"
-bytemuck = { version = "1.15.0", features = ["derive"], git = "https://github.com/super-turbo-society/bytemuck.git"}
+bytemuck = { version = "1.15.0", features = ["derive"] }
 structstruck = "0.4.1"
 solana-sdk = { version = ">=1.17", optional = true }
 paste = "1.0.14"
