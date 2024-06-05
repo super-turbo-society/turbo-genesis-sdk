@@ -247,6 +247,71 @@ macro_rules! sprite {
     (@coerce fps, $val:expr) => { $val as u32; };
 }
 
+#[macro_export]
+macro_rules! sprite_grid {
+    ($name:expr, $start_x:expr, $start_y:expr, $cols:expr, $rows:expr, $spacing_x:expr, $spacing_y:expr $(, $key:ident = $val:expr )* $(,)*) => {{
+        if let Some(sprite_data) = $crate::canvas::get_sprite_data($name) {
+            let mut color: u32 = 0xffffffff;
+            let mut opacity: f32 = -1.0;
+            let mut rotate: i32 = 0;
+            let mut scale_x: f32 = 1.0;
+            let mut scale_y: f32 = 1.0;
+            let mut flip_x: bool = false;
+            let mut flip_y: bool = false;
+            let mut fps: u32 = 0;
+
+            $(
+                $crate::paste::paste!{ [< $key >] = sprite_grid!(@coerce $key, $val); }
+            )*
+
+            if opacity >= 0.0 {
+                let x = (255.0 * opacity);
+                color = 0xffffffff << 8 | (x as u32);
+            }
+
+            let sw = sprite_data.width;
+            let sh = sprite_data.height;
+            let dw = (sw as f32 * scale_x) as u32;
+            let dh = (sh as f32 * scale_y) as u32;
+            let sw = if flip_x { -(sw as i32) } else { sw as i32 };
+            let sh = if flip_y { -(sh as i32) } else { sh as i32 };
+
+            // Handle animation
+            let frame_count = sprite_data.frames.len();
+            if fps > 0 && frame_count > 1 {
+                let frame_rate = (60_usize).checked_div(fps as usize).unwrap_or(1);
+                let current_frame = $crate::sys::tick().checked_div(frame_rate).unwrap_or(0) % frame_count;
+                let (sx, sy) = sprite_data.frames[current_frame];
+
+                for i in 0..$cols {
+                    for j in 0..$rows {
+                        let dx = $start_x + (i * (dw + $spacing_x)) as i32;
+                        let dy = $start_y + (j * (dh + $spacing_y)) as i32;
+                        $crate::canvas::draw_sprite(dx, dy, dw, dh, sx, sy, sw, sh, color, rotate);
+                    }
+                }
+            } else {
+                let (sx, sy) = sprite_data.frames[0];
+                for i in 0..$cols {
+                    for j in 0..$rows {
+                        let dx = $start_x + (i * (dw + $spacing_x)) as i32;
+                        let dy = $start_y + (j * (dh + $spacing_y)) as i32;
+                        $crate::canvas::draw_sprite(dx, dy, dw, dh, sx, sy, sw, sh, color, rotate);
+                    }
+                }
+            }
+        }
+    }};
+    (@coerce color, $val:expr) => { $val as u32; };
+    (@coerce opacity, $val:expr) => { $val as f32; };
+    (@coerce rotate, $val:expr) => { $val as i32; };
+    (@coerce scale_x, $val:expr) => { $val as f32; };
+    (@coerce scale_y, $val:expr) => { $val as f32; };
+    (@coerce flip_x, $val:expr) => { $val as bool; };
+    (@coerce flip_y, $val:expr) => { $val as bool; };
+    (@coerce fps, $val:expr) => { $val as u32; };
+}
+
 //------------------------------------------------------------------------------
 // Rectangle
 //------------------------------------------------------------------------------
