@@ -238,7 +238,7 @@ macro_rules! sprite {
     (@coerce w, $val:expr) => { $val as u32; };
     (@coerce h, $val:expr) => { $val as u32; };
     (@coerce color, $val:expr) => { $val as u32; };
-    (@coerce opacity, $val:expr) => { $val as u32; };
+    (@coerce opacity, $val:expr) => { $val as f32; };
     (@coerce rotate, $val:expr) => { $val as i32; };
     (@coerce scale_x, $val:expr) => { $val as f32; };
     (@coerce scale_y, $val:expr) => { $val as f32; };
