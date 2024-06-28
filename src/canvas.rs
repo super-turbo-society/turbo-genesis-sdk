@@ -182,6 +182,8 @@ macro_rules! sprite {
     }};
     ($name:expr, $( $key:ident = $val:expr ),* $(,)*) => {{
         if let Some(sprite_data) = &$crate::canvas::get_sprite_data($name) {
+            let mut sw = sprite_data.width;
+            let mut sh = sprite_data.height;
             let mut x: i32 = 0;
             let mut y: i32 = 0;
             let mut w: u32 = 0;
@@ -199,17 +201,23 @@ macro_rules! sprite {
                 let x = (255.0 * opacity);
                 color = 0xffffffff << 8 | (x as u32);
             }
-            let sw = sprite_data.width;
-            let sh = sprite_data.height;
-            let dw = if w == 0 { (sw as f32 * scale_x) as u32 } else { w };
-            let dh = if h == 0 { (sh as f32 * scale_y) as u32 } else { h };
             let sw = if flip_x { -(sw as i32) } else { sw as i32 };
             let sh = if flip_y { -(sh as i32) } else { sh as i32 };
+            let dw = if w == 0 { (sw as f32 * scale_x) as u32 } else { w };
+            let dh = if h == 0 { (sh as f32 * scale_y) as u32 } else { h };
             // Draw each frame at specified FPS
             if fps > 0 {
                 let frame_rate = (60_usize).checked_div(fps as usize).unwrap_or(1);
-                let i = $crate::sys::tick().checked_div(frame_rate).unwrap_or(0) % sprite_data.frames.len();
-                let (sx, sy) = sprite_data.frames[i];
+                let frames_len = sprite_data.frames.len();
+                let (sx, sy) = if frames_len == 1 {
+                    let frames_len = sprite_data.width as usize / sw as usize;
+                    let i = $crate::sys::tick().checked_div(frame_rate).unwrap_or(0) % frames_len;
+                    let (sx, sy) = sprite_data.frames[0];
+                    (sx + (i as u32 * sw as u32), sy)
+                } else {
+                    let i = $crate::sys::tick().checked_div(frame_rate).unwrap_or(0) % frames_len;
+                    sprite_data.frames[i]
+                };
                 $crate::canvas::draw_sprite(x, y, dw, dh, sx, sy, sw, sh, color, rotate);
             }
             // Draw all frames as one image
@@ -237,6 +245,8 @@ macro_rules! sprite {
     (@coerce y, $val:expr) => { $val as i32; };
     (@coerce w, $val:expr) => { $val as u32; };
     (@coerce h, $val:expr) => { $val as u32; };
+    (@coerce sw, $val:expr) => { $val as u32; };
+    (@coerce sh, $val:expr) => { $val as u32; };
     (@coerce color, $val:expr) => { $val as u32; };
     (@coerce opacity, $val:expr) => { $val as f32; };
     (@coerce rotate, $val:expr) => { $val as i32; };
