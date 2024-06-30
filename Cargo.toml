@@ -1,6 +1,6 @@
 [package]
 name = "turbo-genesis-sdk"
-version = "1.4.0"
+version = "1.4.1"
 description = "Turbo Genesis SDK"
 license = "MIT"
 authors = ["@jozanza (hello@jsavary.com)"]
@@ -16,8 +16,8 @@ binary-layout = "3.2.0"
 borsh = "0.10.3"
 bytemuck = { version = "1.15.0", features = ["derive"] }
 structstruck = "0.4.1"
-solana-sdk = { version = ">=1.17", optional = true }
 paste = "1.0.14"
+solana-sdk = { version = "*", optional = true }
 
 [features]
 no-host = []
