@@ -182,8 +182,8 @@ macro_rules! sprite {
     }};
     ($name:expr, $( $key:ident = $val:expr ),* $(,)*) => {{
         if let Some(sprite_data) = &$crate::canvas::get_sprite_data($name) {
-            let mut sw = sprite_data.width;
-            let mut sh = sprite_data.height;
+            let mut sw = sprite_data.width as i32;
+            let mut sh = sprite_data.height as i32;
             let mut x: i32 = 0;
             let mut y: i32 = 0;
             let mut w: u32 = 0;
@@ -201,10 +201,10 @@ macro_rules! sprite {
                 let x = (255.0 * opacity);
                 color = 0xffffffff << 8 | (x as u32);
             }
-            let sw = if flip_x { -(sw as i32) } else { sw as i32 };
-            let sh = if flip_y { -(sh as i32) } else { sh as i32 };
             let dw = if w == 0 { (sw as f32 * scale_x) as u32 } else { w };
             let dh = if h == 0 { (sh as f32 * scale_y) as u32 } else { h };
+            let sw = if flip_x { -sw } else { sw };
+            let sh = if flip_y { -sh } else { sh };
             // Draw each frame at specified FPS
             if fps > 0 {
                 let frame_rate = (60_usize).checked_div(fps as usize).unwrap_or(1);
