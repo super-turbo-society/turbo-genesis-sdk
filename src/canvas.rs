@@ -54,8 +54,8 @@ macro_rules! clear {
 
 pub fn get_camera() -> [i32; 2] {
     let cam = ffi::canvas::get_camera();
-    let x = (cam >> 16) as i32;
-    let y = (cam & 0xffff) as i32;
+    let x = ((cam >> 16) as i16) as i32;
+    let y = (cam as i16) as i32;
     [x, y]
 }
 
@@ -88,6 +88,7 @@ macro_rules! move_cam {
         let mut y: i32 = 0;
         $(paste::paste! { [< $key >] = move_cam!(@coerce $key, $val); })*
         let [cx, cy] = $crate::canvas::get_camera();
+        $crate::println!("{cx} {cy}");
         $crate::canvas::set_camera(cx + x, cy + y)
     }};
     (@coerce x, $val:expr) => { $val as i32; };
