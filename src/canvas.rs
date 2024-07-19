@@ -232,7 +232,7 @@ macro_rules! sprite {
             let mut color: u32 = 0xffffffff;
             let mut background_color: u32 = 0x00000000;
             let mut border_radius: u32 = 0;
-            let mut opacity: f32 = -1.0;
+            let mut opacity: f32 = 1.0;
             let mut origin_x: i32 = 0;
             let mut origin_y: i32 = 0;
             let mut rotate: i32 = 0;
@@ -252,7 +252,7 @@ macro_rules! sprite {
             if repeat { flags |= $crate::canvas::flags::SPRITE_REPEAT; }
 
             // Set opacity
-            if opacity >= 0.0 {
+            if opacity != 1.0 {
                 // Apply gamma correction
                 let gamma = 2.2;
                 let linear_opacity = opacity.powf(1.0 / gamma);
@@ -265,6 +265,10 @@ macro_rules! sprite {
 
                 color = alpha << 32 | (color & 0xffffff00);
             }
+
+            // If no slice width is given and sprite is not to be drawn animated, multiply width by frames count
+            let static_frames = fps == 0 && sw == 0 ;
+            let default_sw = if static_frames { default_sw * num_frames as u32 } else { default_sw };
 
             // Adjust source size based on source position
             let sw = if sw == 0 { default_sw - sx } else { sw };
@@ -319,20 +323,26 @@ macro_rules! sprite {
             }
             // Draw all frames as one image
             else {
-                let abs_sw = sw.abs() as u32;
                 let mut cx = sx;
-                let mut rem_sw = abs_sw;
+                let mut rem_sw = sw.abs() as u32;
                 for i in 0..num_frames {
                     // Apply offset to sprite frame source position
                     let (fx, fy) = sprite_data.frames[i];
                     let sx = cx + fx;
                     let sy = sy + fy;
+                    let (fw, fh) = (sprite_data.width, sprite_data.height);
+
+                    let sw = fw.min(sw.abs() as u32) as i32;
+                    let dw = if static_frames { dw / num_frames as u32 } else { dw.min(fw) };
 
                     // Handle offsets when animation multiple frames
+                    if $name == "enemy_red_car" {
+                        // $crate::log!("{} - {:?}", i, (static_frames, sx, sy, sw, sh, dw, rem_sw));
+                    }
                     if num_frames > 1 {
-                        rem_sw = rem_sw.saturating_sub(abs_sw);
-                        cx = if cx > 0 { (cx - abs_sw).max(0) } else { (cx + abs_sw).min(0)};
-                        if sx > abs_sw { continue; }
+                        rem_sw = rem_sw.saturating_sub(fw);
+                        cx = if cx > 0 { (cx - fw).max(0) } else { (cx + fw).min(0)};
+                        if cx > fw { continue; }
                     }
 
                     // Convert angle to radians for trigonometric functions

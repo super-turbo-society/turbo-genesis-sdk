@@ -56,6 +56,9 @@ macro_rules! init {
             }
         }
         impl $StructName {
+            pub fn default() -> Self {
+                $default
+            }
             pub fn load() -> Self {
                 let state = $crate::sys::load()
                     .and_then(|xs| $StructName::try_from_slice(&xs).map_err(|err| -1))
