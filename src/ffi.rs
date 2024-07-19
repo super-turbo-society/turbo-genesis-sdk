@@ -308,6 +308,40 @@ pub mod canvas {
     }
 
     #[cfg(not(target_family = "wasm"))]
+    pub fn get_camera2(out_ptr: *mut f32) -> i32 {
+        0
+    }
+    #[cfg(all(target_family = "wasm", feature = "no-host"))]
+    pub fn get_camera2(out_ptr: *mut f32) -> i32 {
+        0
+    }
+    #[cfg(all(target_family = "wasm", not(feature = "no-host")))]
+    pub fn get_camera2(out_ptr: *mut f32) -> i32 {
+        unsafe {
+            #[link(wasm_import_module = "@turbo_genesis/canvas")]
+            extern "C" {
+                fn get_camera2(out_ptr: *mut f32) -> i32;
+            }
+            get_camera2(out_ptr)
+        }
+    }
+
+    #[cfg(not(target_family = "wasm"))]
+    pub fn set_camera2(x: f32, y: f32, z: f32) {}
+    #[cfg(all(target_family = "wasm", feature = "no-host"))]
+    pub fn set_camera2(x: f32, y: f32, z: f32) {}
+    #[cfg(all(target_family = "wasm", not(feature = "no-host")))]
+    pub fn set_camera2(x: f32, y: f32, z: f32) {
+        unsafe {
+            #[link(wasm_import_module = "@turbo_genesis/canvas")]
+            extern "C" {
+                fn set_camera2(x: f32, y: f32, z: f32);
+            }
+            set_camera2(x, y, z)
+        }
+    }
+
+    #[cfg(not(target_family = "wasm"))]
     pub fn quad(
         xy: i32,
         wh: u32,
@@ -396,22 +430,6 @@ pub mod canvas {
                 fn rectfill(x: i32, y: i32, w: u32, h: u32, fill: u32);
             }
             rectfill(x, y, w, h, fill)
-        }
-    }
-
-    #[cfg(not(target_family = "wasm"))]
-    pub fn subsprite(x: i32, y: i32, w: u32, h: u32, sx: u32, sy: u32, sw: u32, sh: u32) {}
-    #[cfg(all(target_family = "wasm", feature = "no-host"))]
-    pub fn subsprite(x: i32, y: i32, w: u32, h: u32, sx: u32, sy: u32, sw: u32, sh: u32) {}
-    #[rustfmt::skip]
-    #[cfg(all(target_family = "wasm", not(feature = "no-host")))]
-    pub fn subsprite(x: i32, y: i32, w: u32, h: u32, sx: u32, sy: u32, sw: u32, sh: u32) {
-        unsafe {
-            #[link(wasm_import_module = "@turbo_genesis/canvas")]
-            extern "C" {
-                fn subsprite(x: i32, y: i32, w: u32, h: u32, sx: u32, sy: u32, sw: u32, sh: u32);
-            }
-            subsprite(x, y, w, h, sx, sy, sw, sh)
         }
     }
 
@@ -549,6 +567,89 @@ pub mod canvas {
                 border_color,
                 origin_xy,
                 rotation_deg,
+            );
+        }
+    }
+
+    #[cfg(not(target_family = "wasm"))]
+    pub fn draw_quad2(
+        dest_xy: u64,
+        dest_wh: u64,
+        sprite_xy: u64,
+        sprite_wh: u64,
+        sprite_xy_offset: u64,
+        fill_ab: u64,
+        border_radius: u32,
+        border_size: u32,
+        border_color: u32,
+        origin_xy: u64,
+        rotation_deg: i32,
+        flags: u32,
+    ) {
+    }
+    #[cfg(all(target_family = "wasm", feature = "no-host"))]
+    pub fn draw_quad2(
+        dest_xy: u64,
+        dest_wh: u64,
+        sprite_xy: u64,
+        sprite_wh: u64,
+        sprite_xy_offset: u64,
+        fill_ab: u64,
+        border_radius: u32,
+        border_size: u32,
+        border_color: u32,
+        origin_xy: u64,
+        rotation_deg: i32,
+        flags: u32,
+    ) {
+    }
+    #[cfg(all(target_family = "wasm", not(feature = "no-host")))]
+    pub fn draw_quad2(
+        dest_xy: u64,
+        dest_wh: u64,
+        sprite_xy: u64,
+        sprite_wh: u64,
+        sprite_xy_offset: u64,
+        fill_ab: u64,
+        border_radius: u32,
+        border_size: u32,
+        border_color: u32,
+        origin_xy: u64,
+        rotation_deg: i32,
+        flags: u32,
+    ) {
+        #[cfg(all(target_family = "wasm", not(feature = "no-host")))]
+        unsafe {
+            #[link(wasm_import_module = "@turbo_genesis/canvas")]
+            extern "C" {
+                fn draw_quad2(
+                    dest_xy: u64,
+                    dest_wh: u64,
+                    sprite_xy: u64,
+                    sprite_wh: u64,
+                    sprite_xy_offset: u64,
+                    fill_ab: u64,
+                    border_radius: u32,
+                    border_size: u32,
+                    border_color: u32,
+                    origin_xy: u64,
+                    rotation_deg: i32,
+                    flags: u32,
+                );
+            }
+            return draw_quad2(
+                dest_xy,
+                dest_wh,
+                sprite_xy,
+                sprite_wh,
+                sprite_xy_offset,
+                fill_ab,
+                border_radius,
+                border_size,
+                border_color,
+                origin_xy,
+                rotation_deg,
+                flags,
             );
         }
     }

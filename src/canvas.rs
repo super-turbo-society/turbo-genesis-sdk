@@ -52,6 +52,7 @@ macro_rules! clear {
 // Camera
 //------------------------------------------------------------------------------
 
+#[deprecated(since = "0.6.0", note = "please use `get_camera2` instead")]
 pub fn get_camera() -> [i32; 2] {
     let cam = ffi::canvas::get_camera();
     let x = ((cam >> 16) as i16) as i32;
@@ -59,40 +60,54 @@ pub fn get_camera() -> [i32; 2] {
     [x, y]
 }
 
+#[deprecated(since = "0.6.0", note = "please use `set_camera2` instead")]
+pub fn set_camera(x: i32, y: i32) {
+    ffi::canvas::set_camera(x, y)
+}
+
+pub fn get_camera2() -> (f32, f32, f32) {
+    let mut cam: [f32; 3] = [0.; 3];
+    ffi::canvas::get_camera2(cam.as_mut_ptr());
+    (cam[0], cam[1], cam[2])
+}
+
+pub fn set_camera2(x: f32, y: f32, z: f32) {
+    ffi::canvas::set_camera2(x, y, f32::max(z, 0.0));
+}
+
 #[macro_export]
 macro_rules! cam {
     () => {{
-        $crate::canvas::get_camera()
+        let (x, y, z) = $crate::canvas::get_camera2();
+        (x as i32, y as i32, z)
     }};
-}
-
-pub fn set_camera(x: i32, y: i32) {
-    ffi::canvas::set_camera(x, y)
 }
 
 #[macro_export]
 macro_rules! set_cam {
     ($( $key:ident = $val:expr ),* $(,)*) => {{
-        let [mut x, mut y] = $crate::canvas::get_camera();
+        let (mut x, mut y, mut z) = $crate::canvas::get_camera2();
         $(paste::paste! { [< $key >] = set_cam!(@coerce $key, $val); })*
-        $crate::canvas::set_camera(x, y)
+        $crate::canvas::set_camera2(x, y, z)
     }};
-    (@coerce x, $val:expr) => { $val as i32; };
-    (@coerce y, $val:expr) => { $val as i32; };
+    (@coerce x, $val:expr) => { $val as f32; };
+    (@coerce y, $val:expr) => { $val as f32; };
+    (@coerce z, $val:expr) => { $val as f32; };
 }
 
 #[macro_export]
 macro_rules! move_cam {
     ($( $key:ident = $val:expr ),* $(,)*) => {{
-        let mut x: i32 = 0;
-        let mut y: i32 = 0;
+        let mut x: f32 = 0.;
+        let mut y: f32 = 0.;
+        let mut z: f32 = 0.;
         $(paste::paste! { [< $key >] = move_cam!(@coerce $key, $val); })*
-        let [cx, cy] = $crate::canvas::get_camera();
-        $crate::println!("{cx} {cy}");
-        $crate::canvas::set_camera(cx + x, cy + y)
+        let (cx, cy, cz) = $crate::canvas::get_camera2();
+        $crate::canvas::set_camera2(cx + x, cy + y, cz + z)
     }};
-    (@coerce x, $val:expr) => { $val as i32; };
-    (@coerce y, $val:expr) => { $val as i32; };
+    (@coerce x, $val:expr) => { $val as f32; };
+    (@coerce y, $val:expr) => { $val as f32; };
+    (@coerce z, $val:expr) => { $val as f32; };
 }
 
 //------------------------------------------------------------------------------
@@ -154,26 +169,44 @@ pub fn draw_sprite(
     sy: u32,
     sw: i32,
     sh: i32,
+    tx: i32,
+    ty: i32,
     color: u32,
+    background_color: u32,
+    border_radius: u32,
+    origin_x: i32,
+    origin_y: i32,
     rotatation_deg: i32,
+    flags: u32,
 ) {
     let dest_xy = ((dx as u64) << 32) | (dy as u64 & 0xffffffff);
     let dest_wh = ((dw as u64) << 32) | (dh as u32 as u64);
     let sprite_xy = ((sx as u64) << 32) | (sy as u64);
+    let sprite_xy_offset = ((tx as u64) << 32) | (ty as u32 as u64);
     let sprite_wh = ((sw as u64) << 32) | (sh as u32 as u64);
-    let fill_ab = color as u64;
-    ffi::canvas::draw_quad_v1(
+    let origin_xy = ((origin_x as u64) << 32) | (origin_y as u64 & 0xffffffff);
+    let fill_ab = (background_color as u64) << 32 | (color as u64 & 0xffffffff);
+    ffi::canvas::draw_quad2(
         dest_xy,
         dest_wh,
         sprite_xy,
         sprite_wh,
+        sprite_xy_offset,
         fill_ab,
+        border_radius,
         0,
         0,
-        0,
-        0,
+        origin_xy,
         rotatation_deg,
+        flags,
     )
+}
+
+pub mod flags {
+    // Repeats the sprite within the containing quad
+    pub const SPRITE_REPEAT: u32 = 1 << 0;
+    // Scales a sprite to fit the dimensions of the containing quad
+    pub const SPRITE_COVER: u32 = 2 << 0;
 }
 
 #[macro_export]
@@ -183,29 +216,83 @@ macro_rules! sprite {
     }};
     ($name:expr, $( $key:ident = $val:expr ),* $(,)*) => {{
         if let Some(sprite_data) = &$crate::canvas::get_sprite_data($name) {
-            let mut sw = sprite_data.width as i32;
-            let mut sh = sprite_data.height as i32;
+            let num_frames = sprite_data.frames.len();
+            let default_sw = sprite_data.width;
+            let default_sh = sprite_data.height;
+            let mut sw: u32 = 0;
+            let mut sh: u32 = 0;
+            let mut sx: u32 = 0;
+            let mut sy: u32 = 0;
+            let mut tx: i32 = 0;
+            let mut ty: i32 = 0;
             let mut x: i32 = 0;
             let mut y: i32 = 0;
-            let mut w: u32 = 0;
-            let mut h: u32 = 0;
+            let mut w: u32 = u32::MAX;
+            let mut h: u32 = u32::MAX;
             let mut color: u32 = 0xffffffff;
+            let mut background_color: u32 = 0x00000000;
+            let mut border_radius: u32 = 0;
             let mut opacity: f32 = -1.0;
+            let mut origin_x: i32 = 0;
+            let mut origin_y: i32 = 0;
             let mut rotate: i32 = 0;
+            let mut scale: f32 = 1.0;
             let mut scale_x: f32 = 1.0;
             let mut scale_y: f32 = 1.0;
             let mut flip_x: bool = false;
             let mut flip_y: bool = false;
             let mut fps: u32 = 0;
+            let mut repeat: bool = false;
             $($crate::paste::paste!{ [< $key >] = sprite!(@coerce $key, $val); })*
+
+            // Initialize flags
+            let mut flags: u32 = 0;
+
+            // Sprite repeat
+            if repeat { flags |= $crate::canvas::flags::SPRITE_REPEAT; }
+
+            // Set opacity
             if opacity >= 0.0 {
-                let x = (255.0 * opacity);
-                color = 0xffffffff << 8 | (x as u32);
+                // Apply gamma correction
+                let gamma = 2.2;
+                let linear_opacity = opacity.powf(1.0 / gamma);
+
+                // Calculate the alpha value
+                let alpha = (255.0 * linear_opacity) as u32;
+
+                // Combine the alpha with the color
+                // color = color << 8 | alpha;
+
+                color = alpha << 32 | (color & 0xffffff00);
             }
-            let dw = if w == 0 { (sw as f32 * scale_x) as u32 } else { w };
-            let dh = if h == 0 { (sh as f32 * scale_y) as u32 } else { h };
-            let sw = if flip_x { -sw } else { sw };
-            let sh = if flip_y { -sh } else { sh };
+
+            // Adjust source size based on source position
+            let sw = if sw == 0 { default_sw - sx } else { sw };
+            let sh = if sh == 0 { default_sh - sy } else { sh };
+
+            // Set destination size
+            let dw = if w == u32::MAX { sw } else { w };
+            let dh = if h == u32::MAX { sh } else { h };
+
+            // Update scale
+            scale_x *= scale;
+            scale_y *= scale;
+
+            // Set the cover flag if scaling is used
+            if scale_x != 1. || scale_y != 1. { flags |= $crate::canvas::flags::SPRITE_COVER; }
+
+            // Scale destination width and height
+            let dw = (dw as f32 * scale_x) as u32;
+            let dh = (dh as f32 * scale_y) as u32;
+
+            // Flip sprite
+            let sw = if flip_x { -(sw as i32) } else { sw  as i32 };
+            let sh = if flip_y { -(sh as i32) } else { sh  as i32 };
+
+            // Set transform origin
+            let origin_x = ((origin_x as f32) * scale_x) as i32;
+            let origin_y = ((origin_y as f32) * scale_y) as i32;
+
             // Draw each frame at specified FPS
             if fps > 0 {
                 let frame_rate = (60_usize).checked_div(fps as usize).unwrap_or(1);
@@ -219,12 +306,34 @@ macro_rules! sprite {
                     let i = $crate::sys::tick().checked_div(frame_rate).unwrap_or(0) % frames_len;
                     sprite_data.frames[i]
                 };
-                $crate::canvas::draw_sprite(x, y, dw, dh, sx, sy, sw, sh, color, rotate);
+
+                $crate::canvas::draw_sprite(
+                    x, y, dw, dh,
+                    sx, sy, sw, sh, tx, ty,
+                    color, background_color,
+                    border_radius,
+                    origin_x, origin_y,
+                    rotate,
+                    flags
+                );
             }
             // Draw all frames as one image
             else {
-                for i in 0..sprite_data.frames.len() {
-                    let (sx, sy) = sprite_data.frames[i];
+                let abs_sw = sw.abs() as u32;
+                let mut cx = sx;
+                let mut rem_sw = abs_sw;
+                for i in 0..num_frames {
+                    // Apply offset to sprite frame source position
+                    let (fx, fy) = sprite_data.frames[i];
+                    let sx = cx + fx;
+                    let sy = sy + fy;
+
+                    // Handle offsets when animation multiple frames
+                    if num_frames > 1 {
+                        rem_sw = rem_sw.saturating_sub(abs_sw);
+                        cx = if cx > 0 { (cx - abs_sw).max(0) } else { (cx + abs_sw).min(0)};
+                        if sx > abs_sw { continue; }
+                    }
 
                     // Convert angle to radians for trigonometric functions
                     let angle_rad = (rotate as f32).to_radians();
@@ -233,28 +342,59 @@ macro_rules! sprite {
                     let dist = dw as f32 * i as f32;
                     let dx = dist * angle_rad.cos();
                     let dy = dist * angle_rad.sin();
+                    let dx = (x as f32 + dx) as i32;
+                    let dy = (y as f32 + dy) as i32;
 
-                    let frame_x = (x as f32 + dx) as i32;
-                    let frame_y = (y as f32 + dy) as i32;
+                    // Draw
+                    $crate::canvas::draw_sprite(
+                        dx, dy, dw, dh,
+                        sx, sy, sw, sh, tx, ty,
+                        color, background_color,
+                        border_radius,
+                        origin_x, origin_y,
+                        rotate,
+                        flags
+                    );
 
-                    $crate::canvas::draw_sprite(frame_x, frame_y, dw, dh, sx, sy, sw, sh, color, rotate);
+                    // Stop drawing if width has been reached
+                    if rem_sw == 0 { break; }
                 }
             };
         }
     }};
+    // Parent quad position and size. Crops the inner sprite slice
     (@coerce x, $val:expr) => { $val as i32; };
     (@coerce y, $val:expr) => { $val as i32; };
     (@coerce w, $val:expr) => { $val as u32; };
     (@coerce h, $val:expr) => { $val as u32; };
-    (@coerce sw, $val:expr) => { $val as i32; };
-    (@coerce sh, $val:expr) => { $val as i32; };
+
+    // Sprite slice position and size relative to spritesheet
+    (@coerce sx, $val:expr) => { $val as u32; };
+    (@coerce sy, $val:expr) => { $val as u32; };
+    (@coerce sw, $val:expr) => { $val as u32; };
+    (@coerce sh, $val:expr) => { $val as u32; };
+
+    // Sprite slice translation
+    (@coerce tx, $val:expr) => { $val as i32; };
+    (@coerce ty, $val:expr) => { $val as i32; };
+    (@coerce repeat, $val:expr) => { $val as bool; };
+
     (@coerce color, $val:expr) => { $val as u32; };
+    (@coerce background_color, $val:expr) => { $val as u32; };
+    (@coerce border_radius, $val:expr) => { $val as u32; };
     (@coerce opacity, $val:expr) => { $val as f32; };
+
+    // Transforms
+    (@coerce origin_x, $val:expr) => { $val as i32; };
+    (@coerce origin_y, $val:expr) => { $val as i32; };
     (@coerce rotate, $val:expr) => { $val as i32; };
+    (@coerce scale, $val:expr) => { $val as f32; };
     (@coerce scale_x, $val:expr) => { $val as f32; };
     (@coerce scale_y, $val:expr) => { $val as f32; };
     (@coerce flip_x, $val:expr) => { $val as bool; };
     (@coerce flip_y, $val:expr) => { $val as bool; };
+
+    // Animation
     (@coerce fps, $val:expr) => { $val as u32; };
 }
 
