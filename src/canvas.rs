@@ -261,13 +261,13 @@ macro_rules! sprite {
                 let alpha = (255.0 * linear_opacity) as u32;
 
                 // Combine the alpha with the color
-                // color = color << 8 | alpha;
-
                 color = alpha << 32 | (color & 0xffffff00);
             }
 
             // If no slice width is given and sprite is not to be drawn animated, multiply width by frames count
-            let static_frames = fps == 0 && sw == 0 ;
+            let animated = fps > 0;
+            let custom_slice_width = sw != 0;
+            let static_frames = !animated && !custom_slice_width;
             let default_sw = if static_frames { default_sw * num_frames as u32 } else { default_sw };
 
             // Adjust source size based on source position
@@ -299,17 +299,19 @@ macro_rules! sprite {
 
             // Draw each frame at specified FPS
             if fps > 0 {
-                let frame_rate = (60_usize).checked_div(fps as usize).unwrap_or(1);
-                let frames_len = sprite_data.frames.len();
-                let (sx, sy) = if frames_len == 1 {
-                    let frames_len = sprite_data.width as usize / sw as usize;
-                    let i = $crate::sys::tick().checked_div(frame_rate).unwrap_or(0) % frames_len;
-                    let (sx, sy) = sprite_data.frames[0];
-                    (sx + (i as u32 * sw as u32), sy)
+                let abs_sw = sw.abs() as u32;
+                let frames_len = sprite_data.frames.len() as u32;
+                let frames_len = if custom_slice_width {
+                    (frames_len * sprite_data.width).checked_div(abs_sw).unwrap_or(1)
                 } else {
-                    let i = $crate::sys::tick().checked_div(frame_rate).unwrap_or(0) % frames_len;
-                    sprite_data.frames[i]
+                    frames_len
                 };
+                let frame_rate = (60_usize).checked_div(fps as usize).unwrap_or(1);
+                let i = $crate::sys::tick().checked_div(frame_rate).unwrap_or(0) % frames_len as usize;
+                let (fx, fy) = sprite_data.frames[0];
+                let fx = fx + (abs_sw * i as u32);
+                let sx = sx + fx;
+                let sy = sy + fy;
 
                 $crate::canvas::draw_sprite(
                     x, y, dw, dh,
@@ -332,13 +334,13 @@ macro_rules! sprite {
                     let sy = sy + fy;
                     let (fw, fh) = (sprite_data.width, sprite_data.height);
 
+                    // Adjust source width for frame
                     let sw = fw.min(sw.abs() as u32) as i32;
-                    let dw = if static_frames { dw / num_frames as u32 } else { dw.min(fw) };
+
+                    // Adjust destination width for frame
+                    let dw = if repeat { dw } else if static_frames { dw / num_frames as u32 } else { dw.min(fw) };
 
                     // Handle offsets when animation multiple frames
-                    if $name == "enemy_red_car" {
-                        // $crate::log!("{} - {:?}", i, (static_frames, sx, sy, sw, sh, dw, rem_sw));
-                    }
                     if num_frames > 1 {
                         rem_sw = rem_sw.saturating_sub(fw);
                         cx = if cx > 0 { (cx - fw).max(0) } else { (cx + fw).min(0)};
