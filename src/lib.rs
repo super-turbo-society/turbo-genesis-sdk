@@ -1,8 +1,13 @@
 pub(crate) mod ffi;
+pub(crate) mod json;
 
 pub mod canvas;
+pub mod http;
 pub mod input;
+pub mod os;
+pub mod program;
 pub mod sys;
+pub mod tween;
 
 #[cfg(feature = "solana")]
 pub mod solana;
@@ -17,6 +22,8 @@ pub mod prelude {
     pub use crate::input::*;
     pub use crate::println;
     pub use crate::sys::*;
+    #[allow(unused_imports)]
+    pub use crate::tween::*;
     pub use crate::*;
 }
 
