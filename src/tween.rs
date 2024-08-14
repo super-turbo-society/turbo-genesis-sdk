@@ -334,3 +334,35 @@ impl Interpolate<i8> for i8 {
         n as i8
     }
 }
+
+impl Interpolate<(f32, f32)> for (f32, f32) {
+    fn interpolate(t: f64, start: (f32, f32), end: (f32, f32)) -> (f32, f32) {
+        let x = start.0 as f64 + (end.0 as f64 - start.0 as f64) * t;
+        let y = start.1 as f64 + (end.1 as f64 - start.1 as f64) * t;
+        (x as f32, y as f32)
+    }
+}
+
+impl Interpolate<(f64, f64)> for (f64, f64) {
+    fn interpolate(t: f64, start: (f64, f64), end: (f64, f64)) -> (f64, f64) {
+        let x = start.0 + (end.0 - start.0) * t;
+        let y = start.1 + (end.1 - start.1) * t;
+        (x, y)
+    }
+}
+
+impl Interpolate<(i32, i32)> for (i32, i32) {
+    fn interpolate(t: f64, start: (i32, i32), end: (i32, i32)) -> (i32, i32) {
+        let x = start.0 as f64 + (end.0 as f64 - start.0 as f64) * t;
+        let y = start.1 as f64 + (end.1 as f64 - start.1 as f64) * t;
+        (x as i32, y as i32)
+    }
+}
+
+impl Interpolate<(u32, u32)> for (u32, u32) {
+    fn interpolate(t: f64, start: (u32, u32), end: (u32, u32)) -> (u32, u32) {
+        let x = start.0 as f64 + (end.0 as f64 - start.0 as f64) * t;
+        let y = start.1 as f64 + (end.1 as f64 - start.1 as f64) * t;
+        (x as u32, y as u32)
+    }
+}

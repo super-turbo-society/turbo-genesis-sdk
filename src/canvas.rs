@@ -96,6 +96,17 @@ macro_rules! set_cam {
 }
 
 #[macro_export]
+macro_rules! reset_cam {
+    () => {{
+        let (mut x, mut y, mut z) = $crate::canvas::get_camera2();
+        let [w, h] = crate::canvas_size!();
+        let x = (w / 2) as f32;
+        let y = (h / 2) as f32;
+        $crate::canvas::set_camera2(x, y, z)
+    }};
+}
+
+#[macro_export]
 macro_rules! move_cam {
     ($( $key:ident = $val:expr ),* $(,)*) => {{
         let mut x: f32 = 0.;
@@ -243,7 +254,16 @@ macro_rules! sprite {
             let mut flip_y: bool = false;
             let mut fps: u32 = 0;
             let mut repeat: bool = false;
+            let mut absolute: bool = false;
             $($crate::paste::paste!{ [< $key >] = sprite!(@coerce $key, $val); })*
+
+            // Absolute positioning
+            if absolute {
+                let (cx, cy, _) = crate::cam!();
+                let [w, h] = crate::canvas_size!();
+                x += cx - (w as i32 / 2);
+                y += cy - (h as i32 / 2);
+            }
 
             // Initialize flags
             let mut flags: u32 = 0;
@@ -379,6 +399,7 @@ macro_rules! sprite {
     (@coerce y, $val:expr) => { $val as i32; };
     (@coerce w, $val:expr) => { $val as u32; };
     (@coerce h, $val:expr) => { $val as u32; };
+    (@coerce absolute, $val:expr) => { $val as bool; };
 
     // Sprite slice position and size relative to spritesheet
     (@coerce sx, $val:expr) => { $val as u32; };
@@ -456,8 +477,17 @@ macro_rules! rect {
         let mut rotate: i32 = 0;
         let mut scale_x: f32 = 1.0;
         let mut scale_y: f32 = 1.0;
+        let mut absolute: bool = false;
 
         $($crate::paste::paste!{ [< $key >] = rect!(@coerce $key, $val); })*
+
+        // Absolute positioning
+        if absolute {
+            let (cx, cy, _) = crate::cam!();
+            let [w, h] = crate::canvas_size!();
+            x += cx - (w as i32 / 2);
+            y += cy - (h as i32 / 2);
+        }
 
         w = (w as f32 * scale_x) as u32;
         h = (h as f32 * scale_y) as u32;
@@ -474,6 +504,7 @@ macro_rules! rect {
     (@coerce y, $val:expr) => { $val as i32; };
     (@coerce w, $val:expr) => { $val as u32; };
     (@coerce h, $val:expr) => { $val as u32; };
+    (@coerce absolute, $val:expr) => { $val as bool; };
     (@coerce border_radius, $val:expr) => { $val as u32; };
     (@coerce border_width, $val:expr) => { $val as u32; };
     (@coerce border_color, $val:expr) => { $val as u32; };
@@ -490,6 +521,7 @@ macro_rules! path {
         let mut color: u32 = 0xffffffff;
         let mut width: u32 = 1;
         let mut border_radius: u32 = 0;
+        let mut absolute: bool = false;
         $($crate::paste::paste!{ [< $key >] = path!(@coerce $key, $val); })*
 
         // Calculate differences and distance
@@ -502,8 +534,16 @@ macro_rules! path {
         let angle = ((delta_y).atan2(delta_x) * (180.0 / std::f64::consts::PI)) as i32;
 
         // Calculate the midpoint for placing the rectangle
-        let x = (start.0 + end.0) / 2;
-        let y = (start.1 + end.1) / 2;
+        let mut x = (start.0 + end.0) / 2;
+        let mut y = (start.1 + end.1) / 2;
+
+        // Absolute positioning
+        if absolute {
+            let (cx, cy, _) = crate::cam!();
+            let [w, h] = crate::canvas_size!();
+            x += cx - (w as i32 / 2);
+            y += cy - (h as i32 / 2);
+        }
 
         // Draw the rectangle as a thin line with rotation around its center
         $crate::canvas::draw_rect(
@@ -520,6 +560,7 @@ macro_rules! path {
     }};
     (@coerce start, $val:expr) => { ($val.0 as i32, $val.1 as i32); };
     (@coerce end, $val:expr) => { ($val.0 as i32, $val.1 as i32); };
+    (@coerce absolute, $val:expr) => { $val as bool; };
     (@coerce color, $val:expr) => { $val as u32; };
     (@coerce width, $val:expr) => { $val as u32; };
     (@coerce border_radius, $val:expr) => { $val as u32; };
@@ -541,7 +582,15 @@ macro_rules! circ {
         let mut rotate: i32 = 0;
         let mut scale_x: f32 = 1.0;
         let mut scale_y: f32 = 1.0;
+        let mut absolute: bool = false;
         $($crate::paste::paste!{ [< $key >] = circ!(@coerce $key, $val); })*
+        // Absolute positioning
+        if absolute {
+            let (cx, cy, _) = crate::cam!();
+            let [w, h] = crate::canvas_size!();
+            x += cx - (w as i32 / 2);
+            y += cy - (h as i32 / 2);
+        }
         let border_radius = d;
         let mut w = d;
         let mut h = d;
@@ -557,6 +606,7 @@ macro_rules! circ {
     (@coerce color, $val:expr) => { $val as u32; };
     (@coerce x, $val:expr) => { $val as i32; };
     (@coerce y, $val:expr) => { $val as i32; };
+    (@coerce absolute, $val:expr) => { $val as bool; };
     (@coerce d, $val:expr) => { $val as u32; };
     (@coerce border_width, $val:expr) => { $val as u32; };
     (@coerce border_color, $val:expr) => { $val as u32; };
@@ -582,7 +632,15 @@ macro_rules! ellipse {
         let mut rotate: i32 = 0;
         let mut scale_x: f32 = 1.0;
         let mut scale_y: f32 = 1.0;
+        let mut absolute: bool = false;
         $($crate::paste::paste!{ [< $key >] = ellipse!(@coerce $key, $val); })*
+        // Absolute positioning
+        if absolute {
+            let (cx, cy, _) = crate::cam!();
+            let [w, h] = crate::canvas_size!();
+            x += cx - (w as i32 / 2);
+            y += cy - (h as i32 / 2);
+        }
         w = (w as f32 * scale_x) as u32;
         h = (h as f32 * scale_y) as u32;
         let border_radius = w.max(h);
@@ -596,6 +654,7 @@ macro_rules! ellipse {
     (@coerce color, $val:expr) => { $val as u32; };
     (@coerce x, $val:expr) => { $val as i32; };
     (@coerce y, $val:expr) => { $val as i32; };
+    (@coerce absolute, $val:expr) => { $val as bool; };
     (@coerce w, $val:expr) => { $val as u32; };
     (@coerce h, $val:expr) => { $val as u32; };
     (@coerce border_width, $val:expr) => { $val as u32; };
@@ -649,7 +708,15 @@ macro_rules! text {
         let mut y: i32 = 0;
         let mut font: Font = Font::M;
         let mut color: u32 = 0xffffffff;
+        let mut absolute: bool = false;
         $($crate::paste::paste!{ [< $key >] = text!(@coerce $key, $val); })*
+        // Absolute positioning
+        if absolute {
+            let (cx, cy, _) = crate::cam!();
+            let [w, h] = crate::canvas_size!();
+            x += cx - (w as i32 / 2);
+            y += cy - (h as i32 / 2);
+        }
         $crate::canvas::text(x, y, font, color, $text)
     }};
     ($text:expr, $( $arg:expr ),* ; $( $key:ident = $val:expr ),* $(,)*) => {{
@@ -657,11 +724,20 @@ macro_rules! text {
         let mut y: i32 = 0;
         let mut font: Font = Font::M;
         let mut color: u32 = 0xffffffff;
+        let mut absolute: bool = false;
         $(paste::paste! { [< $key >] = text!(@coerce $key, $val); })*
+        // Absolute positioning
+        if absolute {
+            let (cx, cy, _) = crate::cam!();
+            let [w, h] = crate::canvas_size!();
+            x += cx - (w as i32 / 2);
+            y += cy - (h as i32 / 2);
+        }
         $crate::canvas::text(x, y, font, color, &format!($text, $($arg),*))
     }};
     (@coerce x, $val:expr) => { $val as i32; };
     (@coerce y, $val:expr) => { $val as i32; };
+    (@coerce absolute, $val:expr) => { $val as bool; };
     (@coerce font, $val:expr) => { $val as Font; };
     (@coerce color, $val:expr) => { $val as u32; };
 }
