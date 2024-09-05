@@ -56,7 +56,7 @@ pub fn log(message: &str) {
 }
 
 pub fn read_file(filepath: &str) -> Result<Vec<u8>, &'static str> {
-    let mut data = vec![0; 4096];
+    let mut data = vec![0; 8192];
     let mut data_len = 0;
     let err = unsafe {
         turbo_os_read_file(
