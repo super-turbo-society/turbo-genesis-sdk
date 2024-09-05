@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum JsonValue {
     String(String),
     Number(f64),

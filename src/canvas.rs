@@ -328,8 +328,13 @@ macro_rules! sprite {
                 };
                 let frame_rate = (60_usize).checked_div(fps as usize).unwrap_or(1);
                 let i = $crate::sys::tick().checked_div(frame_rate).unwrap_or(0) % frames_len as usize;
-                let (fx, fy) = sprite_data.frames[0];
-                let fx = fx + (abs_sw * i as u32);
+                let (fx, fy) = if sx == 0 {
+                    sprite_data.frames[i]
+                } else {
+                    let (fx, fy) = sprite_data.frames[0];
+                    let fx = fx + (abs_sw * i as u32);
+                    (fx, fy)
+                };
                 let sx = sx + fx;
                 let sy = sy + fy;
 
