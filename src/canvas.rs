@@ -437,6 +437,158 @@ macro_rules! sprite {
 }
 
 //------------------------------------------------------------------------------
+// 9 Slice
+//------------------------------------------------------------------------------
+
+#[macro_export]
+macro_rules! nine_slice {
+    ($name:expr) => {{
+        $crate::nine_slice!($name,)
+    }};
+    ($name:expr, $slice_size:expr, $( $key:ident = $val:expr ),* $(,)*) => {{
+        if let Some(sprite_data) = &$crate::canvas::get_sprite_data($name) {
+            let mut x: i32 = 0;
+            let mut y: i32 = 0;
+            let mut w: u32 = 0;
+            let mut h: u32 = 0;
+            
+            $($crate::paste::paste!{ [< $key >] = sprite!(@coerce $key, $val); })*
+            
+            let mut sx: i32 = 0;
+            let mut sy: i32 = 0;
+            let mut sw: i32 = 0;
+            let mut sh: i32 = 0;
+            let mut x_origin: i32 = x;
+            let mut y_origin: i32 = y;
+            let mut w_origin: u32 = w;
+            let mut h_origin: u32 = h;
+
+            sw = $slice_size;
+            sh = $slice_size;
+            w = w - ($slice_size*2) as u32;
+            h = h - ($slice_size*2) as u32;
+
+            // Center
+            x = x_origin + $slice_size;
+            y = y_origin + $slice_size;
+            sx = $slice_size;
+            sy = $slice_size;
+            $crate::sprite!(
+                $name,
+                x = x,
+                y = y,
+                w = w,
+                h = h,
+                sx = sx,
+                sy = sy,
+                sw = sw,
+                sh = sh,
+                repeat = true
+            );
+            
+            // Top
+            h = $slice_size as u32;
+            y = y_origin;
+            sy = 0;
+            $crate::sprite!(
+                $name, 
+                x = x, y = y,
+                w = w, h = h,
+                sx = sx, sy = sy,
+                sw = sw, sh = sh,
+                repeat = true
+            );
+
+            // Bottom
+            y = y_origin + h_origin as i32 - $slice_size;
+            sy = 2 * $slice_size;
+            $crate::sprite!(
+                $name, 
+                x = x, y = y,
+                w = w, h = h,
+                sx = sx, sy = sy,
+                sw = sw, sh = sh,
+                repeat = true
+            );
+
+            // Bottom left
+            x = x_origin;
+            w = $slice_size as u32;
+            sx = 0;
+            $crate::sprite!(
+                $name, 
+                x = x, y = y,
+                w = w, h = h,
+                sx = sx, sy = sy,
+                sw = sw, sh = sh,
+                repeat = true
+            );
+            
+            // Bottom right
+            x = x_origin + w_origin as i32 - $slice_size;
+            sx = $slice_size * 2;
+            $crate::sprite!(
+                $name, 
+                x = x, y = y,
+                w = w, h = h,
+                sx = sx, sy = sy,
+                sw = sw, sh = sh,
+                repeat = true
+            );
+
+            // Top right
+            y = y_origin;
+            sy = 0;
+            $crate::sprite!(
+                $name, 
+                x = x, y = y,
+                w = w, h = h,
+                sx = sx, sy = sy,
+                sw = sw, sh = sh,
+                repeat = true
+            );
+
+            // Top right
+            x = x_origin;
+            sx = 0;
+            $crate::sprite!(
+                $name, 
+                x = x, y = y,
+                w = w, h = h,
+                sx = sx, sy = sy,
+                sw = sw, sh = sh,
+                repeat = true
+            );
+
+            // Left
+            y = y_origin + $slice_size;
+            sy = $slice_size;
+            h = h_origin - ($slice_size * 2) as u32;
+            $crate::sprite!(
+                $name, 
+                x = x, y = y,
+                w = w, h = h,
+                sx = sx, sy = sy,
+                sw = sw, sh = sh,
+                repeat = true
+            );
+
+            // Right
+            x = x_origin + w_origin as i32 - $slice_size;
+            sx = $slice_size * 2;
+            $crate::sprite!(
+                $name, 
+                x = x, y = y,
+                w = w, h = h,
+                sx = sx, sy = sy,
+                sw = sw, sh = sh,
+                repeat = true
+            );
+        }
+    }};
+}
+
+//------------------------------------------------------------------------------
 // Rectangle
 //------------------------------------------------------------------------------
 
