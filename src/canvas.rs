@@ -548,7 +548,7 @@ macro_rules! nine_slice {
                 repeat = true
             );
 
-            // Top right slice scaled
+            // Top left slice scaled
             x = x_origin;
             sx = 0;
             $crate::sprite!(
