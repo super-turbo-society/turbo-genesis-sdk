@@ -465,10 +465,10 @@ macro_rules! nine_slice {
 
             sw = $slice_size;
             sh = $slice_size;
-            w = w - ($slice_size*2) as u32;
-            h = h - ($slice_size*2) as u32;
-
-            // Center
+            
+            // Center slice scaled
+            w = w_origin - ($slice_size*2) as u32;
+            h = h_origin - ($slice_size*2) as u32;
             x = x_origin + $slice_size;
             y = y_origin + $slice_size;
             sx = $slice_size;
@@ -486,7 +486,7 @@ macro_rules! nine_slice {
                 repeat = true
             );
             
-            // Top
+            // Top slice scaled
             h = $slice_size as u32;
             y = y_origin;
             sy = 0;
@@ -499,7 +499,7 @@ macro_rules! nine_slice {
                 repeat = true
             );
 
-            // Bottom
+            // Bottom slice scaled
             y = y_origin + h_origin as i32 - $slice_size;
             sy = 2 * $slice_size;
             $crate::sprite!(
@@ -511,7 +511,7 @@ macro_rules! nine_slice {
                 repeat = true
             );
 
-            // Bottom left
+            // Bottom left slice scaled
             x = x_origin;
             w = $slice_size as u32;
             sx = 0;
@@ -524,7 +524,7 @@ macro_rules! nine_slice {
                 repeat = true
             );
             
-            // Bottom right
+            // Bottom right slice scaled
             x = x_origin + w_origin as i32 - $slice_size;
             sx = $slice_size * 2;
             $crate::sprite!(
@@ -536,7 +536,7 @@ macro_rules! nine_slice {
                 repeat = true
             );
 
-            // Top right
+            // Top right slice scaled
             y = y_origin;
             sy = 0;
             $crate::sprite!(
@@ -548,7 +548,7 @@ macro_rules! nine_slice {
                 repeat = true
             );
 
-            // Top right
+            // Top right slice scaled
             x = x_origin;
             sx = 0;
             $crate::sprite!(
@@ -560,7 +560,7 @@ macro_rules! nine_slice {
                 repeat = true
             );
 
-            // Left
+            // Left slice scaled
             y = y_origin + $slice_size;
             sy = $slice_size;
             h = h_origin - ($slice_size * 2) as u32;
@@ -573,7 +573,7 @@ macro_rules! nine_slice {
                 repeat = true
             );
 
-            // Right
+            // Right slice scaled
             x = x_origin + w_origin as i32 - $slice_size;
             sx = $slice_size * 2;
             $crate::sprite!(
