@@ -437,6 +437,187 @@ macro_rules! sprite {
 }
 
 //------------------------------------------------------------------------------
+// 9 Slice
+//------------------------------------------------------------------------------
+
+#[macro_export]
+macro_rules! nine_slice {
+    ($name:expr) => {{
+        $crate::nine_slice!($name,)
+    }};
+    ($name:expr, $( $key:ident = $val:expr ),* $(,)*) => {{
+        if let Some(sprite_data) = &$crate::canvas::get_sprite_data($name) {
+            let mut x: i32 = 0;
+            let mut y: i32 = 0;
+            let mut w: u32 = 0;
+            let mut h: u32 = 0;
+            let mut slice_size: i32 = 0;
+            let mut absolute: bool = false;
+            let mut opacity: f32 = 1.0;
+
+            $($crate::paste::paste!{ [< $key >] = nine_slice!(@coerce $key, $val); })*
+            
+            let mut sx: i32 = 0;
+            let mut sy: i32 = 0;
+            let mut sw: i32 = 0;
+            let mut sh: i32 = 0;
+            let mut w_origin: u32 = w;
+            let mut h_origin: u32 = h;
+            
+            let mut x_origin: i32;
+            let mut y_origin: i32;
+            if absolute {
+                let (cx, cy, _) = crate::cam!();
+                let [w, h] = crate::canvas_size!();
+                x_origin = x + cx - (w as i32 / 2);
+                y_origin = y + cy - (h as i32 / 2);
+            } else {
+                x_origin = x;
+                y_origin = y;
+            }
+
+            sw = slice_size;
+            sh = slice_size;
+            
+            // Center slice scaled
+            w = w_origin - (slice_size*2) as u32;
+            h = h_origin - (slice_size*2) as u32;
+            x = x_origin + slice_size;
+            y = y_origin + slice_size;
+            sx = slice_size;
+            sy = slice_size;
+            $crate::sprite!(
+                $name,
+                x = x,
+                y = y,
+                w = w,
+                h = h,
+                sx = sx,
+                sy = sy,
+                sw = sw,
+                sh = sh,
+                opacity = opacity,
+                repeat = true
+            );
+            
+            // Top slice scaled
+            h = slice_size as u32;
+            y = y_origin;
+            sy = 0;
+            $crate::sprite!(
+                $name, 
+                x = x, y = y,
+                w = w, h = h,
+                sx = sx, sy = sy,
+                sw = sw, sh = sh,
+                opacity = opacity,
+                repeat = true
+            );
+
+            // Bottom slice scaled
+            y = y_origin + h_origin as i32 - slice_size;
+            sy = 2 * slice_size;
+            $crate::sprite!(
+                $name, 
+                x = x, y = y,
+                w = w, h = h,
+                sx = sx, sy = sy,
+                sw = sw, sh = sh,
+                opacity = opacity,
+                repeat = true
+            );
+
+            // Bottom left slice scaled
+            x = x_origin;
+            w = slice_size as u32;
+            sx = 0;
+            $crate::sprite!(
+                $name, 
+                x = x, y = y,
+                w = w, h = h,
+                sx = sx, sy = sy,
+                sw = sw, sh = sh,
+                opacity = opacity,
+                repeat = true
+            );
+            
+            // Bottom right slice scaled
+            x = x_origin + w_origin as i32 - slice_size;
+            sx = slice_size * 2;
+            $crate::sprite!(
+                $name, 
+                x = x, y = y,
+                w = w, h = h,
+                sx = sx, sy = sy,
+                sw = sw, sh = sh,
+                opacity = opacity,
+                repeat = true
+            );
+
+            // Top right slice scaled
+            y = y_origin;
+            sy = 0;
+            $crate::sprite!(
+                $name, 
+                x = x, y = y,
+                w = w, h = h,
+                sx = sx, sy = sy,
+                sw = sw, sh = sh,
+                opacity = opacity,
+                repeat = true
+            );
+
+            // Top left slice scaled
+            x = x_origin;
+            sx = 0;
+            $crate::sprite!(
+                $name, 
+                x = x, y = y,
+                w = w, h = h,
+                sx = sx, sy = sy,
+                sw = sw, sh = sh,
+                opacity = opacity,
+                repeat = true
+            );
+
+            // Left slice scaled
+            y = y_origin + slice_size;
+            sy = slice_size;
+            h = h_origin - (slice_size * 2) as u32;
+            $crate::sprite!(
+                $name, 
+                x = x, y = y,
+                w = w, h = h,
+                sx = sx, sy = sy,
+                sw = sw, sh = sh,
+                opacity = opacity,
+                repeat = true
+            );
+
+            // Right slice scaled
+            x = x_origin + w_origin as i32 - slice_size;
+            sx = slice_size * 2;
+            $crate::sprite!(
+                $name, 
+                x = x, y = y,
+                w = w, h = h,
+                sx = sx, sy = sy,
+                sw = sw, sh = sh,
+                opacity = opacity,
+                repeat = true
+            );
+        }
+    }};
+    (@coerce x, $val:expr) => { $val as i32; };
+    (@coerce y, $val:expr) => { $val as i32; };
+    (@coerce w, $val:expr) => { $val as u32; };
+    (@coerce h, $val:expr) => { $val as u32; };
+    (@coerce slice_size, $val:expr) => { $val as i32; };
+    (@coerce absolute, $val:expr) => { $val as bool; };
+    (@coerce opacity, $val:expr) => { $val as f32; };
+}
+
+//------------------------------------------------------------------------------
 // Rectangle
 //------------------------------------------------------------------------------
 
