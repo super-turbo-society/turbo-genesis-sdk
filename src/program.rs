@@ -6,6 +6,7 @@ extern "C" {
     #[link_name = "get_user_id_len"]
     fn turbo_os_get_user_id_len() -> usize;
 
+    #[allow(clashing_extern_declarations)]
     #[link_name = "get_user_id"]
     fn turbo_os_get_user_id(ptr: *mut u8) -> usize;
 
@@ -18,6 +19,7 @@ extern "C" {
     #[link_name = "log"]
     fn turbo_os_log(ptr: *const u8, len: usize) -> usize;
 
+    #[allow(clashing_extern_declarations)]
     #[link_name = "read_file"]
     fn turbo_os_read_file(
         filepath_ptr: *const u8,

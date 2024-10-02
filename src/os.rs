@@ -44,6 +44,7 @@ pub fn read_file(program_id: &str, filepath: &str) -> Result<File, ReadFileError
     let data = &mut [0; 8192];
     let mut data_len = 0;
     let ok = unsafe {
+        #[allow(clashing_extern_declarations)]
         #[link(wasm_import_module = "@turbo_genesis/turbo_os")]
         extern "C" {
             fn read_file(
@@ -187,6 +188,7 @@ pub fn user_id() -> Option<String> {
     let data = &mut [0; 128];
     let mut data_len = 0;
     let ok = unsafe {
+        #[allow(clashing_extern_declarations)]
         #[link(wasm_import_module = "@turbo_genesis/turbo_os")]
         extern "C" {
             fn get_user_id(out_user_id_ptr: *mut u8, out_user_id_len_ptr: *mut u32) -> u32;
