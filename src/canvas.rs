@@ -319,27 +319,31 @@ macro_rules! sprite {
 
             // Draw each frame at specified FPS
             if fps > 0 {
+                let (w, h) = (sprite_data.width, sprite_data.height);
+                let frames_len = if h > 0 && w % h == 0 && w / h > 1 {
+                    w / h
+                } else {
+                    1
+                };
+                let sw = if !custom_slice_width {
+                    let next_sw = default_sw / (frames_len as u32);
+                    if sw >= 0 { next_sw as i32 } else { next_sw as i32 * -1 }
+                } else { sw };
                 let abs_sw = sw.abs() as u32;
-                let frames_len = sprite_data.frames.len() as u32;
                 let frames_len = if custom_slice_width {
-                    (frames_len * sprite_data.width).checked_div(abs_sw).unwrap_or(1)
+                    (sprite_data.width).checked_div(abs_sw).unwrap_or(1)
                 } else {
                     frames_len
                 };
                 let frame_rate = (60_usize).checked_div(fps as usize).unwrap_or(1);
                 let i = $crate::sys::tick().checked_div(frame_rate).unwrap_or(0) % frames_len as usize;
-                let (fx, fy) = if sx == 0 {
-                    sprite_data.frames[i]
-                } else {
-                    let (fx, fy) = sprite_data.frames[0];
-                    let fx = fx + (abs_sw * i as u32);
-                    (fx, fy)
-                };
+                let (fx, fy) = sprite_data.frames[0];
+                let fx = fx + (abs_sw * i as u32);
                 let sx = sx + fx;
                 let sy = sy + fy;
 
                 $crate::canvas::draw_sprite(
-                    x, y, dw, dh,
+                    x, y, abs_sw, sh.abs() as u32,
                     sx, sy, sw, sh, tx, ty,
                     color, background_color,
                     border_radius,
@@ -361,6 +365,7 @@ macro_rules! sprite {
 
                     // Adjust source width for frame
                     let sw = fw.min(sw.abs() as u32) as i32;
+                    let sw = if flip_x { sw * -1 } else { sw };
 
                     // Adjust destination width for frame
                     let dw = if repeat { dw } else if static_frames { dw / num_frames as u32 } else { dw.min(fw) };
@@ -456,14 +461,14 @@ macro_rules! nine_slice {
             let mut opacity: f32 = 1.0;
 
             $($crate::paste::paste!{ [< $key >] = nine_slice!(@coerce $key, $val); })*
-            
+
             let mut sx: i32 = 0;
             let mut sy: i32 = 0;
             let mut sw: i32 = 0;
             let mut sh: i32 = 0;
             let mut w_origin: u32 = w;
             let mut h_origin: u32 = h;
-            
+
             let mut x_origin: i32;
             let mut y_origin: i32;
             if absolute {
@@ -478,7 +483,7 @@ macro_rules! nine_slice {
 
             sw = slice_size;
             sh = slice_size;
-            
+
             // Center slice scaled
             w = w_origin - (slice_size*2) as u32;
             h = h_origin - (slice_size*2) as u32;
@@ -499,13 +504,13 @@ macro_rules! nine_slice {
                 opacity = opacity,
                 repeat = true
             );
-            
+
             // Top slice scaled
             h = slice_size as u32;
             y = y_origin;
             sy = 0;
             $crate::sprite!(
-                $name, 
+                $name,
                 x = x, y = y,
                 w = w, h = h,
                 sx = sx, sy = sy,
@@ -518,7 +523,7 @@ macro_rules! nine_slice {
             y = y_origin + h_origin as i32 - slice_size;
             sy = 2 * slice_size;
             $crate::sprite!(
-                $name, 
+                $name,
                 x = x, y = y,
                 w = w, h = h,
                 sx = sx, sy = sy,
@@ -532,7 +537,7 @@ macro_rules! nine_slice {
             w = slice_size as u32;
             sx = 0;
             $crate::sprite!(
-                $name, 
+                $name,
                 x = x, y = y,
                 w = w, h = h,
                 sx = sx, sy = sy,
@@ -540,12 +545,12 @@ macro_rules! nine_slice {
                 opacity = opacity,
                 repeat = true
             );
-            
+
             // Bottom right slice scaled
             x = x_origin + w_origin as i32 - slice_size;
             sx = slice_size * 2;
             $crate::sprite!(
-                $name, 
+                $name,
                 x = x, y = y,
                 w = w, h = h,
                 sx = sx, sy = sy,
@@ -558,7 +563,7 @@ macro_rules! nine_slice {
             y = y_origin;
             sy = 0;
             $crate::sprite!(
-                $name, 
+                $name,
                 x = x, y = y,
                 w = w, h = h,
                 sx = sx, sy = sy,
@@ -571,7 +576,7 @@ macro_rules! nine_slice {
             x = x_origin;
             sx = 0;
             $crate::sprite!(
-                $name, 
+                $name,
                 x = x, y = y,
                 w = w, h = h,
                 sx = sx, sy = sy,
@@ -585,7 +590,7 @@ macro_rules! nine_slice {
             sy = slice_size;
             h = h_origin - (slice_size * 2) as u32;
             $crate::sprite!(
-                $name, 
+                $name,
                 x = x, y = y,
                 w = w, h = h,
                 sx = sx, sy = sy,
@@ -598,7 +603,7 @@ macro_rules! nine_slice {
             x = x_origin + w_origin as i32 - slice_size;
             sx = slice_size * 2;
             $crate::sprite!(
-                $name, 
+                $name,
                 x = x, y = y,
                 w = w, h = h,
                 sx = sx, sy = sy,
