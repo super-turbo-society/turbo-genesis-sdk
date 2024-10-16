@@ -91,14 +91,23 @@ macro_rules! go {
     ($($body:tt)*) => {
         use $crate::prelude::*;
 
+        #[cfg(not(no_run))]
         #[no_mangle]
         #[allow(overflowing_literals, non_upper_case_globals)]
         pub unsafe extern "C" fn run() {
             use std::f32::consts::PI;
             $($body)*
         }
+        #[cfg(not(no_run))]
         pub fn run_snapshot(snapshot_data: &[u8]) -> Vec<u8> {
             $crate::run_snapshot(snapshot_data, || unsafe { run() })
+        }
+
+        #[cfg(no_run)]
+        #[allow(overflowing_literals, non_upper_case_globals)]
+        unsafe fn run() {
+            use std::f32::consts::PI;
+            $($body)*
         }
     };
 }
