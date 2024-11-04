@@ -54,3 +54,15 @@ pub fn load() -> Result<&'static [u8], i32> {
         Ok(&TURBO_SAVE_DATA[..len as usize])
     }
 }
+
+pub mod time {
+    pub fn now() -> u64 {
+        unsafe {
+            #[link(wasm_import_module = "@turbo_genesis/sys")]
+            extern "C" {
+                fn millis_since_unix_epoch() -> u64;
+            }
+            millis_since_unix_epoch()
+        }
+    }
+}
