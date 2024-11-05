@@ -2,6 +2,18 @@ use super::*;
 use base64::{engine::general_purpose::STANDARD as b64, Engine};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+fn from_base64<'a, D: Deserializer<'a>>(deserializer: D) -> Result<Vec<u8>, D::Error> {
+    use serde::de::Error;
+    String::deserialize(deserializer).and_then(|string| {
+        b64.decode(&string)
+            .map_err(|err| Error::custom(err.to_string()))
+    })
+}
+
+fn as_base64<T: AsRef<[u8]>, S: Serializer>(v: &T, serializer: S) -> Result<S::Ok, S::Error> {
+    serializer.serialize_str(&b64.encode(v.as_ref()))
+}
+
 #[derive(Debug, Clone)]
 pub struct QueryResult<T> {
     pub loading: bool,
@@ -9,6 +21,7 @@ pub struct QueryResult<T> {
     pub error: Option<String>,
 }
 
+#[deprecated(note = "newer methods use `std::io::Error` instead")]
 #[derive(Debug, Clone)]
 pub enum ReadError {
     Loading,
@@ -24,6 +37,7 @@ impl ReadError {
 
 pub type ReadFileError = ReadError;
 
+#[deprecated(note = "newer methods use `ProgramFile` instead")]
 #[derive(Debug, Clone)]
 pub struct File {
     pub path: String,
@@ -63,16 +77,16 @@ pub struct ProgramEvent {
     pub data: Vec<u8>,
 }
 
-fn from_base64<'a, D: Deserializer<'a>>(deserializer: D) -> Result<Vec<u8>, D::Error> {
-    use serde::de::Error;
-    String::deserialize(deserializer).and_then(|string| {
-        b64.decode(&string)
-            .map_err(|err| Error::custom(err.to_string()))
-    })
-}
-
-fn as_base64<T: AsRef<[u8]>, S: Serializer>(v: &T, serializer: S) -> Result<S::Ok, S::Error> {
-    serializer.serialize_str(&b64.encode(v.as_ref()))
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProgramFile {
+    pub checksum: String, // base64
+    #[serde(serialize_with = "as_base64", deserialize_with = "from_base64")]
+    pub contents: Vec<u8>,
+    pub created_at: u32,
+    pub updated_at: u32,
+    pub prev_txn_hash: Option<String>,
+    pub txn_hash: String, // base64
+    pub version: u32,
 }
 
 pub mod client {
@@ -152,6 +166,77 @@ pub mod client {
         res
     }
 
+    pub fn watch_file(program_id: &str, filepath: &str) -> QueryResult<ProgramFile> {
+        // const STATUS_COMPLETE: u32 = 0;
+        const STATUS_PENDING: u32 = 1;
+        const STATUS_FAILED: u32 = 2;
+        let data = &mut [0; 8192];
+        let mut data_len = 0;
+        let err = &mut [0; 1024];
+        let mut err_len = 0;
+        let status = unsafe {
+            #[allow(clashing_extern_declarations)]
+            #[link(wasm_import_module = "@turbo_genesis/turbo_os")]
+            extern "C" {
+                fn read_file(
+                    program_id_ptr: *const u8,
+                    program_id_len: u32,
+                    filepath_ptr: *const u8,
+                    filepath_len: u32,
+                    out_data_ptr: *mut u8,
+                    out_data_len_ptr: *mut u32,
+                    out_err_ptr: *mut u8,
+                    out_err_len_ptr: *mut u32,
+                ) -> u32;
+            }
+            read_file(
+                program_id.as_ptr(),
+                program_id.len() as u32,
+                filepath.as_ptr(),
+                filepath.len() as u32,
+                data.as_mut_ptr(),
+                &mut data_len,
+                err.as_mut_ptr(),
+                &mut err_len,
+            )
+        };
+        // Network error
+        if status == STATUS_FAILED {
+            return QueryResult {
+                loading: false,
+                data: None,
+                error: Some("NetworkError".to_string()),
+            };
+        }
+
+        // Request is loading or complete
+        let mut res = QueryResult {
+            loading: status == STATUS_PENDING,
+            data: None,
+            error: None,
+        };
+
+        // Parse data into program event
+        if data_len > 0 {
+            if let Some(bytes) = data.get(..data_len as usize) {
+                match serde_json::from_slice::<ProgramFile>(bytes) {
+                    Ok(event) => res.data = Some(event),
+                    Err(err) => res.error = Some(err.to_string()),
+                }
+            }
+        }
+
+        // Parse err into error string
+        if err_len > 0 {
+            if let Some(bytes) = err.get(..err_len as usize) {
+                res.error = Some(String::from_utf8_lossy(bytes).to_string())
+            }
+        }
+
+        res
+    }
+
+    #[deprecated(note = "please use `watch_file` instead")]
     pub fn read_file(program_id: &str, filepath: &str) -> Result<File, ReadError> {
         let data = &mut [0; 8192];
         let mut data_len = 0;
