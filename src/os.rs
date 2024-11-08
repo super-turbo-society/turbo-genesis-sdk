@@ -167,6 +167,7 @@ pub mod client {
     }
 
     pub fn watch_file(program_id: &str, filepath: &str) -> QueryResult<ProgramFile> {
+        let query = "stream=true";
         // const STATUS_COMPLETE: u32 = 0;
         const STATUS_PENDING: u32 = 1;
         const STATUS_FAILED: u32 = 2;
@@ -183,6 +184,8 @@ pub mod client {
                     program_id_len: u32,
                     filepath_ptr: *const u8,
                     filepath_len: u32,
+                    query_ptr: *const u8,
+                    query_len: u32,
                     out_data_ptr: *mut u8,
                     out_data_len_ptr: *mut u32,
                     out_err_ptr: *mut u8,
@@ -194,6 +197,8 @@ pub mod client {
                 program_id.len() as u32,
                 filepath.as_ptr(),
                 filepath.len() as u32,
+                query.as_ptr(),
+                query.len() as u32,
                 data.as_mut_ptr(),
                 &mut data_len,
                 err.as_mut_ptr(),
@@ -238,6 +243,7 @@ pub mod client {
 
     #[deprecated(note = "please use `watch_file` instead")]
     pub fn read_file(program_id: &str, filepath: &str) -> Result<File, ReadError> {
+        let query = "stream=true";
         let data = &mut [0; 8192];
         let mut data_len = 0;
         let err = &mut [0; 1024];
@@ -251,6 +257,8 @@ pub mod client {
                     program_id_len: u32,
                     filepath_ptr: *const u8,
                     filepath_len: u32,
+                    query_ptr: *const u8,
+                    query_len: u32,
                     out_data_ptr: *mut u8,
                     out_data_len_ptr: *mut u32,
                     out_err_ptr: *mut u8,
@@ -262,6 +270,8 @@ pub mod client {
                 program_id.len() as u32,
                 filepath.as_ptr(),
                 filepath.len() as u32,
+                query.as_ptr(),
+                query.len() as u32,
                 data.as_mut_ptr(),
                 &mut data_len,
                 err.as_mut_ptr(),
