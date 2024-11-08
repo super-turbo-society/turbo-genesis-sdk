@@ -68,7 +68,7 @@ impl File {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProgramEvent {
     pub id: String,
-    pub created_at: u64,
+    pub created_at: u32,
     pub program_id: String,
     pub tx_hash: String,
     #[serde(rename = "type")]
@@ -166,8 +166,16 @@ pub mod client {
         res
     }
 
-    pub fn watch_file(program_id: &str, filepath: &str) -> QueryResult<ProgramFile> {
-        let query = "stream=true";
+    pub fn watch_file<'a, S: std::fmt::Display>(
+        program_id: &str,
+        filepath: &str,
+        opts: &[(S, S)],
+    ) -> QueryResult<ProgramFile> {
+        let query = opts
+            .iter()
+            .map(|(k, v)| format!("{}={}", k, v))
+            .collect::<Vec<_>>()
+            .join("&");
         // const STATUS_COMPLETE: u32 = 0;
         const STATUS_PENDING: u32 = 1;
         const STATUS_FAILED: u32 = 2;
@@ -426,6 +434,9 @@ pub mod server {
         #[link_name = "random_bytes"]
         fn turbo_os_random_bytes(ptr: *mut u8, len: usize) -> usize;
 
+        #[link_name = "secs_since_unix_epoch"]
+        fn turbo_os_secs_since_unix_epoch() -> u32;
+
         #[link_name = "get_user_id_len"]
         fn turbo_os_get_user_id_len() -> usize;
 
@@ -625,6 +636,10 @@ pub mod server {
         }};
     }
     pub use os_server_alert as alert;
+
+    pub fn secs_since_unix_epoch() -> u32 {
+        unsafe { turbo_os_secs_since_unix_epoch() }
+    }
 
     pub fn get_user_id() -> String {
         let mut user_id = vec![0; unsafe { turbo_os_get_user_id_len() }];

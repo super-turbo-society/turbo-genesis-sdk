@@ -105,6 +105,14 @@ pub struct Mouse<T: Copy> {
 impl Mouse<Button> {
     pub fn intersects(&self, x: i32, y: i32, w: u32, h: u32) -> bool {
         let [mx, my] = self.position;
+        let x0 = x;
+        let x1 = x + w as i32;
+        let y0 = y;
+        let y1 = y + h as i32;
+        mx >= x0 && mx < x1 && my >= y0 && my < y1
+    }
+    pub fn intersects_abs(&self, x: i32, y: i32, w: u32, h: u32) -> bool {
+        let [mx, my] = self.position;
         let [cw, ch] = canvas_size!();
         let (cx, cy, _cz) = cam!();
         let mx = (mx - cx) + (cw / 2) as i32;
