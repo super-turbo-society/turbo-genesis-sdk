@@ -477,6 +477,18 @@ pub mod server {
             data_ptr: *const u8,
             data_len: usize,
         ) -> usize;
+
+        #[link_name = "enqueue_command"]
+        fn turbo_os_enqueue_command(
+            program_id_ptr: *const u8,
+            program_id_len: usize,
+            command_ptr: *const u8,
+            command_len: usize,
+            data_ptr: *const u8,
+            data_len: usize,
+            nonce_ptr: *const u8,
+            delay: u32,
+        ) -> usize;
     }
 
     pub const COMMIT: usize = 0;
@@ -533,6 +545,146 @@ pub mod server {
     //         })
     //     }
     // }
+
+    pub fn secs_since_unix_epoch() -> u32 {
+        unsafe { turbo_os_secs_since_unix_epoch() }
+    }
+
+    pub fn get_user_id() -> String {
+        let mut user_id = vec![0; unsafe { turbo_os_get_user_id_len() }];
+        unsafe { turbo_os_get_user_id(user_id.as_mut_ptr()) };
+        String::from_utf8(user_id).expect("Invalid UTF-8 sequence")
+    }
+
+    pub fn get_command_data() -> Vec<u8> {
+        let mut input = vec![0; unsafe { turbo_os_get_input_data_len() }];
+        unsafe { turbo_os_get_input_data(input.as_mut_ptr()) };
+        input
+    }
+
+    pub fn parse_command_data<T: BorshDeserialize>() -> Result<T, std::io::Error> {
+        let mut input = vec![0; unsafe { turbo_os_get_input_data_len() }];
+        unsafe { turbo_os_get_input_data(input.as_mut_ptr()) };
+        T::try_from_slice(&input)
+    }
+
+    #[deprecated]
+    pub fn get_input_data() -> Vec<u8> {
+        get_command_data()
+    }
+
+    pub fn log(message: &str) {
+        unsafe { turbo_os_log(message.as_ptr(), message.len()) };
+    }
+
+    pub fn emit(event_type: &str, data: &[u8]) {
+        unsafe {
+            turbo_os_emit_event(
+                event_type.as_ptr(),
+                event_type.len(),
+                data.as_ptr(),
+                data.len(),
+            )
+        };
+    }
+
+    #[deprecated]
+    pub fn read_file_(filepath: &str) -> Result<Vec<u8>, &'static str> {
+        let mut data = vec![0; 8192];
+        let mut data_len = 0;
+        let err = unsafe {
+            turbo_os_read_file(
+                filepath.as_ptr(),
+                filepath.len(),
+                data.as_mut_ptr(),
+                &mut data_len,
+            )
+        };
+        if err != 0 {
+            log(&format!("No data for file {}", filepath));
+            return Err("File not found");
+        }
+        Ok(data[..data_len].to_vec())
+    }
+
+    pub fn read_file(filepath: &str) -> Result<Vec<u8>, std::io::Error> {
+        let mut data = vec![0; 8192];
+        let mut data_len = 0;
+        let err = unsafe {
+            turbo_os_read_file(
+                filepath.as_ptr(),
+                filepath.len(),
+                data.as_mut_ptr(),
+                &mut data_len,
+            )
+        };
+        if err != 0 {
+            return Err(std::io::Error::from(std::io::ErrorKind::NotFound));
+        }
+        Ok(data[..data_len].to_vec())
+    }
+
+    #[deprecated]
+    pub fn write_file_(filepath: &str, data: &[u8]) -> Result<(), &'static str> {
+        let err = unsafe {
+            turbo_os_write_file(filepath.as_ptr(), filepath.len(), data.as_ptr(), data.len())
+        };
+        if err != 0 {
+            log(&format!("Could not update file {}", filepath));
+            return Err("Failed to write file");
+        }
+        return Ok(());
+    }
+
+    pub fn write_file(filepath: &str, data: &[u8]) -> Result<usize, std::io::Error> {
+        let err = unsafe {
+            turbo_os_write_file(filepath.as_ptr(), filepath.len(), data.as_ptr(), data.len())
+        };
+        if err != 0 {
+            return Err(std::io::Error::from(std::io::ErrorKind::InvalidData));
+        }
+        return Ok(data.len());
+    }
+
+    pub fn enequeue_command(
+        program_id: &str,
+        command: &str,
+        data: &[u8],
+        nonce: u64,
+        delay: Option<u32>,
+    ) -> Result<String, std::io::Error> {
+        let err = unsafe {
+            turbo_os_enqueue_command(
+                program_id.as_ptr(),
+                program_id.len(),
+                command.as_ptr(),
+                command.len(),
+                data.as_ptr(),
+                data.len(),
+                nonce.to_le_bytes().as_ptr(),
+                delay.unwrap_or(0),
+            )
+        };
+        if err != 0 {
+            return Err(std::io::Error::from(std::io::ErrorKind::Other));
+        }
+        let b64_data = b64.encode(data);
+        let nonce_hex = format!("{:#x}", nonce).replace("0x", "");
+        let json = format!(
+            r#"{{"program_id":"{program_id}","command":"{command}","data":"{b64_data}","nonce":"{nonce_hex}"}}"#
+        );
+        let tx_hash = b64.encode(json);
+        return Ok(tx_hash);
+    }
+
+    pub fn random_number<T: Default + Copy>() -> T {
+        let len = std::mem::size_of::<T>();
+        let buf: &mut [u8; 32] = &mut [0u8; 32];
+        unsafe { turbo_os_random_bytes(buf.as_mut_ptr(), len) };
+        let mut arr = [0u8; 32];
+        arr[..len].copy_from_slice(&buf[..len]);
+        unsafe { std::ptr::read_unaligned(arr.as_ptr() as *const T) }
+    }
 
     #[macro_export]
     macro_rules! os_server_command {
@@ -636,111 +788,4 @@ pub mod server {
         }};
     }
     pub use os_server_alert as alert;
-
-    pub fn secs_since_unix_epoch() -> u32 {
-        unsafe { turbo_os_secs_since_unix_epoch() }
-    }
-
-    pub fn get_user_id() -> String {
-        let mut user_id = vec![0; unsafe { turbo_os_get_user_id_len() }];
-        unsafe { turbo_os_get_user_id(user_id.as_mut_ptr()) };
-        String::from_utf8(user_id).expect("Invalid UTF-8 sequence")
-    }
-
-    pub fn get_command_data() -> Vec<u8> {
-        let mut input = vec![0; unsafe { turbo_os_get_input_data_len() }];
-        unsafe { turbo_os_get_input_data(input.as_mut_ptr()) };
-        input
-    }
-
-    pub fn parse_command_data<T: BorshDeserialize>() -> Result<T, std::io::Error> {
-        let mut input = vec![0; unsafe { turbo_os_get_input_data_len() }];
-        unsafe { turbo_os_get_input_data(input.as_mut_ptr()) };
-        T::try_from_slice(&input)
-    }
-
-    #[deprecated]
-    pub fn get_input_data() -> Vec<u8> {
-        get_command_data()
-    }
-
-    pub fn log(message: &str) {
-        unsafe { turbo_os_log(message.as_ptr(), message.len()) };
-    }
-
-    pub fn emit(event_type: &str, data: &[u8]) {
-        unsafe {
-            turbo_os_emit_event(
-                event_type.as_ptr(),
-                event_type.len(),
-                data.as_ptr(),
-                data.len(),
-            )
-        };
-    }
-
-    pub fn read_file_(filepath: &str) -> Result<Vec<u8>, &'static str> {
-        let mut data = vec![0; 8192];
-        let mut data_len = 0;
-        let err = unsafe {
-            turbo_os_read_file(
-                filepath.as_ptr(),
-                filepath.len(),
-                data.as_mut_ptr(),
-                &mut data_len,
-            )
-        };
-        if err != 0 {
-            log(&format!("No data for file {}", filepath));
-            return Err("File not found");
-        }
-        Ok(data[..data_len].to_vec())
-    }
-
-    pub fn read_file(filepath: &str) -> Result<Vec<u8>, std::io::Error> {
-        let mut data = vec![0; 8192];
-        let mut data_len = 0;
-        let err = unsafe {
-            turbo_os_read_file(
-                filepath.as_ptr(),
-                filepath.len(),
-                data.as_mut_ptr(),
-                &mut data_len,
-            )
-        };
-        if err != 0 {
-            return Err(std::io::Error::from(std::io::ErrorKind::NotFound));
-        }
-        Ok(data[..data_len].to_vec())
-    }
-
-    pub fn write_file_(filepath: &str, data: &[u8]) -> Result<(), &'static str> {
-        let err = unsafe {
-            turbo_os_write_file(filepath.as_ptr(), filepath.len(), data.as_ptr(), data.len())
-        };
-        if err != 0 {
-            log(&format!("Could not update file {}", filepath));
-            return Err("Failed to write file");
-        }
-        return Ok(());
-    }
-
-    pub fn write_file(filepath: &str, data: &[u8]) -> Result<usize, std::io::Error> {
-        let err = unsafe {
-            turbo_os_write_file(filepath.as_ptr(), filepath.len(), data.as_ptr(), data.len())
-        };
-        if err != 0 {
-            return Err(std::io::Error::from(std::io::ErrorKind::InvalidData));
-        }
-        return Ok(data.len());
-    }
-
-    pub fn random_number<T: Default + Copy>() -> T {
-        let len = std::mem::size_of::<T>();
-        let buf: &mut [u8; 32] = &mut [0u8; 32];
-        unsafe { turbo_os_random_bytes(buf.as_mut_ptr(), len) };
-        let mut arr = [0u8; 32];
-        arr[..len].copy_from_slice(&buf[..len]);
-        unsafe { std::ptr::read_unaligned(arr.as_ptr() as *const T) }
-    }
 }
