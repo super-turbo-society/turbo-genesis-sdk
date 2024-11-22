@@ -526,6 +526,7 @@ pub mod client {
         res
     }
 
+    #[allow(deprecated)]
     #[deprecated(note = "please use `watch_file` instead")]
     pub fn read_file(program_id: &str, filepath: &str) -> Result<File, ReadError> {
         let query = "stream=true";
