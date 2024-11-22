@@ -455,10 +455,7 @@ pub mod client {
         res
     }
 
-    pub fn watch_file<'a, S: std::fmt::Display>(
-        program_id: &str,
-        filepath: &str,
-    ) -> QueryResult<ProgramFile> {
+    pub fn watch_file(program_id: &str, filepath: &str) -> QueryResult<ProgramFile> {
         watch_file_with_opts(program_id, filepath, &[("stream", "true")])
     }
 
