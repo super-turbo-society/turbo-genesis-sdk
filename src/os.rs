@@ -458,6 +458,13 @@ pub mod client {
     pub fn watch_file<'a, S: std::fmt::Display>(
         program_id: &str,
         filepath: &str,
+    ) -> QueryResult<ProgramFile> {
+        watch_file_with_opts(program_id, filepath, &[("stream", "true")])
+    }
+
+    pub fn watch_file_with_opts<'a, S: std::fmt::Display>(
+        program_id: &str,
+        filepath: &str,
         opts: &[(S, S)],
     ) -> QueryResult<ProgramFile> {
         let query = opts
