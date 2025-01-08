@@ -151,7 +151,7 @@ pub fn get_sprite_data(name: &str) -> Option<SpriteSourceData> {
         if prev_nonce >= nonce {
             return SPRITE_DATA.as_ref().unwrap().1.get(name).cloned();
         }
-        let mut data: [u8; 4096] = [0; 4096]; // up to 4kb sprite data
+        let mut data: [u8; 8192] = [0; 8192]; // up to 8kb sprite data
         let data_ptr = data.as_mut_ptr();
         let mut len = data.len() as u32;
         let len_ptr = &mut len;
