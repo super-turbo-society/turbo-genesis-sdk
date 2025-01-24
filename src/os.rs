@@ -746,7 +746,7 @@ pub mod server {
             data_len: usize,
         ) -> usize;
 
-        #[link_name = "channel_recv_with_timeout"]
+        #[link_name = "channel_recv"]
         fn turbo_os_channel_recv_with_timeout(
             msg_type_ptr: *mut u8,
             user_id_ptr: *mut u8,
