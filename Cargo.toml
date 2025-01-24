@@ -1,6 +1,6 @@
 [package]
 name = "turbo-genesis-sdk"
-version = "1.6.3"
+version = "1.7.0"
 description = "Turbo Genesis SDK"
 license = "MIT"
 authors = ["@jozanza (hello@jsavary.com)"]
@@ -23,4 +23,5 @@ solana-sdk = { version = ">=1.17,<2.0", optional = true }
 
 [features]
 no-host = []
+# prod = []
 solana = ["solana-sdk"]

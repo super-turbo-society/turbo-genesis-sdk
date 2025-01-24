@@ -669,6 +669,8 @@ pub mod client {
 }
 
 pub mod server {
+    use std::u32;
+
     use borsh::{BorshDeserialize, BorshSerialize};
 
     use super::*;
@@ -744,13 +746,14 @@ pub mod server {
             data_len: usize,
         ) -> usize;
 
-        #[link_name = "channel_recv"]
-        fn turbo_os_channel_recv(
+        #[link_name = "channel_recv_with_timeout"]
+        fn turbo_os_channel_recv_with_timeout(
             msg_type_ptr: *mut u8,
             user_id_ptr: *mut u8,
             user_id_len_ptr: *mut usize,
             data_ptr: *mut u8,
             data_len_ptr: *mut usize,
+            timeout_ms: u32,
         ) -> usize;
 
         #[link_name = "channel_send"]
@@ -983,19 +986,20 @@ pub mod server {
         }
     }
 
-    pub fn channel_recv() -> Result<ChannelMessage, ChannelError> {
+    pub fn channel_recv_with_timeout(timeout_ms: u32) -> Result<ChannelMessage, ChannelError> {
         let mut msg_type = 0;
         let mut user_id = [0; 128];
         let mut user_id_len = 0;
         let mut data = [0; 1024];
         let mut data_len = 0;
         let err = unsafe {
-            turbo_os_channel_recv(
+            turbo_os_channel_recv_with_timeout(
                 &mut msg_type,
                 user_id.as_mut_ptr(),
                 &mut user_id_len,
                 data.as_mut_ptr(),
                 &mut data_len,
+                timeout_ms,
             )
         };
         match err {
@@ -1011,8 +1015,14 @@ pub mod server {
                     _ => return Err(ChannelError::Unknown),
                 })
             }
+            4 => Err(ChannelError::AlreadyClosed),
+            5 => Err(ChannelError::Timeout),
             code => Err(ChannelError::Code(code as u8)),
         }
+    }
+
+    pub fn channel_recv() -> Result<ChannelMessage, ChannelError> {
+        channel_recv_with_timeout(u32::MAX)
     }
 
     pub fn channel_send(user_id: &str, data: &[u8]) -> bool {
