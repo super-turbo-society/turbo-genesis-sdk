@@ -96,6 +96,17 @@ macro_rules! set_cam {
 }
 
 #[macro_export]
+macro_rules! reset_cam {
+    () => {{
+        let (mut x, mut y, mut z) = $crate::canvas::get_camera2();
+        let [w, h] = crate::canvas_size!();
+        let x = (w / 2) as f32;
+        let y = (h / 2) as f32;
+        $crate::canvas::set_camera2(x, y, z)
+    }};
+}
+
+#[macro_export]
 macro_rules! move_cam {
     ($( $key:ident = $val:expr ),* $(,)*) => {{
         let mut x: f32 = 0.;
@@ -140,7 +151,7 @@ pub fn get_sprite_data(name: &str) -> Option<SpriteSourceData> {
         if prev_nonce >= nonce {
             return SPRITE_DATA.as_ref().unwrap().1.get(name).cloned();
         }
-        let mut data: [u8; 4096] = [0; 4096]; // up to 4kb sprite data
+        let mut data: [u8; 8192] = [0; 8192]; // up to 8kb sprite data
         let data_ptr = data.as_mut_ptr();
         let mut len = data.len() as u32;
         let len_ptr = &mut len;
@@ -243,7 +254,16 @@ macro_rules! sprite {
             let mut flip_y: bool = false;
             let mut fps: u32 = 0;
             let mut repeat: bool = false;
+            let mut absolute: bool = false;
             $($crate::paste::paste!{ [< $key >] = sprite!(@coerce $key, $val); })*
+
+            // Absolute positioning
+            if absolute {
+                let (cx, cy, _) = crate::cam!();
+                let [w, h] = crate::canvas_size!();
+                x += cx - (w as i32 / 2);
+                y += cy - (h as i32 / 2);
+            }
 
             // Initialize flags
             let mut flags: u32 = 0;
@@ -299,10 +319,19 @@ macro_rules! sprite {
 
             // Draw each frame at specified FPS
             if fps > 0 {
+                let (w, h) = (sprite_data.width, sprite_data.height);
+                let frames_len = if h > 0 && w % h == 0 && w / h > 1 {
+                    w / h
+                } else {
+                    1
+                };
+                let sw = if !custom_slice_width {
+                    let next_sw = default_sw / (frames_len as u32);
+                    if sw >= 0 { next_sw as i32 } else { next_sw as i32 * -1 }
+                } else { sw };
                 let abs_sw = sw.abs() as u32;
-                let frames_len = sprite_data.frames.len() as u32;
                 let frames_len = if custom_slice_width {
-                    (frames_len * sprite_data.width).checked_div(abs_sw).unwrap_or(1)
+                    (sprite_data.width).checked_div(abs_sw).unwrap_or(1)
                 } else {
                     frames_len
                 };
@@ -314,7 +343,7 @@ macro_rules! sprite {
                 let sy = sy + fy;
 
                 $crate::canvas::draw_sprite(
-                    x, y, dw, dh,
+                    x, y, abs_sw, sh.abs() as u32,
                     sx, sy, sw, sh, tx, ty,
                     color, background_color,
                     border_radius,
@@ -336,6 +365,7 @@ macro_rules! sprite {
 
                     // Adjust source width for frame
                     let sw = fw.min(sw.abs() as u32) as i32;
+                    let sw = if flip_x { sw * -1 } else { sw };
 
                     // Adjust destination width for frame
                     let dw = if repeat { dw } else if static_frames { dw / num_frames as u32 } else { dw.min(fw) };
@@ -379,6 +409,7 @@ macro_rules! sprite {
     (@coerce y, $val:expr) => { $val as i32; };
     (@coerce w, $val:expr) => { $val as u32; };
     (@coerce h, $val:expr) => { $val as u32; };
+    (@coerce absolute, $val:expr) => { $val as bool; };
 
     // Sprite slice position and size relative to spritesheet
     (@coerce sx, $val:expr) => { $val as u32; };
@@ -476,6 +507,187 @@ macro_rules! sprite_grid {
 }
 
 //------------------------------------------------------------------------------
+// 9 Slice
+//------------------------------------------------------------------------------
+
+#[macro_export]
+macro_rules! nine_slice {
+    ($name:expr) => {{
+        $crate::nine_slice!($name,)
+    }};
+    ($name:expr, $( $key:ident = $val:expr ),* $(,)*) => {{
+        if let Some(sprite_data) = &$crate::canvas::get_sprite_data($name) {
+            let mut x: i32 = 0;
+            let mut y: i32 = 0;
+            let mut w: u32 = 0;
+            let mut h: u32 = 0;
+            let mut slice_size: i32 = 0;
+            let mut absolute: bool = false;
+            let mut opacity: f32 = 1.0;
+
+            $($crate::paste::paste!{ [< $key >] = nine_slice!(@coerce $key, $val); })*
+
+            let mut sx: i32 = 0;
+            let mut sy: i32 = 0;
+            let mut sw: i32 = 0;
+            let mut sh: i32 = 0;
+            let mut w_origin: u32 = w;
+            let mut h_origin: u32 = h;
+
+            let mut x_origin: i32;
+            let mut y_origin: i32;
+            if absolute {
+                let (cx, cy, _) = crate::cam!();
+                let [w, h] = crate::canvas_size!();
+                x_origin = x + cx - (w as i32 / 2);
+                y_origin = y + cy - (h as i32 / 2);
+            } else {
+                x_origin = x;
+                y_origin = y;
+            }
+
+            sw = slice_size;
+            sh = slice_size;
+
+            // Center slice scaled
+            w = w_origin - (slice_size*2) as u32;
+            h = h_origin - (slice_size*2) as u32;
+            x = x_origin + slice_size;
+            y = y_origin + slice_size;
+            sx = slice_size;
+            sy = slice_size;
+            $crate::sprite!(
+                $name,
+                x = x,
+                y = y,
+                w = w,
+                h = h,
+                sx = sx,
+                sy = sy,
+                sw = sw,
+                sh = sh,
+                opacity = opacity,
+                repeat = true
+            );
+
+            // Top slice scaled
+            h = slice_size as u32;
+            y = y_origin;
+            sy = 0;
+            $crate::sprite!(
+                $name,
+                x = x, y = y,
+                w = w, h = h,
+                sx = sx, sy = sy,
+                sw = sw, sh = sh,
+                opacity = opacity,
+                repeat = true
+            );
+
+            // Bottom slice scaled
+            y = y_origin + h_origin as i32 - slice_size;
+            sy = 2 * slice_size;
+            $crate::sprite!(
+                $name,
+                x = x, y = y,
+                w = w, h = h,
+                sx = sx, sy = sy,
+                sw = sw, sh = sh,
+                opacity = opacity,
+                repeat = true
+            );
+
+            // Bottom left slice scaled
+            x = x_origin;
+            w = slice_size as u32;
+            sx = 0;
+            $crate::sprite!(
+                $name,
+                x = x, y = y,
+                w = w, h = h,
+                sx = sx, sy = sy,
+                sw = sw, sh = sh,
+                opacity = opacity,
+                repeat = true
+            );
+
+            // Bottom right slice scaled
+            x = x_origin + w_origin as i32 - slice_size;
+            sx = slice_size * 2;
+            $crate::sprite!(
+                $name,
+                x = x, y = y,
+                w = w, h = h,
+                sx = sx, sy = sy,
+                sw = sw, sh = sh,
+                opacity = opacity,
+                repeat = true
+            );
+
+            // Top right slice scaled
+            y = y_origin;
+            sy = 0;
+            $crate::sprite!(
+                $name,
+                x = x, y = y,
+                w = w, h = h,
+                sx = sx, sy = sy,
+                sw = sw, sh = sh,
+                opacity = opacity,
+                repeat = true
+            );
+
+            // Top left slice scaled
+            x = x_origin;
+            sx = 0;
+            $crate::sprite!(
+                $name,
+                x = x, y = y,
+                w = w, h = h,
+                sx = sx, sy = sy,
+                sw = sw, sh = sh,
+                opacity = opacity,
+                repeat = true
+            );
+
+            // Left slice scaled
+            y = y_origin + slice_size;
+            sy = slice_size;
+            h = h_origin - (slice_size * 2) as u32;
+            $crate::sprite!(
+                $name,
+                x = x, y = y,
+                w = w, h = h,
+                sx = sx, sy = sy,
+                sw = sw, sh = sh,
+                opacity = opacity,
+                repeat = true
+            );
+
+            // Right slice scaled
+            x = x_origin + w_origin as i32 - slice_size;
+            sx = slice_size * 2;
+            $crate::sprite!(
+                $name,
+                x = x, y = y,
+                w = w, h = h,
+                sx = sx, sy = sy,
+                sw = sw, sh = sh,
+                opacity = opacity,
+                repeat = true
+            );
+        }
+    }};
+    (@coerce x, $val:expr) => { $val as i32; };
+    (@coerce y, $val:expr) => { $val as i32; };
+    (@coerce w, $val:expr) => { $val as u32; };
+    (@coerce h, $val:expr) => { $val as u32; };
+    (@coerce slice_size, $val:expr) => { $val as i32; };
+    (@coerce absolute, $val:expr) => { $val as bool; };
+    (@coerce opacity, $val:expr) => { $val as f32; };
+}
+
+//------------------------------------------------------------------------------
 // Rectangle
 //------------------------------------------------------------------------------
 
@@ -521,8 +733,17 @@ macro_rules! rect {
         let mut rotate: i32 = 0;
         let mut scale_x: f32 = 1.0;
         let mut scale_y: f32 = 1.0;
+        let mut absolute: bool = false;
 
         $($crate::paste::paste!{ [< $key >] = rect!(@coerce $key, $val); })*
+
+        // Absolute positioning
+        if absolute {
+            let (cx, cy, _) = crate::cam!();
+            let [w, h] = crate::canvas_size!();
+            x += cx - (w as i32 / 2);
+            y += cy - (h as i32 / 2);
+        }
 
         w = (w as f32 * scale_x) as u32;
         h = (h as f32 * scale_y) as u32;
@@ -539,6 +760,7 @@ macro_rules! rect {
     (@coerce y, $val:expr) => { $val as i32; };
     (@coerce w, $val:expr) => { $val as u32; };
     (@coerce h, $val:expr) => { $val as u32; };
+    (@coerce absolute, $val:expr) => { $val as bool; };
     (@coerce border_radius, $val:expr) => { $val as u32; };
     (@coerce border_width, $val:expr) => { $val as u32; };
     (@coerce border_color, $val:expr) => { $val as u32; };
@@ -555,6 +777,7 @@ macro_rules! path {
         let mut color: u32 = 0xffffffff;
         let mut width: u32 = 1;
         let mut border_radius: u32 = 0;
+        let mut absolute: bool = false;
         $($crate::paste::paste!{ [< $key >] = path!(@coerce $key, $val); })*
 
         // Calculate differences and distance
@@ -567,8 +790,16 @@ macro_rules! path {
         let angle = ((delta_y).atan2(delta_x) * (180.0 / std::f64::consts::PI)) as i32;
 
         // Calculate the midpoint for placing the rectangle
-        let x = (start.0 + end.0) / 2;
-        let y = (start.1 + end.1) / 2;
+        let mut x = (start.0 + end.0) / 2;
+        let mut y = (start.1 + end.1) / 2;
+
+        // Absolute positioning
+        if absolute {
+            let (cx, cy, _) = crate::cam!();
+            let [w, h] = crate::canvas_size!();
+            x += cx - (w as i32 / 2);
+            y += cy - (h as i32 / 2);
+        }
 
         // Draw the rectangle as a thin line with rotation around its center
         $crate::canvas::draw_rect(
@@ -585,6 +816,7 @@ macro_rules! path {
     }};
     (@coerce start, $val:expr) => { ($val.0 as i32, $val.1 as i32); };
     (@coerce end, $val:expr) => { ($val.0 as i32, $val.1 as i32); };
+    (@coerce absolute, $val:expr) => { $val as bool; };
     (@coerce color, $val:expr) => { $val as u32; };
     (@coerce width, $val:expr) => { $val as u32; };
     (@coerce border_radius, $val:expr) => { $val as u32; };
@@ -606,7 +838,15 @@ macro_rules! circ {
         let mut rotate: i32 = 0;
         let mut scale_x: f32 = 1.0;
         let mut scale_y: f32 = 1.0;
+        let mut absolute: bool = false;
         $($crate::paste::paste!{ [< $key >] = circ!(@coerce $key, $val); })*
+        // Absolute positioning
+        if absolute {
+            let (cx, cy, _) = crate::cam!();
+            let [w, h] = crate::canvas_size!();
+            x += cx - (w as i32 / 2);
+            y += cy - (h as i32 / 2);
+        }
         let border_radius = d;
         let mut w = d;
         let mut h = d;
@@ -622,6 +862,7 @@ macro_rules! circ {
     (@coerce color, $val:expr) => { $val as u32; };
     (@coerce x, $val:expr) => { $val as i32; };
     (@coerce y, $val:expr) => { $val as i32; };
+    (@coerce absolute, $val:expr) => { $val as bool; };
     (@coerce d, $val:expr) => { $val as u32; };
     (@coerce border_width, $val:expr) => { $val as u32; };
     (@coerce border_color, $val:expr) => { $val as u32; };
@@ -647,7 +888,15 @@ macro_rules! ellipse {
         let mut rotate: i32 = 0;
         let mut scale_x: f32 = 1.0;
         let mut scale_y: f32 = 1.0;
+        let mut absolute: bool = false;
         $($crate::paste::paste!{ [< $key >] = ellipse!(@coerce $key, $val); })*
+        // Absolute positioning
+        if absolute {
+            let (cx, cy, _) = crate::cam!();
+            let [w, h] = crate::canvas_size!();
+            x += cx - (w as i32 / 2);
+            y += cy - (h as i32 / 2);
+        }
         w = (w as f32 * scale_x) as u32;
         h = (h as f32 * scale_y) as u32;
         let border_radius = w.max(h);
@@ -661,6 +910,7 @@ macro_rules! ellipse {
     (@coerce color, $val:expr) => { $val as u32; };
     (@coerce x, $val:expr) => { $val as i32; };
     (@coerce y, $val:expr) => { $val as i32; };
+    (@coerce absolute, $val:expr) => { $val as bool; };
     (@coerce w, $val:expr) => { $val as u32; };
     (@coerce h, $val:expr) => { $val as u32; };
     (@coerce border_width, $val:expr) => { $val as u32; };
@@ -714,7 +964,15 @@ macro_rules! text {
         let mut y: i32 = 0;
         let mut font: Font = Font::M;
         let mut color: u32 = 0xffffffff;
+        let mut absolute: bool = false;
         $($crate::paste::paste!{ [< $key >] = text!(@coerce $key, $val); })*
+        // Absolute positioning
+        if absolute {
+            let (cx, cy, _) = crate::cam!();
+            let [w, h] = crate::canvas_size!();
+            x += cx - (w as i32 / 2);
+            y += cy - (h as i32 / 2);
+        }
         $crate::canvas::text(x, y, font, color, $text)
     }};
     ($text:expr, $( $arg:expr ),* ; $( $key:ident = $val:expr ),* $(,)*) => {{
@@ -722,11 +980,20 @@ macro_rules! text {
         let mut y: i32 = 0;
         let mut font: Font = Font::M;
         let mut color: u32 = 0xffffffff;
+        let mut absolute: bool = false;
         $(paste::paste! { [< $key >] = text!(@coerce $key, $val); })*
+        // Absolute positioning
+        if absolute {
+            let (cx, cy, _) = crate::cam!();
+            let [w, h] = crate::canvas_size!();
+            x += cx - (w as i32 / 2);
+            y += cy - (h as i32 / 2);
+        }
         $crate::canvas::text(x, y, font, color, &format!($text, $($arg),*))
     }};
     (@coerce x, $val:expr) => { $val as i32; };
     (@coerce y, $val:expr) => { $val as i32; };
+    (@coerce absolute, $val:expr) => { $val as bool; };
     (@coerce font, $val:expr) => { $val as Font; };
     (@coerce color, $val:expr) => { $val as u32; };
 }
