@@ -1,6 +1,6 @@
 [package]
 name = "turbo-genesis-sdk"
-version = "1.7.1"
+version = "1.8.0"
 description = "Turbo Genesis SDK"
 license = "MIT"
 authors = ["@jozanza (hello@jsavary.com)"]
@@ -20,6 +20,7 @@ paste = "1.0.14"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 solana-sdk = { version = ">=1.17,<2.0", optional = true }
+num-traits = "0.2.19"
 
 [features]
 no-host = []

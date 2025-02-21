@@ -1,6 +1,9 @@
+#![allow(unused, static_mut_refs, unexpected_cfgs)]
+
 pub(crate) mod ffi;
 pub(crate) mod json;
 
+pub mod bounds;
 pub mod canvas;
 pub mod http;
 pub mod input;
@@ -16,12 +19,13 @@ pub use borsh;
 pub use paste;
 pub use structstruck;
 
+#[allow(unused_imports)]
 pub mod prelude {
+    pub use crate::bounds::*;
     pub use crate::canvas::*;
     pub use crate::input::*;
     pub use crate::println;
     pub use crate::sys::*;
-    #[allow(unused_imports)]
     pub use crate::tween::*;
     pub use crate::*;
 }
