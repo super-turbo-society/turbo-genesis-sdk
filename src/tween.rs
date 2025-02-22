@@ -1,4 +1,4 @@
-use crate::sys;
+use crate::{bounds::Bounds, sys};
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::ops::Add;
 
@@ -364,5 +364,22 @@ impl Interpolate<(u32, u32)> for (u32, u32) {
         let x = start.0 as f64 + (end.0 as f64 - start.0 as f64) * t;
         let y = start.1 as f64 + (end.1 as f64 - start.1 as f64) * t;
         (x as u32, y as u32)
+    }
+}
+
+/// Implements interpolation for `Bounds` so that a `Tween<Bounds>`
+/// can smoothly transition all its properties (x, y, w, h) over time.
+impl Interpolate<Bounds> for Bounds {
+    fn interpolate(t: f64, start: Bounds, end: Bounds) -> Bounds {
+        Bounds {
+            // Interpolate the x-coordinate (left position)
+            x: i32::interpolate(t, start.x, end.x),
+            // Interpolate the y-coordinate (top position)
+            y: i32::interpolate(t, start.y, end.y),
+            // Interpolate the width
+            w: u32::interpolate(t, start.w, end.w),
+            // Interpolate the height
+            h: u32::interpolate(t, start.h, end.h),
+        }
     }
 }

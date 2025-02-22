@@ -1,3 +1,5 @@
+use std::ops::Add;
+
 use crate::input::mouse;
 use borsh::{BorshDeserialize, BorshSerialize};
 use num_traits::NumCast;
@@ -12,11 +14,11 @@ use num_traits::NumCast;
 #[derive(Debug, Clone, Copy, Default, PartialEq, BorshDeserialize, BorshSerialize)]
 pub struct Bounds {
     // Top-left corner coordinates.
-    x: i32,
-    y: i32,
+    pub(crate) x: i32,
+    pub(crate) y: i32,
     // Width and height of the rectangle.
-    w: u32,
-    h: u32,
+    pub(crate) w: u32,
+    pub(crate) h: u32,
 }
 
 impl Bounds {
@@ -1178,5 +1180,17 @@ impl Bounds {
         F: FnOnce(Self) -> T,
     {
         f(self)
+    }
+}
+
+impl Add for Bounds {
+    type Output = Bounds;
+    fn add(self, rhs: Bounds) -> Bounds {
+        Bounds {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+            w: self.w + rhs.w,
+            h: self.h + rhs.h,
+        }
     }
 }
