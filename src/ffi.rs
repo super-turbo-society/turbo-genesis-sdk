@@ -1,104 +1,4 @@
 #[allow(unused)]
-pub(crate) mod internal {
-    use crate::binary_layout::prelude::*;
-
-    define_layout!(snapshot, LittleEndian, {
-        frame: u32,
-        resolution: [u8; 4],
-        input: snapshot_input::NestedView,
-        data: [u8], // open ended byte array, matches until the end of the packet
-    });
-
-    define_layout!(snapshot_input, LittleEndian, {
-        gamepad_p1: [u8; 10],
-        gamepad_p2: [u8; 10],
-        gamepad_p3: [u8; 10],
-        gamepad_p4: [u8; 10],
-    });
-
-    // Allocate a big buffer for reading/writing snapshot data
-    pub static mut SNAPSHOT_DATA: [u8; 10240] = [0; 10240];
-    pub static mut SNAPSHOT_DATA_SIZE: usize = 0;
-
-    pub fn write_snapshot(data: &[u8]) {
-        unsafe {
-            let size = data.len();
-            assert!(
-                size < SNAPSHOT_DATA.len(),
-                "Snapshot is too large (max size 10240 bytes)"
-            );
-            SNAPSHOT_DATA[0..size].copy_from_slice(data);
-            SNAPSHOT_DATA_SIZE = size;
-        }
-        std::println!("Frame {:?}", read_snapshot_frame());
-        let res = read_snapshot_resolution();
-        let x = res & 0xffff;
-        let y = res >> 16;
-        std::println!("Resolution {:?}", [x, y]);
-    }
-
-    pub fn read_snapshot() -> &'static [u8] {
-        unsafe { &SNAPSHOT_DATA[..SNAPSHOT_DATA_SIZE] }
-    }
-
-    pub fn read_snapshot_mut() -> &'static mut [u8] {
-        unsafe { &mut SNAPSHOT_DATA[..SNAPSHOT_DATA_SIZE] }
-    }
-
-    pub fn read_snapshot_frame() -> u32 {
-        unsafe {
-            let snapshot = read_snapshot();
-            let view = snapshot::View::new(snapshot);
-            view.frame().read()
-        }
-    }
-
-    pub fn read_snapshot_resolution() -> u32 {
-        unsafe {
-            let snapshot = read_snapshot();
-            let view = snapshot::View::new(snapshot);
-            let res = view.resolution();
-            u32::from_le_bytes(*view.resolution())
-        }
-    }
-
-    pub fn read_snapshot_gamepad(i: usize) -> [u8; 10] {
-        unsafe {
-            let snapshot = read_snapshot();
-            let view = snapshot::View::new(snapshot);
-            match i {
-                0 => *view.input().gamepad_p1(),
-                1 => *view.input().gamepad_p2(),
-                2 => *view.input().gamepad_p3(),
-                3 => *view.input().gamepad_p4(),
-                n => unreachable!("Snapshot gamepad out-of-range"),
-            }
-        }
-    }
-
-    pub fn write_snapshot_state(data: &[u8]) -> usize {
-        unsafe {
-            let snapshot = read_snapshot_mut();
-            let mut view = snapshot::View::new(snapshot);
-            view.data_mut()[..data.len()].copy_from_slice(data);
-            SNAPSHOT_DATA.len() - SNAPSHOT_DATA_SIZE
-        }
-    }
-
-    pub fn read_snapshot_state() -> Vec<u8> {
-        unsafe {
-            let snapshot = read_snapshot();
-            let view = snapshot::View::new(snapshot);
-            // On first frame, no snapshot state should exist
-            if view.frame().read() == 0 {
-                return vec![];
-            }
-            view.data().to_vec()
-        }
-    }
-}
-
-#[allow(unused)]
 pub mod sys {
 
     #[cfg(not(target_family = "wasm"))]
@@ -450,17 +350,126 @@ pub mod canvas {
     }
 
     #[cfg(not(target_family = "wasm"))]
-    pub fn text(x: i32, y: i32, font: u8, color: u32, ptr: *const u8, len: u32) {}
+    pub fn text(
+        x: i32,
+        y: i32,
+        color: u32,
+        font_name_ptr: *const u8,
+        font_name_len: u32,
+        text_ptr: *const u8,
+        text_len: u32,
+    ) {
+    }
     #[cfg(all(target_family = "wasm", feature = "no-host"))]
-    pub fn text(x: i32, y: i32, font: u8, color: u32, ptr: *const u8, len: u32) {}
+    pub fn text(
+        x: i32,
+        y: i32,
+        color: u32,
+        font_name_ptr: *const u8,
+        font_name_len: u32,
+        text_ptr: *const u8,
+        text_len: u32,
+    ) {
+    }
     #[cfg(all(target_family = "wasm", not(feature = "no-host")))]
-    pub fn text(x: i32, y: i32, font: u8, color: u32, ptr: *const u8, len: u32) {
+    pub fn text(
+        x: i32,
+        y: i32,
+        color: u32,
+        font_name_ptr: *const u8,
+        font_name_len: u32,
+        text_ptr: *const u8,
+        text_len: u32,
+    ) {
         unsafe {
             #[link(wasm_import_module = "@turbo_genesis/canvas")]
             extern "C" {
-                fn text(x: i32, y: i32, font: u8, color: u32, ptr: *const u8, len: u32);
+                fn text(
+                    x: i32,
+                    y: i32,
+                    color: u32,
+                    font_name_ptr: *const u8,
+                    font_name_len: u32,
+                    text_ptr: *const u8,
+                    text_len: u32,
+                );
             }
-            text(x, y, font, color, ptr, len)
+            text(
+                x,
+                y,
+                color,
+                font_name_ptr,
+                font_name_len,
+                text_ptr,
+                text_len,
+            )
+        }
+    }
+
+    #[cfg(not(target_family = "wasm"))]
+    pub fn text2(
+        x: i32,
+        y: i32,
+        color: u32,
+        scale: f32,
+        rotation: f32,
+        font_name_ptr: *const u8,
+        font_name_len: u32,
+        text_ptr: *const u8,
+        text_len: u32,
+    ) {
+    }
+    #[cfg(all(target_family = "wasm", feature = "no-host"))]
+    pub fn text2(
+        x: i32,
+        y: i32,
+        color: u32,
+        scale: f32,
+        rotation: f32,
+        font_name_ptr: *const u8,
+        font_name_len: u32,
+        text_ptr: *const u8,
+        text_len: u32,
+    ) {
+    }
+    #[cfg(all(target_family = "wasm", not(feature = "no-host")))]
+    pub fn text2(
+        x: i32,
+        y: i32,
+        color: u32,
+        scale: f32,
+        rotation: f32,
+        font_name_ptr: *const u8,
+        font_name_len: u32,
+        text_ptr: *const u8,
+        text_len: u32,
+    ) {
+        unsafe {
+            #[link(wasm_import_module = "@turbo_genesis/canvas")]
+            extern "C" {
+                fn text2(
+                    x: i32,
+                    y: i32,
+                    color: u32,
+                    scale: f32,
+                    rotation: f32,
+                    font_name_ptr: *const u8,
+                    font_name_len: u32,
+                    text_ptr: *const u8,
+                    text_len: u32,
+                );
+            }
+            text2(
+                x,
+                y,
+                color,
+                scale,
+                rotation,
+                font_name_ptr,
+                font_name_len,
+                text_ptr,
+                text_len,
+            )
         }
     }
 

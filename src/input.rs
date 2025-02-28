@@ -1,4 +1,4 @@
-use crate::{cam, canvas_size, ffi};
+use crate::ffi;
 
 pub fn gamepad(player: u32) -> Gamepad<Button> {
     let data = &mut [0; std::mem::size_of::<Gamepad<u8>>()];
@@ -100,29 +100,6 @@ pub struct Mouse<T: Copy> {
     pub wheel: [i32; 2],
     /// The position position.
     pub position: [i32; 2],
-}
-
-impl Mouse<Button> {
-    pub fn intersects(&self, x: i32, y: i32, w: u32, h: u32) -> bool {
-        let [mx, my] = self.position;
-        let x0 = x;
-        let x1 = x + w as i32;
-        let y0 = y;
-        let y1 = y + h as i32;
-        mx >= x0 && mx < x1 && my >= y0 && my < y1
-    }
-    pub fn intersects_abs(&self, x: i32, y: i32, w: u32, h: u32) -> bool {
-        let [mx, my] = self.position;
-        let [cw, ch] = canvas_size!();
-        let (cx, cy, _cz) = cam!();
-        let mx = (mx - cx) + (cw / 2) as i32;
-        let my = (my - cy) + (ch / 2) as i32;
-        let x0 = x;
-        let x1 = x + w as i32;
-        let y0 = y;
-        let y1 = y + h as i32;
-        mx >= x0 && mx < x1 && my >= y0 && my < y1
-    }
 }
 
 impl Into<Mouse<Button>> for Mouse<u8> {

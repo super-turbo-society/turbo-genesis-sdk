@@ -1,8 +1,7 @@
-use std::ops::Add;
-
 use crate::input::mouse;
 use borsh::{BorshDeserialize, BorshSerialize};
 use num_traits::NumCast;
+use std::ops::Add;
 
 //------------------------------------------------------------------------------
 // Bounds
@@ -24,7 +23,9 @@ pub struct Bounds {
 impl Bounds {
     /// Creates a new `Bounds` with the specified width and height,
     /// defaulting to the origin (0,0).
-    pub const fn with_size(w: u32, h: u32) -> Self {
+    pub fn with_size<W: NumCast, H: NumCast>(w: W, h: H) -> Self {
+        let w = NumCast::from(w).unwrap_or(0);
+        let h = NumCast::from(h).unwrap_or(0);
         Self { x: 0, y: 0, w, h }
     }
 
@@ -35,8 +36,8 @@ impl Bounds {
     /// This method is useful for immediate-mode rendering where the visible area of the scene
     /// must reflect both the current canvas dimensions and camera configuration.
     pub fn viewport() -> Self {
-        let [w, h] = crate::canvas_size!();
-        let (x, y, _z) = crate::cam!();
+        let (w, h) = crate::canvas::size();
+        let (x, y) = crate::canvas::camera::xy();
         Self {
             x: (x as f32 - (w as f32 / 2.)) as i32,
             y: (y as f32 - (h as f32 / 2.)) as i32,
@@ -47,7 +48,7 @@ impl Bounds {
 
     /// Returns `true` if the player touch or primary mouse cursor is currently over this bounds.
     /// It checks if the mouse position intersects with the rectangle defined by `self`.
-    pub fn is_hovered(&self) -> bool {
+    pub fn hovered(&self) -> bool {
         let [x, y] = mouse(0).position;
         self.intersects_position(x, y)
         // mouse(0).intersects(self.x, self.y, self.w, self.h)
@@ -55,20 +56,20 @@ impl Bounds {
 
     /// Returns `true` if the bounds is hovered and the player touch or left mouse button was just pressed.
     /// This is useful for detecting the initial press event on an interactive UI element.
-    pub fn is_just_pressed(&self) -> bool {
-        self.is_hovered() && mouse(0).left.just_pressed()
+    pub fn just_pressed(&self) -> bool {
+        self.hovered() && mouse(0).left.just_pressed()
     }
 
     /// Returns `true` if the bounds is hovered and the player touch or left mouse button was just released.
     /// This helps in detecting the release event over the element.
-    pub fn is_just_released(&self) -> bool {
-        self.is_hovered() && mouse(0).left.just_released()
+    pub fn just_released(&self) -> bool {
+        self.hovered() && mouse(0).left.just_released()
     }
 
     /// Returns `true` if the bounds is hovered and the player touch or left mouse button is currently pressed.
     /// This can be used for detecting a continuous press or drag action on the element.
-    pub fn is_pressed(&self) -> bool {
-        self.is_hovered() && mouse(0).left.pressed()
+    pub fn pressed(&self) -> bool {
+        self.hovered() && mouse(0).left.pressed()
     }
 
     /// Returns the current position (x, y) of the top-left corner.
@@ -156,6 +157,17 @@ impl Bounds {
         self
     }
 
+    /// Sets the position (top-left corner) of the bounds.
+    ///
+    /// # Parameters
+    /// - `x`: The new x-coordinate.
+    /// - `y`: The new y-coordinate.
+    pub fn position_xy<X: NumCast, Y: NumCast>(mut self, pos: (X, Y)) -> Self {
+        self.x = NumCast::from(pos.0).unwrap_or(0);
+        self.y = NumCast::from(pos.1).unwrap_or(0);
+        self
+    }
+
     /// Sets the size of the bounds.
     ///
     /// # Parameters
@@ -224,17 +236,6 @@ impl Bounds {
         let delta: i32 = NumCast::from(delta).unwrap_or(0);
         let new_height = self.h as i32 + delta;
         self.h = new_height.max(0) as u32;
-        self
-    }
-
-    /// Sets the position (top-left corner) of the bounds.
-    ///
-    /// # Parameters
-    /// - `x`: The new x-coordinate.
-    /// - `y`: The new y-coordinate.
-    pub fn at_position<X: NumCast, Y: NumCast>(mut self, pos: (X, Y)) -> Self {
-        self.x = NumCast::from(pos.0).unwrap_or(0);
-        self.y = NumCast::from(pos.1).unwrap_or(0);
         self
     }
 
@@ -401,6 +402,16 @@ impl Bounds {
             self.left() + (self.w as i32) / 2,
             self.top() + (self.h as i32) / 2,
         )
+    }
+
+    /// Returns the center x position of the bounds.
+    pub const fn center_x(&self) -> i32 {
+        self.left() + (self.w as i32) / 2
+    }
+
+    /// Returns the center y position of the bounds.
+    pub const fn center_y(&self) -> i32 {
+        self.top() + (self.h as i32) / 2
     }
 
     /// Scales the bounds uniformly by a factor.
@@ -743,6 +754,17 @@ impl Bounds {
         }
     }
 
+    /// Anchors the current bounds to the bottom edge of the container.
+    /// The returned bounds maintains the same size and original horizontal position.
+    pub fn anchor_bottom(&self, container: &Self) -> Self {
+        Self {
+            x: self.x,
+            y: container.y + container.h as i32 - self.h as i32,
+            w: self.w,
+            h: self.h,
+        }
+    }
+
     /// Positions the current bounds at the center of the provided container bounds.
     /// Returns a new `Bounds` with the same dimensions, repositioned to be centered.
     ///
@@ -787,17 +809,6 @@ impl Bounds {
         Self {
             x: self.x,
             y: new_y,
-            w: self.w,
-            h: self.h,
-        }
-    }
-
-    /// Anchors the current bounds to the bottom edge of the container.
-    /// The returned bounds maintains the same size and original horizontal position.
-    pub fn anchor_bottom(&self, container: &Self) -> Self {
-        Self {
-            x: self.x,
-            y: container.y + container.h as i32 - self.h as i32,
             w: self.w,
             h: self.h,
         }

@@ -1,6 +1,6 @@
 [package]
 name = "turbo-genesis-sdk"
-version = "1.8.1"
+version = "2.0.0-alpha.0"
 description = "Turbo Genesis SDK"
 license = "MIT"
 authors = ["@jozanza (hello@jsavary.com)"]
@@ -11,18 +11,17 @@ repository = "https://github.com/super-turbo-society/turbo-genesis-sdk"
 crate-type = ["lib"]
 
 [dependencies]
-base64 = "0.21.2"
-binary-layout = "3.2.0"
+base64 = "0.22.1"
 borsh = "<1.0"
 bytemuck = { version = "1.15.0", features = ["derive"] }
 structstruck = "0.4.1"
-paste = "1.0.14"
-serde = { version = "1", features = ["derive"] }
+paste = "1.0.15"
+serde = { version = "1.0.217", features = ["derive"] }
 serde_json = "1"
-solana-sdk = { version = ">=1.17,<2.0", optional = true }
+solana-sdk = { version = "1.18.26", optional = true }
+toml = "0.8.19"
 num-traits = "0.2.19"
 
 [features]
 no-host = []
-# prod = []
 solana = ["solana-sdk"]

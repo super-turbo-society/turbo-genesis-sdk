@@ -1,5 +1,3 @@
-#![allow(deprecated)]
-
 use super::*;
 use base64::{
     engine::general_purpose::{STANDARD as b64, URL_SAFE_NO_PAD as b64_url_safe},
@@ -46,50 +44,6 @@ pub struct QueryResult<T> {
     pub loading: bool,
     pub data: Option<T>,
     pub error: Option<String>,
-}
-
-#[deprecated(note = "newer methods use `std::io::Error` instead")]
-#[derive(Debug, Clone)]
-pub enum ReadError {
-    Loading,
-    NetworkError,
-    NotFound,
-    ParsingError(String),
-}
-impl ReadError {
-    pub fn to_string(&self) -> String {
-        format!("{:?}", self)
-    }
-}
-
-pub type ReadFileError = ReadError;
-
-#[deprecated(note = "newer methods use `ProgramFile` instead")]
-#[derive(Debug, Clone)]
-pub struct File {
-    pub path: String,
-    pub checksum: String, // base64
-    pub contents: Vec<u8>,
-    pub created_at: u32,
-    pub updated_at: u32,
-    pub prev_txn_hash: Option<String>,
-    pub txn_hash: String, // base64
-    pub version: u32,
-}
-impl File {
-    // type Error = ReadError;
-    pub fn new(contents: &[u8]) -> Self {
-        Self {
-            path: "".to_string(),
-            checksum: "".to_string(),
-            contents: contents.to_vec(),
-            created_at: 0,
-            updated_at: 0,
-            prev_txn_hash: None,
-            txn_hash: "".to_string(), // base64
-            version: 0,
-        }
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -528,115 +482,6 @@ pub mod client {
         res
     }
 
-    #[deprecated(note = "please use `watch_file` instead")]
-    pub fn read_file(program_id: &str, filepath: &str) -> Result<File, ReadError> {
-        let query = "stream=true";
-        let data = &mut [0; 8192];
-        let mut data_len = 0;
-        let err = &mut [0; 1024];
-        let mut err_len = 0;
-        let ok = unsafe {
-            turbo_genesis_read_file(
-                program_id.as_ptr(),
-                program_id.len() as u32,
-                filepath.as_ptr(),
-                filepath.len() as u32,
-                query.as_ptr(),
-                query.len() as u32,
-                data.as_mut_ptr(),
-                &mut data_len,
-                err.as_mut_ptr(),
-                &mut err_len,
-            )
-        };
-
-        // Read file was unsuccessful
-        if ok != 0 {
-            return Err(ReadError::NetworkError);
-        }
-
-        // No file data
-        if data_len == 0 {
-            // TODO: disambiguate NotFound and Loading
-            return Err(ReadError::NotFound);
-        }
-
-        // Read the file data
-        let body = data.get(..data_len as usize).ok_or_else(|| {
-            ReadError::ParsingError("Could not read file data response body".to_string())
-        })?;
-
-        // Parse response body as JSON
-        let json_str =
-            std::str::from_utf8(body).map_err(|err| ReadError::ParsingError(err.to_string()))?;
-        let json_value = json::parse(json_str);
-        let json = json_value
-            .as_object()
-            .map_err(|err| ReadError::ParsingError(err.to_string()))?;
-
-        // Parse contents
-        let contents_str = json
-            .get("contents")
-            .ok_or_else(|| ReadError::ParsingError("Could not read file contents".to_string()))?
-            .as_str()
-            .map_err(|err| ReadError::ParsingError(err.to_string()))?;
-        let contents = b64
-            .decode(contents_str)
-            .map_err(|err| ReadError::ParsingError(err.to_string()))?;
-
-        // Initialize file with contents
-        let mut file = File::new(&contents);
-
-        // Set filepath
-        file.path = filepath.to_string();
-
-        // Set checksum
-        file.checksum = json
-            .get("checksum")
-            .ok_or_else(|| ReadError::ParsingError("Could not read file checksum".to_string()))?
-            .as_string()
-            .map_err(|err| ReadError::ParsingError(err.to_string()))?;
-
-        // Set created at
-        file.created_at = json
-            .get("created_at")
-            .ok_or_else(|| ReadError::ParsingError("Could not read file created_at".to_string()))?
-            .as_u32()
-            .map_err(|err| ReadError::ParsingError(err.to_string()))?;
-
-        // Set updated at
-        file.updated_at = json
-            .get("updated_at")
-            .ok_or_else(|| ReadError::ParsingError("Could not read file updated_at".to_string()))?
-            .as_u32()
-            .map_err(|err| ReadError::ParsingError(err.to_string()))?;
-
-        // Set previous transaction hash
-        file.prev_txn_hash = json
-            .get("prev_txn_hash")
-            .ok_or_else(|| {
-                ReadError::ParsingError("Could not read file prev_txn_hash".to_string())
-            })?
-            .as_option(|a| a.as_string())
-            .map_err(|err| ReadError::ParsingError(err.to_string()))?;
-
-        // Set transaction hash
-        file.txn_hash = json
-            .get("txn_hash")
-            .ok_or_else(|| ReadError::ParsingError("Could not read file txn_hash".to_string()))?
-            .as_string()
-            .map_err(|err| ReadError::ParsingError(err.to_string()))?;
-
-        // Set version
-        file.version = json
-            .get("version")
-            .ok_or_else(|| ReadError::ParsingError("Could not read file version".to_string()))?
-            .as_u32()
-            .map_err(|err| ReadError::ParsingError(err.to_string()))?;
-
-        return Ok(file);
-    }
-
     pub fn exec(program_id: &str, command: &str, data: &[u8]) -> String {
         let tx_hash_url_safe_b64 = &mut [0; 43]; // url-safe, no-pad
         let _ok = unsafe {
@@ -880,25 +725,6 @@ pub mod server {
         };
     }
 
-    #[deprecated]
-    pub fn read_file_(filepath: &str) -> Result<Vec<u8>, &'static str> {
-        let mut data = vec![0; 8192];
-        let mut data_len = 0;
-        let err = unsafe {
-            turbo_os_read_file(
-                filepath.as_ptr(),
-                filepath.len(),
-                data.as_mut_ptr(),
-                &mut data_len,
-            )
-        };
-        if err != 0 {
-            log(&format!("No data for file {}", filepath));
-            return Err("File not found");
-        }
-        Ok(data[..data_len].to_vec())
-    }
-
     pub fn read_file(filepath: &str) -> Result<Vec<u8>, std::io::Error> {
         let mut data = vec![0; 8192];
         let mut data_len = 0;
@@ -914,18 +740,6 @@ pub mod server {
             return Err(std::io::Error::from(std::io::ErrorKind::NotFound));
         }
         Ok(data[..data_len].to_vec())
-    }
-
-    #[deprecated]
-    pub fn write_file_(filepath: &str, data: &[u8]) -> Result<(), &'static str> {
-        let err = unsafe {
-            turbo_os_write_file(filepath.as_ptr(), filepath.len(), data.as_ptr(), data.len())
-        };
-        if err != 0 {
-            log(&format!("Could not update file {}", filepath));
-            return Err("Failed to write file");
-        }
-        return Ok(());
     }
 
     pub fn write_file(filepath: &str, data: &[u8]) -> Result<usize, std::io::Error> {

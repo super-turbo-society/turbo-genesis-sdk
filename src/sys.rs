@@ -39,6 +39,7 @@ pub fn save(data: &[u8]) -> Result<i32, i32> {
     Ok(n)
 }
 
+#[allow(static_mut_refs)]
 pub fn load() -> Result<&'static [u8], i32> {
     unsafe {
         // Allocate a big buffer for reading/writing save data
@@ -46,7 +47,6 @@ pub fn load() -> Result<&'static [u8], i32> {
         let ptr = TURBO_SAVE_DATA.as_mut_ptr();
         let mut len = 0;
         let n = ffi::sys::load(ptr, &mut len);
-        // crate::println!("len: {}", len);
         // If n is < 0, it's an error code
         if n < 0 {
             return Err(n);

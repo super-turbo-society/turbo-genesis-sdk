@@ -1,7 +1,6 @@
 #![allow(unused, static_mut_refs, unexpected_cfgs)]
 
 pub(crate) mod ffi;
-pub(crate) mod json;
 
 pub mod bounds;
 pub mod canvas;
@@ -14,13 +13,15 @@ pub mod tween;
 #[cfg(feature = "solana")]
 pub mod solana;
 
-pub use binary_layout;
 pub use borsh;
 pub use paste;
 pub use structstruck;
+pub use toml;
 
 #[allow(unused_imports)]
 pub mod prelude {
+    pub use crate::bounds::*;
+    #[allow(unused_imports)]
     pub use crate::bounds::*;
     pub use crate::canvas::*;
     pub use crate::input::*;
@@ -30,24 +31,22 @@ pub mod prelude {
     pub use crate::*;
 }
 
-pub fn run_snapshot(snapshot_data: &[u8], run: impl FnOnce()) -> Vec<u8> {
-    ffi::internal::write_snapshot(snapshot_data);
-    run();
-    ffi::internal::read_snapshot_state()
-}
-
 #[macro_export]
 macro_rules! println {
-    ($fmt:expr $(, $($arg:tt)*)?) => { $crate::sys::log(&format!($fmt, $($($arg)*)?)) };
+    ($fmt:expr $(, $($arg:tt)*)?) => {
+        $crate::sys::log(&format!($fmt, $($($arg)*)?))
+    };
 }
 
 #[macro_export]
-macro_rules! cfg {
-    ($toml:expr) => {
+macro_rules! config {
+    ($($data:tt)*) => {
         #[no_mangle]
         pub unsafe extern "C" fn config() -> u64 {
-            let ptr = $toml.as_ptr() as u64;
-            let len = $toml.len() as u64;
+            use $crate::toml;
+            let t = toml::toml!($($data)*).to_string();
+            let ptr = t.as_ptr() as u64;
+            let len = t.len() as u64;
             (len << 32 | ptr)
         }
     };
@@ -65,21 +64,38 @@ macro_rules! init {
                 $($fields)*
             }
         }
+
+        #[cfg(not(turbo_hot_reload))]
+        static mut GAME_STATE: Option<$StructName> = None;
+
+        #[cfg(not(turbo_hot_reload))]
         impl $StructName {
             pub fn default() -> Self {
                 $default
             }
             pub fn load() -> Self {
-                let state = $crate::sys::load()
-                    .and_then(|xs| $StructName::try_from_slice(&xs).map_err(|err| -1))
-                    .unwrap_or_else(|_| $default);
-                std::println!("Loaded {:?}", state);
-                state
+                unsafe { GAME_STATE.take().unwrap_or_else(Self::default) }
             }
-            pub fn save(&self) -> bool {
+            pub fn save(self) -> bool {
+                unsafe { GAME_STATE = Some(self) };
+                true
+            }
+        }
+
+        #[cfg(turbo_hot_reload)]
+        impl $StructName {
+            pub fn default() -> Self {
+                $default
+            }
+            pub fn load() -> Self {
+                match $crate::sys::load() {
+                    Ok(bytes) => $StructName::try_from_slice(&bytes).unwrap_or_else(|_| Self::default()),
+                    Err(_) => Self::default()
+                }
+            }
+            pub fn save(self) -> bool {
                 if let Ok(bytes) = $StructName::try_to_vec(&self) {
                     if let Ok(_) = $crate::sys::save(&bytes) {
-                        std::println!("Saved {:?}", self);
                         return true;
                     }
                 }
@@ -94,19 +110,15 @@ macro_rules! go {
     ($($body:tt)*) => {
         use $crate::prelude::*;
 
-        #[cfg(not(no_run))]
+        #[cfg(not(turbo_no_run))]
         #[no_mangle]
         #[allow(overflowing_literals, non_upper_case_globals)]
         pub unsafe extern "C" fn run() {
             use std::f32::consts::PI;
             $($body)*
         }
-        #[cfg(not(no_run))]
-        pub fn run_snapshot(snapshot_data: &[u8]) -> Vec<u8> {
-            $crate::run_snapshot(snapshot_data, || unsafe { run() })
-        }
 
-        #[cfg(no_run)]
+        #[cfg(turbo_no_run)]
         #[allow(overflowing_literals, non_upper_case_globals)]
         unsafe fn run() {
             use std::f32::consts::PI;
