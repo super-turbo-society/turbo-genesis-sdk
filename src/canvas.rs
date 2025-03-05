@@ -881,6 +881,11 @@ pub mod animation {
             }
         }
 
+        // Gets the current frame of the animation
+        pub fn get_frame(&self) -> Option<usize> {
+            self.props.map(|p| p.frame)
+        }
+
         /// Retrieves a sprite instance for the given name, updating animation properties if needed.
         /// If the sprite's properties don't match the name, they are updated.
         pub fn sprite<'a>(&mut self, name: &'a str) -> Sprite<'a> {
@@ -4375,6 +4380,7 @@ mod macros {
             // 3. Draw it!
             sprite.draw();
         }};
+        (@set $sprite:ident, animation, $val:expr) => { $sprite.frame($val.get_frame().unwrap_or(0)) };
         (@set $sprite:ident, x, $val:expr) => { $sprite.position_x($val) };
         (@set $sprite:ident, y, $val:expr) => { $sprite.position_y($val) };
         (@set $sprite:ident, xy, $val:expr) => { $sprite.position_xy($val) };
