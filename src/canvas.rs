@@ -1634,6 +1634,13 @@ pub mod sprite {
             self.props = self.props.frame(frame);
         }
 
+        /// Uses an animation key to set the sprite's animation frame
+        pub fn animation_key(mut self, animation_key: &str) -> Self {
+            let sprite = crate::canvas::animation(animation_key).sprite(self.name);
+            self.props.frame = sprite.props.frame;
+            self
+        }
+
         // Draws the sprite
         pub fn draw(&self) {
             // Attempt to retrieve sprite source data using the sprite's name.
@@ -4380,7 +4387,6 @@ mod macros {
             // 3. Draw it!
             sprite.draw();
         }};
-        (@set $sprite:ident, animation, $val:expr) => { $sprite.frame($val.get_frame().unwrap_or(0)) };
         (@set $sprite:ident, x, $val:expr) => { $sprite.position_x($val) };
         (@set $sprite:ident, y, $val:expr) => { $sprite.position_y($val) };
         (@set $sprite:ident, xy, $val:expr) => { $sprite.position_xy($val) };
