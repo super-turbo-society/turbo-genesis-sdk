@@ -766,6 +766,11 @@ pub mod animation {
             )
         }
 
+        /// Returns true if the animation has completed its target loop count or has not yet started.
+        pub fn done(&self) -> bool {
+            self.props.as_ref().map_or(true, SpriteAnimationProps::done)
+        }
+
         /// Sets the animation's direction.
         pub fn set_direction(&mut self, direction: SpriteAnimationDirection) {
             if let Some(props) = &mut self.props {
