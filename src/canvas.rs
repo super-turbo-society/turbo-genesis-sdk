@@ -400,6 +400,11 @@ pub mod animation {
             self.repeat
         }
 
+        /// Returns the current frame.
+        pub fn frame(&self) -> usize {
+            self.frame
+        }
+
         /// Sets the repeat count for the animation.
         pub fn set_repeat(&mut self, repeat: usize) {
             self.repeat = repeat;
@@ -886,14 +891,13 @@ pub mod animation {
             }
         }
 
-        // Gets the current frame of the animation
-        pub fn get_frame(&self) -> Option<usize> {
+        /// Gets the current frame of the animation.
+        pub fn frame(&self) -> Option<usize> {
             self.props.map(|p| p.frame)
         }
 
-        /// Retrieves a sprite instance for the given name, updating animation properties if needed.
-        /// If the sprite's properties don't match the name, they are updated.
-        pub fn sprite<'a>(&mut self, name: &'a str) -> Sprite<'a> {
+        /// Updates the animation with data based on the given sprite key.
+        pub fn set_sprite(&mut self, name: &str) {
             let sprite_id = utils::hash::fnv1a(name.as_bytes());
             // Insert new properties if they are missing.
             let props = self.props.get_or_insert_with(|| {
@@ -904,12 +908,17 @@ pub mod animation {
             if props.sprite_id != sprite_id {
                 if let Some(next_props) = SpriteAnimationProps::from_sprite_name(name) {
                     *props = next_props;
-                } else {
-                    return sprite(name);
                 }
             }
+        }
+
+        /// Retrieves a sprite instance for the given name, updating animation properties if needed.
+        /// If the sprite's properties don't match the name, they are updated.
+        pub fn sprite<'a>(&mut self, name: &'a str) -> Sprite<'a> {
+            // Update the animation with sprite data.
+            self.set_sprite(name);
             // Return a sprite with the current frame from the animation properties.
-            return sprite(name).frame(props.frame);
+            return sprite(name).frame(self.props.as_ref().map_or(0, SpriteAnimationProps::frame));
         }
     }
 }
