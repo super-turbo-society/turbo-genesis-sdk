@@ -194,13 +194,14 @@ pub mod camera {
     }
 
     /// Moves the camera in the x direction by the specified delta.
-    pub fn move_x<X: NumCast>(delta_x: f32) {
-        // Since delta_x is already f32, we simply add it to the current x.
+    pub fn move_x<X: NumCast>(delta_x: X) {
+        let delta_x: f32 = NumCast::from(delta_x).unwrap_or(0.0);
         set_x(x() + delta_x);
     }
 
     /// Moves the camera in the y direction by the specified delta.
-    pub fn move_y<Y: NumCast>(delta_y: f32) {
+    pub fn move_y<Y: NumCast>(delta_y: Y) {
+        let delta_y: f32 = NumCast::from(delta_y).unwrap_or(0.0);
         set_y(y() + delta_y);
     }
 
@@ -257,18 +258,6 @@ pub mod camera {
         reset_z()
     }
 
-    /// Centers the camera on a given target point (target_x, target_y).
-    /// This function moves the camera so that the target appears at the center of the viewport.
-    pub fn focus<X: NumCast, Y: NumCast>(target_x: X, target_y: Y) {
-        let target_x: f32 = NumCast::from(target_x).unwrap_or(0.0);
-        let target_y: f32 = NumCast::from(target_y).unwrap_or(0.0);
-        let (w, h) = super::size();
-        // Calculate the camera's new x and y so that the target is centered.
-        let x = target_x - (w as f32 / 2.0);
-        let y = target_y - (h as f32 / 2.0);
-        set_xyz(x, y, z());
-    }
-
     /// Centers the camera on a target rectangle defined by (x, y, w, h).
     /// This function computes the center of the rectangle and then calls `focus`
     /// so that the camera centers on that point.
@@ -285,7 +274,7 @@ pub mod camera {
         let target_x = x + w / 2.0;
         let target_y = y + h / 2.0;
         // Center the camera on the computed target center.
-        focus(target_x, target_y);
+        set_xy(target_x, target_y);
     }
 }
 
@@ -635,7 +624,7 @@ pub mod animation {
             }
 
             // If a repeat limit is set and the number of iterations reaches or exceeds it, mark the animation as done.
-            if self.repeat > 0 && self.iterations >= self.repeat {
+            if self.iterations > 0 && self.iterations >= self.repeat {
                 self.done = true;
                 // Determine the final frame based on both direction and the fill_forwards flag.
                 self.frame = match (self.direction, self.fill_forwards) {
@@ -897,7 +886,7 @@ pub mod animation {
         }
 
         /// Updates the animation with data based on the given sprite key.
-        pub fn set_sprite(&mut self, name: &str) {
+        pub fn set_sprite_name(&mut self, name: &str) {
             let sprite_id = utils::hash::fnv1a(name.as_bytes());
             // Insert new properties if they are missing.
             let props = self.props.get_or_insert_with(|| {
@@ -912,11 +901,21 @@ pub mod animation {
             }
         }
 
-        /// Retrieves a sprite instance for the given name, updating animation properties if needed.
+        /// Gets the current sprite name of the animation. Returns and empty str if no sprite is set.
+        pub fn sprite_name<'a>(&self) -> &'a str {
+            return self
+                .props
+                .and_then(|props| utils::hash::lookup_fnv1a(props.sprite_id))
+                .map(std::str::from_utf8)
+                .and_then(Result::ok)
+                .unwrap_or_default();
+        }
+
+        /// Retrieves a sprite instance with its current sprite name.
         /// If the sprite's properties don't match the name, they are updated.
-        pub fn sprite<'a>(&mut self, name: &'a str) -> Sprite<'a> {
+        pub fn sprite<'a>(&self) -> Sprite<'a> {
             // Update the animation with sprite data.
-            self.set_sprite(name);
+            let name = self.sprite_name();
             // Return a sprite with the current frame from the animation properties.
             return sprite(name).frame(self.props.as_ref().map_or(0, SpriteAnimationProps::frame));
         }
@@ -1650,7 +1649,7 @@ pub mod sprite {
 
         /// Uses an animation key to set the sprite's animation frame
         pub fn animation_key(mut self, animation_key: &str) -> Self {
-            let sprite = crate::canvas::animation(animation_key).sprite(self.name);
+            let sprite = crate::canvas::animation(animation_key).sprite();
             self.props.frame = sprite.props.frame;
             self
         }
@@ -4392,7 +4391,25 @@ mod macros {
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __sprite__ {
-        ($name:expr) => {{ $crate::__sprite__!($name,) }};
+        (animation_key = $anim:expr) => {{ $crate::canvas::animation($anim).sprite().draw() }};
+        (animation_key = $anim:expr, $( $key:ident = $val:expr ),* $(,)*) => {{
+            // 1. Make a sprite with the given name
+            let mut sprite = $crate::canvas::animation($anim).sprite();
+            // 2. For each key-value pair, call the corresponding method on the sprite.
+            $(sprite = __sprite__!(@set sprite, $key, $val);)*
+            // 3. Draw it!
+            sprite.draw();
+        }};
+        (animation = $anim:expr) => {{ $anim.sprite().draw() }};
+        (animation = $anim:expr, $( $key:ident = $val:expr ),* $(,)*) => {{
+            // 1. Make a sprite with the given name
+            let mut sprite = $anim.sprite();
+            // 2. For each key-value pair, call the corresponding method on the sprite.
+            $(sprite = __sprite__!(@set sprite, $key, $val);)*
+            // 3. Draw it!
+            sprite.draw();
+        }};
+        ($name:expr) => {{ $crate::canvas::__sprite__!($name,) }};
         ($name:expr, $( $key:ident = $val:expr ),* $(,)*) => {{
             // 1. Make a sprite with the given name
             let mut sprite = $crate::canvas::sprite($name);
