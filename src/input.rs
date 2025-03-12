@@ -14,6 +14,41 @@ pub fn mouse(player: u32) -> Mouse<Button> {
     mouse.into()
 }
 
+pub fn pointer(player: u32) -> Pointer {
+    let data = &mut [0; std::mem::size_of::<Mouse<u8>>()];
+    ffi::input::mouse(player.into(), data.as_mut_ptr());
+    let mouse: Mouse<Button> = mouse(player).into();
+    Pointer {
+        x: mouse.position[0],
+        y: mouse.position[1],
+        state: mouse.left,
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Pointer {
+    /// The x position of the mouse cursor or most recent touch event
+    pub x: i32,
+    /// The y position of the mouse cursor or most recent touch event
+    pub y: i32,
+    /// The state of the left mouse button or touch
+    state: Button,
+}
+impl Pointer {
+    pub fn pressed(&self) -> bool {
+        self.state.pressed()
+    }
+    pub fn just_pressed(&self) -> bool {
+        self.state.just_pressed()
+    }
+    pub fn released(&self) -> bool {
+        self.state.released()
+    }
+    pub fn just_released(&self) -> bool {
+        self.state.just_released()
+    }
+}
+
 /// Represents the state of an input (controller or mouse button) at a given moment.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Button {

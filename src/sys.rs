@@ -1,5 +1,10 @@
 use crate::ffi;
 
+#[macro_export]
+macro_rules! log {
+    ($fmt:expr $(, $($arg:tt)*)?) => { $crate::sys::log(&format!($fmt, $($($arg)*)?)) };
+}
+
 pub fn tick() -> usize {
     ffi::sys::tick() as usize
 }
@@ -12,19 +17,6 @@ pub fn log(text: &str) {
     let ptr = text.as_ptr();
     let len = text.len() as u32;
     ffi::sys::log(ptr, len)
-}
-
-#[macro_export]
-macro_rules! log {
-    ($fmt:expr $(, $($arg:tt)*)?) => { $crate::sys::log(&format!($fmt, $($($arg)*)?)) };
-}
-
-/// @deprecated - use $crate::canvas::canvas_size
-pub fn resolution() -> [u32; 2] {
-    let res = ffi::sys::resolution();
-    let w = res & 0xffff;
-    let h = res >> 16;
-    [w, h]
 }
 
 pub fn save(data: &[u8]) -> Result<i32, i32> {
@@ -63,6 +55,27 @@ pub mod time {
                 fn millis_since_unix_epoch() -> u64;
             }
             millis_since_unix_epoch()
+        }
+    }
+}
+
+pub mod env {
+    use super::*;
+    #[allow(static_mut_refs)]
+    pub fn get(key: &str) -> String {
+        unsafe {
+            let key_ptr = key.as_ptr();
+            let key_len = key.len() as u32;
+            // Env data limit 1024 bytes
+            let mut data = [0; 1024];
+            let out_var_ptr = data.as_mut_ptr();
+            let mut out_var_len = 0;
+            ffi::sys::env_get(key_ptr, key_len, out_var_ptr, &mut out_var_len);
+            if out_var_len == 0 {
+                return String::new();
+            }
+            let s = String::from_utf8(data[..(out_var_len as usize)].to_vec()).unwrap_or_default();
+            s
         }
     }
 }

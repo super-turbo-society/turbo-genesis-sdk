@@ -56,6 +56,30 @@ pub mod sys {
     }
 
     #[cfg(not(target_family = "wasm"))]
+    pub fn env_get(key_ptr: *const u8, key_len: u32, out_var_ptr: *mut u8, out_var_len: *mut u32) -> u32 {
+        0
+    }
+    #[cfg(all(target_family = "wasm", feature = "no-host"))]
+    pub fn env_get(key_ptr: *const u8, key_len: u32, out_var_ptr: *mut u8, out_var_len: *mut u32) -> u32 {
+        0
+    }
+    #[cfg(all(target_family = "wasm", not(feature = "no-host")))]
+    pub fn env_get(key_ptr: *const u8, key_len: u32, out_var_ptr: *mut u8, out_var_len: *mut u32) -> u32 {
+        unsafe {
+            #[link(wasm_import_module = "@turbo_genesis/sys")]
+            extern "C" {
+                fn env_get(
+                    key_ptr: *const u8,
+                    key_len: u32,
+                    out_var_ptr: *mut u8,
+                    out_var_len: *mut u32,
+                ) -> u32;
+            }
+            env_get(key_ptr, key_len, out_var_ptr, out_var_len)
+        }
+    }
+
+    #[cfg(not(target_family = "wasm"))]
     pub fn resolution() -> u32 {
         0
     }

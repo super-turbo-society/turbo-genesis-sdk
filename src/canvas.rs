@@ -71,7 +71,7 @@ pub fn bounds() -> Bounds {
 /// The resolution is fetched from the system as a single integer:
 /// - The lower 16 bits represent the width.
 /// - The upper bits (shifted right 16) represent the height.
-pub fn size() -> (u32, u32) {
+pub fn resolution() -> (u32, u32) {
     let res = crate::ffi::sys::resolution();
     let w = res & 0xffff; // Extract the lower 16 bits for width.
     let h = res >> 16; // Extract the upper bits for height.
@@ -79,15 +79,13 @@ pub fn size() -> (u32, u32) {
 }
 
 /// Returns the current width of the screen.
-/// This is extracted from the tuple returned by `size()`.
 pub fn width() -> u32 {
-    size().0
+    resolution().0
 }
 
 /// Returns the current height of the screen.
-/// This is extracted from the tuple returned by `size()`.
 pub fn height() -> u32 {
-    size().1
+    resolution().1
 }
 
 /// Clears the canvas using the specified color.
@@ -219,10 +217,10 @@ pub mod camera {
     /// Resets the camera's x and y position to the center of the viewport.
     /// The screen size is obtained from the parent module.
     pub fn reset() {
-        let (w, h) = super::size();
+        let (w, h) = super::resolution();
         let x = (w / 2) as f32;
         let y = (h / 2) as f32;
-        set_xyz(x, y, z())
+        set_xyz(x, y, 1.)
     }
 
     /// Resets the camera's x coordinate to the horizontal center of the screen.
@@ -239,7 +237,7 @@ pub mod camera {
 
     /// Resets both the camera's x and y coordinates to the center of the screen.
     pub fn reset_xy() {
-        let (w, h) = super::size();
+        let (w, h) = super::resolution();
         let x = (w / 2) as f32;
         let y = (h / 2) as f32;
         set_xy(x, y)
@@ -247,7 +245,7 @@ pub mod camera {
 
     /// Resets the camera's z coordinate (zoom) to 1.0 while keeping x and y centered.
     pub fn reset_z() {
-        let (w, h) = super::size();
+        let (w, h) = super::resolution();
         let x = (w / 2) as f32;
         let y = (h / 2) as f32;
         set_xyz(x, y, 1.0)
@@ -1672,7 +1670,7 @@ pub mod sprite {
             // If absolute positioning is enabled, adjust coordinates relative to the camera.
             if self.props.absolute {
                 let (cx, cy) = crate::canvas::camera::xy(); // Retrieve camera coordinates.
-                let (w, h) = crate::canvas::size(); // Get canvas dimensions.
+                let (w, h) = crate::canvas::resolution(); // Get canvas dimensions.
                 dx += cx as i32 - (w as i32 / 2); // Center the sprite horizontally.
                 dy += cy as i32 - (h as i32 / 2); // Center the sprite vertically.
             }
@@ -2679,7 +2677,7 @@ pub mod rect {
             // If absolute positioning is enabled, adjust coordinates relative to the camera.
             if self.quad.absolute {
                 let (cx, cy) = crate::canvas::camera::xy(); // Retrieve camera coordinates.
-                let (w, h) = crate::canvas::size(); // Get canvas dimensions.
+                let (w, h) = crate::canvas::resolution(); // Get canvas dimensions.
                 dx += cx as i32 - (w as i32 / 2); // Center the sprite horizontally.
                 dy += cy as i32 - (h as i32 / 2); // Center the sprite vertically.
             }
@@ -3053,7 +3051,7 @@ pub mod ellipse {
             // If absolute positioning is enabled, adjust coordinates relative to the camera.
             if self.quad.absolute {
                 let (cx, cy) = crate::canvas::camera::xy(); // Retrieve camera coordinates.
-                let (w, h) = crate::canvas::size(); // Get canvas dimensions.
+                let (w, h) = crate::canvas::resolution(); // Get canvas dimensions.
                 dx += cx as i32 - (w as i32 / 2); // Center the sprite horizontally.
                 dy += cy as i32 - (h as i32 / 2); // Center the sprite vertically.
             }
@@ -3354,7 +3352,7 @@ pub mod circ {
             // If absolute positioning is enabled, adjust coordinates relative to the camera.
             if self.quad.absolute {
                 let (cx, cy) = crate::canvas::camera::xy(); // Retrieve camera coordinates.
-                let (w, h) = crate::canvas::size(); // Get canvas dimensions.
+                let (w, h) = crate::canvas::resolution(); // Get canvas dimensions.
                 dx += cx as i32 - (w as i32 / 2); // Center the sprite horizontally.
                 dy += cy as i32 - (h as i32 / 2); // Center the sprite vertically.
             }
@@ -3768,7 +3766,7 @@ pub mod line {
             // If absolute positioning is enabled, adjust coordinates relative to the camera.
             if self.quad.absolute {
                 let (cx, cy) = crate::canvas::camera::xy(); // Retrieve camera coordinates.
-                let (w, h) = crate::canvas::size(); // Get canvas dimensions.
+                let (w, h) = crate::canvas::resolution(); // Get canvas dimensions.
                 dx += cx as i32 - (w as i32 / 2); // Center the sprite horizontally.
                 dy += cy as i32 - (h as i32 / 2); // Center the sprite vertically.
             }
@@ -4096,7 +4094,7 @@ pub mod text {
             // If absolute positioning is enabled, adjust coordinates relative to the camera.
             if self.quad.absolute {
                 let (cx, cy) = crate::canvas::camera::xy(); // Retrieve camera coordinates.
-                let (w, h) = crate::canvas::size(); // Get canvas dimensions.
+                let (w, h) = crate::canvas::resolution(); // Get canvas dimensions.
                 dx += cx as i32 - (w as i32 / 2); // Center the sprite horizontally.
                 dy += cy as i32 - (h as i32 / 2); // Center the sprite vertically.
             }
@@ -4409,10 +4407,14 @@ mod macros {
             // 3. Draw it!
             sprite.draw();
         }};
-        ($name:expr) => {{ $crate::canvas::__sprite__!($name,) }};
+        ($name:expr) => {{
+            let name = $name;
+            $crate::canvas::__sprite__!(name)
+        }};
         ($name:expr, $( $key:ident = $val:expr ),* $(,)*) => {{
             // 1. Make a sprite with the given name
-            let mut sprite = $crate::canvas::sprite($name);
+            let name = $name;
+            let mut sprite = $crate::canvas::sprite(name);
             // 2. For each key-value pair, call the corresponding method on the sprite.
             $(sprite = __sprite__!(@set sprite, $key, $val);)*
             // 3. Draw it!

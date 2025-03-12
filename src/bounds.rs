@@ -36,7 +36,7 @@ impl Bounds {
     /// This method is useful for immediate-mode rendering where the visible area of the scene
     /// must reflect both the current canvas dimensions and camera configuration.
     pub fn viewport() -> Self {
-        let (w, h) = crate::canvas::size();
+        let (w, h) = crate::canvas::resolution();
         let (x, y) = crate::canvas::camera::xy();
         Self {
             x: (x as f32 - (w as f32 / 2.)) as i32,
