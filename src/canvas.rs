@@ -38,13 +38,13 @@ pub fn circ<D: NumCast + Copy>(d: D) -> circ::Circle {
 /// The coordinates are converted using `NumCast`.
 /// Note: The generic type parameters represent the coordinate types.
 /// (There is a potential typo in the type parameters for start_y and end_x.)
-pub fn line<X0: NumCast + Copy, Y0: NumCast + Copy, X1: NumCast + Copy, Y1: NumCast + Copy>(
+pub fn path<X0: NumCast + Copy, Y0: NumCast + Copy, X1: NumCast + Copy, Y1: NumCast + Copy>(
     start_x: X0,
     start_y: Y0,
     end_x: X1,
     end_y: Y1,
-) -> line::Line {
-    line::Line::new()
+) -> path::Path {
+    path::Path::new()
         .start_position(start_x, start_y)
         .end_position(end_x, end_y)
 }
@@ -63,8 +63,12 @@ pub fn animation(key: &str) -> &mut animation::SpriteAnimation {
 
 /// Returns the current viewport bounds.
 /// This is typically used to get the canvas or screen boundaries.
-pub fn bounds() -> Bounds {
-    Bounds::viewport()
+pub fn viewport() -> Bounds {
+    let (w, h) = crate::canvas::resolution();
+    let (x, y) = crate::canvas::camera::xy();
+    let x = (x as f32 - (w as f32 / 2.)) as i32;
+    let y = (y as f32 - (h as f32 / 2.)) as i32;
+    Bounds::new(x, y, w, h)
 }
 
 /// Returns the current resolution as a tuple (width, height).
@@ -78,16 +82,6 @@ pub fn resolution() -> (u32, u32) {
     (w, h)
 }
 
-/// Returns the current width of the screen.
-pub fn width() -> u32 {
-    resolution().0
-}
-
-/// Returns the current height of the screen.
-pub fn height() -> u32 {
-    resolution().1
-}
-
 /// Clears the canvas using the specified color.
 /// The `color` is a packed big-endian RGBA value (e.g., `0x000000ff` is black).
 pub fn clear(color: u32) {
@@ -99,6 +93,8 @@ pub fn clear(color: u32) {
 //------------------------------------------------------------------------------
 pub mod camera {
     use num_traits::NumCast;
+
+    use crate::bounds::Bounds;
 
     /// Retrieves the current camera position as an (x, y, z) tuple.
     /// The values are filled by calling the FFI function `get_camera2`.
@@ -217,7 +213,7 @@ pub mod camera {
     /// Resets the camera's x and y position to the center of the viewport.
     /// The screen size is obtained from the parent module.
     pub fn reset() {
-        let (w, h) = super::resolution();
+        let (w, h) = crate::canvas::resolution();
         let x = (w / 2) as f32;
         let y = (h / 2) as f32;
         set_xyz(x, y, 1.)
@@ -225,19 +221,19 @@ pub mod camera {
 
     /// Resets the camera's x coordinate to the horizontal center of the screen.
     pub fn reset_x() {
-        let x = (super::width() / 2) as f32;
+        let x = (crate::canvas::resolution().0 / 2) as f32;
         set_x(x)
     }
 
     /// Resets the camera's y coordinate to the vertical center of the screen.
     pub fn reset_y() {
-        let y = (super::height() / 2) as f32;
+        let y = (crate::canvas::resolution().1 / 2) as f32;
         set_y(y)
     }
 
     /// Resets both the camera's x and y coordinates to the center of the screen.
     pub fn reset_xy() {
-        let (w, h) = super::resolution();
+        let (w, h) = crate::canvas::resolution();
         let x = (w / 2) as f32;
         let y = (h / 2) as f32;
         set_xy(x, y)
@@ -245,7 +241,7 @@ pub mod camera {
 
     /// Resets the camera's z coordinate (zoom) to 1.0 while keeping x and y centered.
     pub fn reset_z() {
-        let (w, h) = super::resolution();
+        let (w, h) = crate::canvas::resolution();
         let x = (w / 2) as f32;
         let y = (h / 2) as f32;
         set_xyz(x, y, 1.0)
@@ -257,8 +253,6 @@ pub mod camera {
     }
 
     /// Centers the camera on a target rectangle defined by (x, y, w, h).
-    /// This function computes the center of the rectangle and then calls `focus`
-    /// so that the camera centers on that point.
     ///
     /// # Parameters
     /// - `x`, `y`: The top-left coordinates of the target rectangle.
@@ -268,6 +262,19 @@ pub mod camera {
         let y: f32 = NumCast::from(y).unwrap_or(0.0);
         let w: f32 = NumCast::from(w).unwrap_or(0.0);
         let h: f32 = NumCast::from(h).unwrap_or(0.0);
+        // Compute the center of the target rectangle.
+        let target_x = x + w / 2.0;
+        let target_y = y + h / 2.0;
+        // Center the camera on the computed target center.
+        set_xy(target_x, target_y);
+    }
+
+    /// Centers the camera on a target Bounds.
+    pub fn focus_bounds(bounds: &Bounds) {
+        let x = bounds.x as f32;
+        let y = bounds.y as f32;
+        let w = bounds.w as f32;
+        let h = bounds.h as f32;
         // Compute the center of the target rectangle.
         let target_x = x + w / 2.0;
         let target_y = y + h / 2.0;
@@ -3383,13 +3390,13 @@ pub mod circ {
 //------------------------------------------------------------------------------
 // LINE
 //------------------------------------------------------------------------------
-pub mod line {
+pub mod path {
     use super::*;
     use num_traits::NumCast;
 
     /// A builder-style line type.
     #[derive(Debug, Clone, Copy)]
-    pub struct Line {
+    pub struct Path {
         start: (i32, i32),
         end: (i32, i32),
         width: u32,
@@ -3397,7 +3404,7 @@ pub mod line {
         quad: Quad,
     }
 
-    impl Line {
+    impl Path {
         /// Creates a new line with default properties.
         pub fn new() -> Self {
             Self {
@@ -4569,7 +4576,7 @@ mod macros {
     macro_rules! __line__ {
         ($( $key:ident = $val:expr ),* $(,)*) => {{
             // 1. Make a line
-            let mut line = $crate::canvas::line::Line::new();
+            let mut line = $crate::canvas::path::Path::new();
             // 2. For each key-value pair, call the corresponding method on the line.
             $(line = __line__!(@set line, $key, $val);)*
             // 3. Draw it!

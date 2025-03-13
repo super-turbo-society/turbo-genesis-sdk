@@ -21,29 +21,21 @@ pub struct Bounds {
 }
 
 impl Bounds {
+    /// Creates a new `Bounds` with the specified position and size,
+    pub fn new<X: NumCast, Y: NumCast, W: NumCast, H: NumCast>(x: X, y: Y, w: W, h: H) -> Self {
+        let x = NumCast::from(x).unwrap_or(0);
+        let y = NumCast::from(y).unwrap_or(0);
+        let w = NumCast::from(w).unwrap_or(0);
+        let h = NumCast::from(h).unwrap_or(0);
+        Self { x, y, w, h }
+    }
+
     /// Creates a new `Bounds` with the specified width and height,
     /// defaulting to the origin (0,0).
     pub fn with_size<W: NumCast, H: NumCast>(w: W, h: H) -> Self {
         let w = NumCast::from(w).unwrap_or(0);
         let h = NumCast::from(h).unwrap_or(0);
         Self { x: 0, y: 0, w, h }
-    }
-
-    /// Constructs a `Bounds` representing the current viewport.
-    ///
-    /// The viewport is computed from the canvas size and the camera's position
-    ///
-    /// This method is useful for immediate-mode rendering where the visible area of the scene
-    /// must reflect both the current canvas dimensions and camera configuration.
-    pub fn viewport() -> Self {
-        let (w, h) = crate::canvas::resolution();
-        let (x, y) = crate::canvas::camera::xy();
-        Self {
-            x: (x as f32 - (w as f32 / 2.)) as i32,
-            y: (y as f32 - (h as f32 / 2.)) as i32,
-            w,
-            h,
-        }
     }
 
     /// Returns `true` if the player touch or primary mouse cursor is currently over this bounds.
