@@ -1654,7 +1654,7 @@ pub mod sprite {
 
         /// Uses an animation key to set the sprite's animation frame
         pub fn animation_key(mut self, animation_key: &str) -> Self {
-            let sprite = crate::canvas::animation(animation_key).sprite();
+            let sprite = crate::canvas::animation::key(animation_key).sprite();
             self.props.frame = sprite.props.frame;
             self
         }
@@ -4396,10 +4396,10 @@ mod macros {
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __sprite__ {
-        (animation_key = $anim:expr) => {{ $crate::canvas::animation($anim).sprite().draw() }};
+        (animation_key = $anim:expr) => {{ $crate::canvas::animation::key($anim).sprite().draw() }};
         (animation_key = $anim:expr, $( $key:ident = $val:expr ),* $(,)*) => {{
             // 1. Make a sprite with the given name
-            let mut sprite = $crate::canvas::animation($anim).sprite();
+            let mut sprite = $crate::canvas::animation::key($anim).sprite();
             // 2. For each key-value pair, call the corresponding method on the sprite.
             $(sprite = __sprite__!(@set sprite, $key, $val);)*
             // 3. Draw it!
