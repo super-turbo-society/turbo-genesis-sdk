@@ -1,6 +1,6 @@
 [package]
 name = "turbo-genesis-sdk"
-version = "2.0.0-alpha.8"
+version = "2.0.0-alpha.9"
 description = "Turbo Genesis SDK"
 license = "MIT"
 authors = ["@jozanza (hello@jsavary.com)"]
@@ -15,7 +15,6 @@ base64 = "0.22.1"
 borsh = "<=0.10.3"
 bytemuck = { version = "1.15.0", features = ["derive"] }
 structstruck = "0.4.1"
-paste = "1.0.15"
 serde = { version = "1.0.217", features = ["derive"] }
 serde_json = "1"
 solana-sdk = { version = "1.18.26", optional = true }

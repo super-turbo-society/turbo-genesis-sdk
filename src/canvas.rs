@@ -55,12 +55,6 @@ pub fn text(string: &str) -> text::Text {
     text::Text::new(string)
 }
 
-/// Retrieves (or creates if not present) a sprite animation associated with the given key.
-/// This ensures that an animation exists in the global animation map.
-pub fn animation(key: &str) -> &mut animation::SpriteAnimation {
-    animation::SpriteAnimation::get_or_insert(key)
-}
-
 /// Returns the current viewport bounds.
 /// This is typically used to get the canvas or screen boundaries.
 pub fn viewport() -> Bounds {
@@ -291,6 +285,12 @@ pub mod animation {
     use sprite::Sprite;
     use std::collections::BTreeMap;
     use utils::sprite::{SpriteAnimationDirection, SpriteAnimationFrame};
+
+    /// Retrieves (or creates if not present) a sprite animation associated with the given key.
+    /// This ensures that an animation exists in the global animation map.
+    pub fn key(key: &str) -> &mut SpriteAnimation {
+        SpriteAnimation::get_or_insert(key)
+    }
 
     static mut TURBO_ANIMATIONS: BTreeMap<u64, SpriteAnimation> = BTreeMap::new();
     static mut TURBO_ANIMATIONS_LAST_GC_AT: usize = 0;

@@ -14,7 +14,6 @@ pub mod tween;
 pub mod solana;
 
 pub use borsh;
-pub use paste;
 pub use structstruck;
 pub use toml;
 
