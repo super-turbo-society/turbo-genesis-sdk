@@ -7,45 +7,14 @@ pub fn gamepad(player: u32) -> Gamepad<Button> {
     gamepad.into()
 }
 
-pub fn mouse(player: u32) -> Mouse<Button> {
+pub fn pointer() -> Pointer {
     let data = &mut [0; std::mem::size_of::<Mouse<u8>>()];
-    ffi::input::mouse(player.into(), data.as_mut_ptr());
-    let mouse: Mouse<u8> = *bytemuck::from_bytes(data);
-    mouse.into()
-}
-
-pub fn pointer(player: u32) -> Pointer {
-    let data = &mut [0; std::mem::size_of::<Mouse<u8>>()];
-    ffi::input::mouse(player.into(), data.as_mut_ptr());
-    let mouse: Mouse<Button> = mouse(player).into();
+    ffi::input::mouse(0, data.as_mut_ptr());
+    let mouse: Mouse<Button> = mouse(0).into();
     Pointer {
         x: mouse.position[0],
         y: mouse.position[1],
         state: mouse.left,
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Pointer {
-    /// The x position of the mouse cursor or most recent touch event
-    pub x: i32,
-    /// The y position of the mouse cursor or most recent touch event
-    pub y: i32,
-    /// The state of the left mouse button or touch
-    state: Button,
-}
-impl Pointer {
-    pub fn pressed(&self) -> bool {
-        self.state.pressed()
-    }
-    pub fn just_pressed(&self) -> bool {
-        self.state.just_pressed()
-    }
-    pub fn released(&self) -> bool {
-        self.state.released()
-    }
-    pub fn just_released(&self) -> bool {
-        self.state.just_released()
     }
 }
 
@@ -123,43 +92,6 @@ impl Button {
     }
 }
 
-/// Represents the state of the left and right mouse buttons.
-#[repr(C, packed)]
-#[derive(Clone, Copy, Debug, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct Mouse<T: Copy> {
-    /// The state of the left mouse button.
-    pub left: T,
-    /// The state of the right mouse button.
-    pub right: T,
-    /// The mouse wheel delta.
-    pub wheel: [i32; 2],
-    /// The position position.
-    pub position: [i32; 2],
-}
-
-impl Into<Mouse<Button>> for Mouse<u8> {
-    fn into(self) -> Mouse<Button> {
-        Mouse {
-            left: self.left.into(),
-            right: self.right.into(),
-            wheel: self.wheel,
-            position: self.position,
-        }
-    }
-}
-
-impl Into<Mouse<u8>> for Mouse<Button> {
-    /// Converts Mouse<Button> into Mouse<u8>.
-    fn into(self) -> Mouse<u8> {
-        Mouse {
-            left: self.left.into(),
-            right: self.right.into(),
-            wheel: self.wheel,
-            position: self.position,
-        }
-    }
-}
-
 /// Represents the state of various gamepad buttons.
 #[repr(C, packed)]
 #[derive(Clone, Copy, Debug, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
@@ -217,6 +149,80 @@ impl Into<Gamepad<u8>> for Gamepad<Button> {
             y: self.y.into(),
             start: self.start.into(),
             select: self.select.into(),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Pointer {
+    /// The x position of the mouse cursor or most recent touch event
+    pub x: i32,
+    /// The y position of the mouse cursor or most recent touch event
+    pub y: i32,
+    /// The state of the left mouse button or touch
+    state: Button,
+}
+impl Pointer {
+    pub fn pressed(&self) -> bool {
+        self.state.pressed()
+    }
+    pub fn just_pressed(&self) -> bool {
+        self.state.just_pressed()
+    }
+    pub fn released(&self) -> bool {
+        self.state.released()
+    }
+    pub fn just_released(&self) -> bool {
+        self.state.just_released()
+    }
+}
+
+//------------------------------------------------------------------------------
+// Everything below is deprecated and needs to get removed
+//------------------------------------------------------------------------------
+
+#[deprecated = "The Mouse API will be removed in a future version. Use the Pointer API."]
+pub fn mouse(player: u32) -> Mouse<Button> {
+    let data = &mut [0; std::mem::size_of::<Mouse<u8>>()];
+    ffi::input::mouse(player.into(), data.as_mut_ptr());
+    let mouse: Mouse<u8> = *bytemuck::from_bytes(data);
+    mouse.into()
+}
+
+/// Represents the state of the left and right mouse buttons.
+#[deprecated = "The Mouse API will be removed in a future version. Use the Pointer API."]
+#[repr(C, packed)]
+#[derive(Clone, Copy, Debug, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct Mouse<T: Copy> {
+    /// The state of the left mouse button.
+    pub left: T,
+    /// The state of the right mouse button.
+    pub right: T,
+    /// The mouse wheel delta.
+    pub wheel: [i32; 2],
+    /// The position position.
+    pub position: [i32; 2],
+}
+
+impl Into<Mouse<Button>> for Mouse<u8> {
+    fn into(self) -> Mouse<Button> {
+        Mouse {
+            left: self.left.into(),
+            right: self.right.into(),
+            wheel: self.wheel,
+            position: self.position,
+        }
+    }
+}
+
+impl Into<Mouse<u8>> for Mouse<Button> {
+    /// Converts Mouse<Button> into Mouse<u8>.
+    fn into(self) -> Mouse<u8> {
+        Mouse {
+            left: self.left.into(),
+            right: self.right.into(),
+            wheel: self.wheel,
+            position: self.position,
         }
     }
 }
