@@ -777,4 +777,53 @@ pub mod canvas {
             );
         }
     }
+
+    #[cfg(not(target_family = "wasm"))]
+    pub fn set_surface_shader(key_ptr: *const u8, key_len: u32) {}
+    #[cfg(all(target_family = "wasm", feature = "no-host"))]
+    pub fn set_surface_shader(key_ptr: *const u8, key_len: u32) {}
+    #[cfg(all(target_family = "wasm", not(feature = "no-host")))]
+    pub fn set_surface_shader(key_ptr: *const u8, key_len: u32) {
+        unsafe {
+            #[link(wasm_import_module = "@turbo_genesis/canvas")]
+            extern "C" {
+                fn set_surface_shader(key_ptr: *const u8, key_len: u32) -> u32;
+            }
+            set_surface_shader(key_ptr, key_len);
+        }
+    }
+
+    #[cfg(not(target_family = "wasm"))]
+    pub fn get_surface_shader(ptr: *mut u8, len: *mut u32) -> i32 {
+        0
+    }
+    #[cfg(all(target_family = "wasm", feature = "no-host"))]
+    pub fn get_surface_shader(ptr: *mut u8, len: *mut u32) -> i32 {
+        0
+    }
+    #[cfg(all(target_family = "wasm", not(feature = "no-host")))]
+    pub fn get_surface_shader(ptr: *mut u8, len: *mut u32) -> i32 {
+        unsafe {
+            #[link(wasm_import_module = "@turbo_genesis/canvas")]
+            extern "C" {
+                fn get_surface_shader(ptr: *mut u8, len: *mut u32) -> i32;
+            }
+            get_surface_shader(ptr, len)
+        }
+    }
+
+    #[cfg(not(target_family = "wasm"))]
+    pub fn reset_surface_shader() {}
+    #[cfg(all(target_family = "wasm", feature = "no-host"))]
+    pub fn reset_surface_shader() {}
+    #[cfg(all(target_family = "wasm", not(feature = "no-host")))]
+    pub fn reset_surface_shader() {
+        unsafe {
+            #[link(wasm_import_module = "@turbo_genesis/canvas")]
+            extern "C" {
+                fn reset_surface_shader() -> u32;
+            }
+            reset_surface_shader();
+        }
+    }
 }

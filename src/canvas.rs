@@ -82,6 +82,28 @@ pub fn clear(color: u32) {
     crate::ffi::canvas::clear(color)
 }
 
+pub mod shaders {
+    pub fn set(key: &str) {
+        let key_ptr = key.as_ptr();
+        let key_len = key.len() as u32;
+        crate::ffi::canvas::set_surface_shader(key_ptr, key_len)
+    }
+
+    pub fn get() -> String {
+        let mut bytes = [0; 512]; // shader name up to 512 bytes
+        let key_ptr = bytes.as_mut_ptr();
+        let mut key_len = 0;
+        if crate::ffi::canvas::get_surface_shader(key_ptr, &mut key_len) != 0 {
+            return String::new();
+        }
+        String::from_utf8(bytes[..key_len as usize].to_vec()).unwrap_or_default()
+    }
+
+    pub fn reset() {
+        crate::ffi::canvas::reset_surface_shader()
+    }
+}
+
 //------------------------------------------------------------------------------
 // CAMERA
 //------------------------------------------------------------------------------
@@ -4400,17 +4422,29 @@ mod macros {
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __sprite__ {
-        (animation_key = $anim:expr) => {{ $crate::canvas::animation::get($anim).sprite().draw() }};
-        (animation_key = $anim:expr, $( $key:ident = $val:expr ),* $(,)*) => {{
+        (animation_key = $name:expr, default_sprite = $default_sprite:expr $(, $key:ident = $val:expr )* $(,)?) => {{
             // 1. Make a sprite with the given name
-            let mut sprite = $crate::canvas::animation::get($anim).sprite();
+            let name = $name;
+            let anim = $crate::canvas::animation::get(name);
+            if anim.done() {
+                anim.use_sprite($default_sprite);
+            }
+            let mut sprite = anim.sprite();
             // 2. For each key-value pair, call the corresponding method on the sprite.
             $(sprite = __sprite__!(@set sprite, $key, $val);)*
             // 3. Draw it!
             sprite.draw();
         }};
-        (animation = $anim:expr) => {{ $anim.sprite().draw() }};
-        (animation = $anim:expr, $( $key:ident = $val:expr ),* $(,)*) => {{
+        (animation_key = $name:expr $(, $key:ident = $val:expr )* $(,)?) => {{
+            // 1. Make a sprite with the given name
+            let name = $name;
+            let mut sprite = $crate::canvas::animation::get(name).sprite();
+            // 2. For each key-value pair, call the corresponding method on the sprite.
+            $(sprite = __sprite__!(@set sprite, $key, $val);)*
+            // 3. Draw it!
+            sprite.draw();
+        }};
+        (animation = $anim:expr $(, $key:ident = $val:expr ),* $(,)?) => {{
             // 1. Make a sprite with the given name
             let mut sprite = $anim.sprite();
             // 2. For each key-value pair, call the corresponding method on the sprite.
@@ -4418,11 +4452,7 @@ mod macros {
             // 3. Draw it!
             sprite.draw();
         }};
-        ($name:expr) => {{
-            let name = $name;
-            __sprite__!(name,)
-        }};
-        ($name:expr, $( $key:ident = $val:expr ),* $(,)*) => {{
+        ($name:expr $(, $key:ident = $val:expr )* $(,)?) => {{
             // 1. Make a sprite with the given name
             let name = $name;
             let mut sprite = $crate::canvas::sprite(name);
