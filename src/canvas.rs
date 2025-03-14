@@ -288,7 +288,7 @@ pub mod animation {
 
     /// Retrieves (or creates if not present) a sprite animation associated with the given key.
     /// This ensures that an animation exists in the global animation map.
-    pub fn key(key: &str) -> &mut SpriteAnimation {
+    pub fn get(key: &str) -> &mut SpriteAnimation {
         SpriteAnimation::get_or_insert(key)
     }
 
@@ -891,7 +891,11 @@ pub mod animation {
         }
 
         /// Updates the animation with data based on the given sprite key.
-        pub fn set_sprite_name(&mut self, name: &str) {
+        /// After calling this method, the following animation data will be modified:
+        /// - sprite name
+        /// - repeats (loop count)
+        /// - animation direction
+        pub fn use_sprite(&mut self, name: &str) {
             let sprite_id = utils::hash::fnv1a(name.as_bytes());
             // Insert new properties if they are missing.
             let props = self.props.get_or_insert_with(|| {
@@ -1654,7 +1658,7 @@ pub mod sprite {
 
         /// Uses an animation key to set the sprite's animation frame
         pub fn animation_key(mut self, animation_key: &str) -> Self {
-            let sprite = crate::canvas::animation::key(animation_key).sprite();
+            let sprite = crate::canvas::animation::get(animation_key).sprite();
             self.props.frame = sprite.props.frame;
             self
         }
@@ -4396,10 +4400,10 @@ mod macros {
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __sprite__ {
-        (animation_key = $anim:expr) => {{ $crate::canvas::animation::key($anim).sprite().draw() }};
+        (animation_key = $anim:expr) => {{ $crate::canvas::animation::get($anim).sprite().draw() }};
         (animation_key = $anim:expr, $( $key:ident = $val:expr ),* $(,)*) => {{
             // 1. Make a sprite with the given name
-            let mut sprite = $crate::canvas::animation::key($anim).sprite();
+            let mut sprite = $crate::canvas::animation::get($anim).sprite();
             // 2. For each key-value pair, call the corresponding method on the sprite.
             $(sprite = __sprite__!(@set sprite, $key, $val);)*
             // 3. Draw it!
@@ -4416,7 +4420,7 @@ mod macros {
         }};
         ($name:expr) => {{
             let name = $name;
-            $crate::canvas::__sprite__!(name)
+            __sprite__!(name,)
         }};
         ($name:expr, $( $key:ident = $val:expr ),* $(,)*) => {{
             // 1. Make a sprite with the given name

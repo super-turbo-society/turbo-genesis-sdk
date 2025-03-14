@@ -1,4 +1,4 @@
-use crate::input::mouse;
+use crate::input::pointer;
 use borsh::{BorshDeserialize, BorshSerialize};
 use num_traits::NumCast;
 use std::ops::Add;
@@ -41,27 +41,26 @@ impl Bounds {
     /// Returns `true` if the player touch or primary mouse cursor is currently over this bounds.
     /// It checks if the mouse position intersects with the rectangle defined by `self`.
     pub fn hovered(&self) -> bool {
-        let [x, y] = mouse(0).position;
-        self.intersects_position(x, y)
-        // mouse(0).intersects(self.x, self.y, self.w, self.h)
+        let p = pointer();
+        self.intersects_position(p.x, p.y)
     }
 
     /// Returns `true` if the bounds is hovered and the player touch or left mouse button was just pressed.
     /// This is useful for detecting the initial press event on an interactive UI element.
     pub fn just_pressed(&self) -> bool {
-        self.hovered() && mouse(0).left.just_pressed()
+        self.hovered() && pointer().just_pressed()
     }
 
     /// Returns `true` if the bounds is hovered and the player touch or left mouse button was just released.
     /// This helps in detecting the release event over the element.
     pub fn just_released(&self) -> bool {
-        self.hovered() && mouse(0).left.just_released()
+        self.hovered() && pointer().just_released()
     }
 
     /// Returns `true` if the bounds is hovered and the player touch or left mouse button is currently pressed.
     /// This can be used for detecting a continuous press or drag action on the element.
     pub fn pressed(&self) -> bool {
-        self.hovered() && mouse(0).left.pressed()
+        self.hovered() && pointer().pressed()
     }
 
     /// Returns the current position (x, y) of the top-left corner.

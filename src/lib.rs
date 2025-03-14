@@ -2,9 +2,11 @@
 
 pub(crate) mod ffi;
 
+pub mod audio;
 pub mod bounds;
 pub mod canvas;
 pub mod http;
+#[allow(deprecated)]
 pub mod input;
 pub mod os;
 pub mod sys;

@@ -1,3 +1,5 @@
+use num_traits::NumCast;
+
 use crate::ffi;
 
 pub fn gamepad(player: u32) -> Gamepad<Button> {
@@ -163,6 +165,22 @@ pub struct Pointer {
     state: Button,
 }
 impl Pointer {
+    pub fn intersects<X: NumCast, Y: NumCast, W: NumCast, H: NumCast>(
+        x: X,
+        y: Y,
+        w: W,
+        h: H,
+    ) -> bool {
+        let x: i32 = NumCast::from(x).unwrap_or(0);
+        let y: i32 = NumCast::from(y).unwrap_or(0);
+        let w: i32 = NumCast::from(w).unwrap_or(0);
+        let h: i32 = NumCast::from(h).unwrap_or(0);
+        let left = x;
+        let top = y;
+        let right = x + w.saturating_sub(1);
+        let bottom = y + h.saturating_sub(1);
+        x >= left && x <= right && y >= top && y <= bottom
+    }
     pub fn pressed(&self) -> bool {
         self.state.pressed()
     }

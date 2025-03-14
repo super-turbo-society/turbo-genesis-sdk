@@ -56,15 +56,30 @@ pub mod sys {
     }
 
     #[cfg(not(target_family = "wasm"))]
-    pub fn env_get(key_ptr: *const u8, key_len: u32, out_var_ptr: *mut u8, out_var_len: *mut u32) -> u32 {
+    pub fn env_get(
+        key_ptr: *const u8,
+        key_len: u32,
+        out_var_ptr: *mut u8,
+        out_var_len: *mut u32,
+    ) -> u32 {
         0
     }
     #[cfg(all(target_family = "wasm", feature = "no-host"))]
-    pub fn env_get(key_ptr: *const u8, key_len: u32, out_var_ptr: *mut u8, out_var_len: *mut u32) -> u32 {
+    pub fn env_get(
+        key_ptr: *const u8,
+        key_len: u32,
+        out_var_ptr: *mut u8,
+        out_var_len: *mut u32,
+    ) -> u32 {
         0
     }
     #[cfg(all(target_family = "wasm", not(feature = "no-host")))]
-    pub fn env_get(key_ptr: *const u8, key_len: u32, out_var_ptr: *mut u8, out_var_len: *mut u32) -> u32 {
+    pub fn env_get(
+        key_ptr: *const u8,
+        key_len: u32,
+        out_var_ptr: *mut u8,
+        out_var_len: *mut u32,
+    ) -> u32 {
         unsafe {
             #[link(wasm_import_module = "@turbo_genesis/sys")]
             extern "C" {
@@ -140,6 +155,82 @@ pub mod sys {
                 fn load(ptr: *mut u8, len: *mut u32) -> i32;
             }
             load(ptr, len)
+        }
+    }
+}
+
+#[allow(unused)]
+pub(crate) mod audio {
+    #[cfg(not(target_family = "wasm"))]
+    pub fn play_sound(key_ptr: *const u8, key_len: u32) -> u32 {
+        0
+    }
+    #[cfg(all(target_family = "wasm", feature = "no-host"))]
+    pub fn play_sound(key_ptr: *const u8, key_len: u32) -> u32 {
+        0
+    }
+    #[cfg(all(target_family = "wasm", not(feature = "no-host")))]
+    pub fn play_sound(key_ptr: *const u8, key_len: u32) -> u32 {
+        unsafe {
+            #[link(wasm_import_module = "@turbo_genesis/audio")]
+            extern "C" {
+                fn play_sound(key_ptr: *const u8, key_len: u32) -> u32;
+            }
+            play_sound(key_ptr, key_len)
+        }
+    }
+    #[cfg(not(target_family = "wasm"))]
+    pub fn pause_sound(key_ptr: *const u8, key_len: u32) -> u32 {
+        0
+    }
+    #[cfg(all(target_family = "wasm", feature = "no-host"))]
+    pub fn pause_sound(key_ptr: *const u8, key_len: u32) -> u32 {
+        0
+    }
+    #[cfg(all(target_family = "wasm", not(feature = "no-host")))]
+    pub fn pause_sound(key_ptr: *const u8, key_len: u32) -> u32 {
+        unsafe {
+            #[link(wasm_import_module = "@turbo_genesis/audio")]
+            extern "C" {
+                fn pause_sound(key_ptr: *const u8, key_len: u32) -> u32;
+            }
+            pause_sound(key_ptr, key_len)
+        }
+    }
+    #[cfg(not(target_family = "wasm"))]
+    pub fn stop_sound(key_ptr: *const u8, key_len: u32) -> u32 {
+        0
+    }
+    #[cfg(all(target_family = "wasm", feature = "no-host"))]
+    pub fn stop_sound(key_ptr: *const u8, key_len: u32) -> u32 {
+        0
+    }
+    #[cfg(all(target_family = "wasm", not(feature = "no-host")))]
+    pub fn stop_sound(key_ptr: *const u8, key_len: u32) -> u32 {
+        unsafe {
+            #[link(wasm_import_module = "@turbo_genesis/audio")]
+            extern "C" {
+                fn stop_sound(key_ptr: *const u8, key_len: u32) -> u32;
+            }
+            stop_sound(key_ptr, key_len)
+        }
+    }
+    #[cfg(not(target_family = "wasm"))]
+    pub fn is_sound_playing(key_ptr: *const u8, key_len: u32) -> u32 {
+        0
+    }
+    #[cfg(all(target_family = "wasm", feature = "no-host"))]
+    pub fn is_sound_playing(key_ptr: *const u8, key_len: u32) -> u32 {
+        0
+    }
+    #[cfg(all(target_family = "wasm", not(feature = "no-host")))]
+    pub fn is_sound_playing(key_ptr: *const u8, key_len: u32) -> u32 {
+        unsafe {
+            #[link(wasm_import_module = "@turbo_genesis/audio")]
+            extern "C" {
+                fn is_sound_playing(key_ptr: *const u8, key_len: u32) -> u32;
+            }
+            is_sound_playing(key_ptr, key_len)
         }
     }
 }
