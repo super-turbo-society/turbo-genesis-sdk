@@ -55,16 +55,6 @@ pub fn text(string: &str) -> text::Text {
     text::Text::new(string)
 }
 
-/// Returns the current viewport bounds.
-/// This is typically used to get the canvas or screen boundaries.
-pub fn viewport() -> Bounds {
-    let (w, h) = crate::canvas::resolution();
-    let (x, y) = crate::canvas::camera::xy();
-    let x = (x as f32 - (w as f32 / 2.)) as i32;
-    let y = (y as f32 - (h as f32 / 2.)) as i32;
-    Bounds::new(x, y, w, h)
-}
-
 /// Returns the current resolution as a tuple (width, height).
 /// The resolution is fetched from the system as a single integer:
 /// - The lower 16 bits represent the width.

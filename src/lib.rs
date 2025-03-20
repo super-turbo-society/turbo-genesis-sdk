@@ -22,8 +22,6 @@ pub use toml;
 #[allow(unused_imports)]
 pub mod prelude {
     pub use crate::bounds::*;
-    #[allow(unused_imports)]
-    pub use crate::bounds::*;
     pub use crate::canvas::*;
     pub use crate::input::*;
     pub use crate::println;
