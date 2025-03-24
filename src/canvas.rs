@@ -4593,29 +4593,29 @@ mod macros {
     //--------------------------------------------------------------------------
 
     #[doc(inline)]
-    pub use crate::__line__ as line;
+    pub use crate::__path__ as path;
 
     #[doc(hidden)]
     #[macro_export]
-    macro_rules! __line__ {
+    macro_rules! __path__ {
         ($( $key:ident = $val:expr ),* $(,)*) => {{
             // 1. Make a line
-            let mut line = $crate::canvas::path::Path::new();
+            let mut path = $crate::canvas::path::Path::new();
             // 2. For each key-value pair, call the corresponding method on the line.
-            $(line = __line__!(@set line, $key, $val);)*
+            $(path = __path__!(@set path, $key, $val);)*
             // 3. Draw it!
-            line.draw();
+            path.draw();
         }};
-        (@set $line:ident, start_x, $val:expr) => { $line.start_position_x($val) };
-        (@set $line:ident, start_y, $val:expr) => { $line.start_position_y($val) };
-        (@set $line:ident, start, $val:expr) => { $line.start_position_xy($val) };
-        (@set $line:ident, end_x, $val:expr) => { $line.end_position_x($val) };
-        (@set $line:ident, end_y, $val:expr) => { $line.end_position_y($val) };
-        (@set $line:ident, end, $val:expr) => { $line.end_position_xy($val) };
-        (@set $line:ident, w, $val:expr) => { $line };
-        (@set $line:ident, origin, $val:expr) => { $line.origin_xy($val) };
-        (@set $rect:ident, rotation, $val:expr) => { $rect.rotation_deg($val) };
-        (@set $line:ident, $key:ident, $val:expr) => { $line.$key($val) };
+        (@set $path:ident, start_x, $val:expr) => { $path.start_position_x($val) };
+        (@set $path:ident, start_y, $val:expr) => { $path.start_position_y($val) };
+        (@set $path:ident, start, $val:expr) => { $path.start_position_xy($val) };
+        (@set $path:ident, end_x, $val:expr) => { $path.end_position_x($val) };
+        (@set $path:ident, end_y, $val:expr) => { $path.end_position_y($val) };
+        (@set $path:ident, end, $val:expr) => { $path.end_position_xy($val) };
+        (@set $path:ident, w, $val:expr) => { $path };
+        (@set $path:ident, origin, $val:expr) => { $path.origin_xy($val) };
+        (@set $path:ident, rotation, $val:expr) => { $path.rotation_deg($val) };
+        (@set $path:ident, $key:ident, $val:expr) => { $path.$key($val) };
     }
 
     //--------------------------------------------------------------------------

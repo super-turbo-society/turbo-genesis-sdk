@@ -1184,7 +1184,7 @@ impl Bounds {
     ///
     /// # Example
     /// ```
-    /// let b = Bounds::new(100, 50).at_xy(10, 20);
+    /// let b = Bounds::with_size(100, 50).position(10, 20);
     /// // Compute the area using the map function.
     /// let area: u32 = b.map(|bounds| bounds.w * bounds.h);
     /// ```
