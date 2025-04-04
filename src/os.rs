@@ -229,7 +229,7 @@ pub mod client {
 
             /// Sends a message to the channel.
             pub fn send(&self, data: &[u8]) -> Result<(), std::io::Error> {
-                let err = &mut [0; 1024];
+                let err = &mut [0; 4096];
                 let mut err_len = 0;
                 let status = unsafe {
                     turbo_genesis_channel_send(
