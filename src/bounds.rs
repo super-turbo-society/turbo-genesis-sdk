@@ -11,12 +11,13 @@ use std::ops::Add;
 /// This is typically used to get the canvas or screen boundaries.
 pub fn viewport() -> Bounds {
     let (w, h) = crate::canvas::resolution();
-    let (x, y) = crate::canvas::camera::xy();
+    let (x, y, z) = crate::canvas::camera::xyz();
+    let w = (w as f32 * (1. / z)) as u32;
+    let h = (h as f32 * (1. / z)) as u32;
     let x = (x as f32 - (w as f32 / 2.)) as i32;
     let y = (y as f32 - (h as f32 / 2.)) as i32;
     Bounds::new(x, y, w, h)
 }
-
 
 /// `Bounds` represents a rectangular region in 2D space.
 /// It is the core primitive for low-res immediate-mode graphics,
