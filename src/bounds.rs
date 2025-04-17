@@ -19,6 +19,13 @@ pub fn viewport() -> Bounds {
     Bounds::new(x, y, w, h)
 }
 
+/// Returns the fixed canvas bounds without any camera position or zoom adjustments.
+/// This is typically useful for GUI elements that are fixed in size and position relative to the game's canvas.
+pub fn canvas() -> Bounds {
+    let (w, h) = crate::canvas::resolution();
+    Bounds::new(0, 0, w, h)
+}
+
 /// `Bounds` represents a rectangular region in 2D space.
 /// It is the core primitive for low-res immediate-mode graphics,
 /// providing essential methods for positioning, sizing, and geometric operations.
@@ -48,31 +55,6 @@ impl Bounds {
         let w = NumCast::from(w).unwrap_or(0);
         let h = NumCast::from(h).unwrap_or(0);
         Self { x: 0, y: 0, w, h }
-    }
-
-    /// Returns `true` if the player touch or primary mouse cursor is currently over this bounds.
-    /// It checks if the mouse position intersects with the rectangle defined by `self`.
-    pub fn hovered(&self) -> bool {
-        let p = pointer();
-        self.intersects_position(p.x, p.y)
-    }
-
-    /// Returns `true` if the bounds is hovered and the player touch or left mouse button was just pressed.
-    /// This is useful for detecting the initial press event on an interactive UI element.
-    pub fn just_pressed(&self) -> bool {
-        self.hovered() && pointer().just_pressed()
-    }
-
-    /// Returns `true` if the bounds is hovered and the player touch or left mouse button was just released.
-    /// This helps in detecting the release event over the element.
-    pub fn just_released(&self) -> bool {
-        self.hovered() && pointer().just_released()
-    }
-
-    /// Returns `true` if the bounds is hovered and the player touch or left mouse button is currently pressed.
-    /// This can be used for detecting a continuous press or drag action on the element.
-    pub fn pressed(&self) -> bool {
-        self.hovered() && pointer().pressed()
     }
 
     /// Returns the current position (x, y) of the top-left corner.

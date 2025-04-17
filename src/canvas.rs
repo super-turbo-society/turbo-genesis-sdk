@@ -951,13 +951,6 @@ pub mod sprite {
     use crate::bounds::*;
     use num_traits::NumCast;
 
-    pub mod flags {
-        // Repeats the sprite within the containing quad
-        pub const SPRITE_REPEAT: u32 = 1 << 0;
-        // Scales a sprite to fit the dimensions of the containing quad
-        pub const SPRITE_COVER: u32 = 2 << 0;
-    }
-
     #[derive(Debug, Clone, Copy)]
     pub struct SpriteProps {
         /// X coordinate for the sprite's position.
@@ -996,6 +989,8 @@ pub mod sprite {
         repeat: bool,
         /// Indicates if the sprite's position is absolute.
         absolute: bool,
+        /// Use fixed positioning (ignores camera)
+        fixed: bool,
         /// Opacity level (0.0 = fully transparent, 1.0 = fully opaque).
         opacity: f32,
         /// Speed factor for sprite animations.
@@ -1024,6 +1019,7 @@ pub mod sprite {
                 flip_y: false,
                 repeat: false,
                 absolute: false,
+                fixed: false,
                 opacity: 1.0,
                 animation_speed: 1.0, // Default animation speed is 1.0
                 frame: None,
@@ -1034,6 +1030,12 @@ pub mod sprite {
         /// Creates new sprite properties with default values.
         pub fn new() -> Self {
             Self::default()
+        }
+
+        /// Enables are disables fixed positioning
+        pub fn fixed(mut self, fixed: bool) -> Self {
+            self.fixed = fixed;
+            self
         }
 
         /// Sets the position of the sprite.
@@ -1152,6 +1154,17 @@ pub mod sprite {
                 name,
                 props: SpriteProps::default(),
             }
+        }
+
+        /// Enables are disables fixed positioning
+        pub fn fixed(mut self, fixed: bool) -> Self {
+            self.props.fixed = fixed;
+            self
+        }
+
+        /// Enables are disables fixed positioning
+        pub fn set_fixed(&mut self, fixed: bool) {
+            self.props.fixed = fixed;
         }
 
         /// Sets the sprite’s position.
@@ -1698,6 +1711,11 @@ pub mod sprite {
                 dy += cy as i32 - (h as i32 / 2); // Center the sprite vertically.
             }
 
+            // Set the fixed positioning flag
+            if self.props.fixed {
+                flags |= flags::POSITION_FIXED;
+            }
+
             // Determine the destination width (dw) and height (dh) by either using provided dimensions
             // or falling back to the sprite data dimensions, then applying scaling factors.
             let dw = ((if self.props.w == 0 {
@@ -1789,6 +1807,17 @@ pub mod sprite {
                 margins,
                 target: Bounds::default(),
             }
+        }
+
+        /// Enables are disables fixed positioning
+        pub fn fixed(mut self, fixed: bool) -> Self {
+            self.sprite.props.fixed = fixed;
+            self
+        }
+
+        /// Enables are disables fixed positioning
+        pub fn set_fixed(&mut self, fixed: bool) {
+            self.sprite.props.fixed = fixed;
         }
 
         /// Sets the nine-slice’s position.
@@ -2060,7 +2089,12 @@ pub mod sprite {
             let origin_x = self.sprite.props.origin_x;
             let origin_y = self.sprite.props.origin_y;
             let rotation = self.sprite.props.rotation;
-            let flags = sprite::flags::SPRITE_REPEAT;
+            // let flags = flags::SPRITE_REPEAT;
+            let mut flags = flags::SPRITE_REPEAT;
+            if self.sprite.props.fixed {
+                // flags = flags::POSITION_FIXED;
+                flags |= flags::POSITION_FIXED;
+            }
 
             Self::draw_region(
                 &dst_top_left,
@@ -2253,6 +2287,8 @@ mod quad {
         pub origin_y: i32,
         /// Opacity level (0.0 = fully transparent, 1.0 = fully opaque).
         pub opacity: f32,
+        /// Use fixed positioning (ignores camera)
+        pub fixed: bool,
     }
     impl Default for Quad {
         fn default() -> Self {
@@ -2270,6 +2306,7 @@ mod quad {
                 rotation_deg: 0,
                 opacity: 1.0,
                 absolute: false,
+                fixed: false,
             }
         }
     }
@@ -2278,6 +2315,12 @@ mod quad {
         /// Creates new rectangle properties with default values.
         pub fn new() -> Self {
             Self::default()
+        }
+
+        /// Enables are disables fixed positioning
+        pub fn fixed(mut self, fixed: bool) -> Self {
+            self.fixed = fixed;
+            self
         }
 
         /// Sets the position of the rectangle.
@@ -2371,6 +2414,17 @@ pub mod rect {
             Self {
                 quad: Quad::default(),
             }
+        }
+
+        /// Enables are disables fixed positioning
+        pub fn fixed(mut self, fixed: bool) -> Self {
+            self.quad = self.quad.fixed(fixed);
+            self
+        }
+
+        /// Enables are disables fixed positioning
+        pub fn set_fixed(&mut self, fixed: bool) {
+            self.quad.fixed = fixed;
         }
 
         /// Sets the rectangle's position.
@@ -2705,6 +2759,13 @@ pub mod rect {
                 dy += cy as i32 - (h as i32 / 2); // Center the sprite vertically.
             }
 
+            // Set the fixed positioning flag
+            let flags = if self.quad.fixed {
+                flags::POSITION_FIXED
+            } else {
+                0
+            };
+
             // Apply opacity to the sprite's primary and background colors.
             let color = utils::color::apply_opacity(self.quad.color, self.quad.opacity);
             let border_color =
@@ -2723,6 +2784,7 @@ pub mod rect {
                 self.quad.origin_x,      // X rotation origin
                 self.quad.origin_y,      // Y rotation origin
                 self.quad.rotation_deg,  // Rotation in degrees.
+                flags,
             );
         }
     }
@@ -2747,6 +2809,17 @@ pub mod ellipse {
             Self {
                 quad: Quad::default(),
             }
+        }
+
+        /// Enables are disables fixed positioning
+        pub fn fixed(mut self, fixed: bool) -> Self {
+            self.quad = self.quad.fixed(fixed);
+            self
+        }
+
+        /// Enables are disables fixed positioning
+        pub fn set_fixed(&mut self, fixed: bool) {
+            self.quad.fixed = fixed;
         }
 
         /// Sets the rectangle's position.
@@ -3079,6 +3152,13 @@ pub mod ellipse {
                 dy += cy as i32 - (h as i32 / 2); // Center the sprite vertically.
             }
 
+            // Set the fixed positioning flag
+            let flags = if self.quad.fixed {
+                flags::POSITION_FIXED
+            } else {
+                0
+            };
+
             // Calculate border radius.
             let border_radius = self.quad.w.max(self.quad.h);
 
@@ -3100,6 +3180,7 @@ pub mod ellipse {
                 self.quad.origin_x,     // X rotation origin
                 self.quad.origin_y,     // Y rotation origin
                 self.quad.rotation_deg, // Rotation in degrees.
+                flags,
             );
         }
     }
@@ -3124,6 +3205,17 @@ pub mod circ {
             Self {
                 quad: Quad::default(),
             }
+        }
+
+        /// Enables are disables fixed positioning
+        pub fn fixed(mut self, fixed: bool) -> Self {
+            self.quad = self.quad.fixed(fixed);
+            self
+        }
+
+        /// Enables are disables fixed positioning
+        pub fn set_fixed(&mut self, fixed: bool) {
+            self.quad.fixed = fixed;
         }
 
         /// Sets the circle's position.
@@ -3380,6 +3472,13 @@ pub mod circ {
                 dy += cy as i32 - (h as i32 / 2); // Center the sprite vertically.
             }
 
+            // Set the fixed positioning flag
+            let flags = if self.quad.fixed {
+                flags::POSITION_FIXED
+            } else {
+                0
+            };
+
             // Apply opacity to the sprite's primary and background colors.
             let color = utils::color::apply_opacity(self.quad.color, self.quad.opacity);
             let border_color =
@@ -3398,6 +3497,7 @@ pub mod circ {
                 self.quad.origin_x,      // X rotation origin
                 self.quad.origin_y,      // Y rotation origin
                 self.quad.rotation_deg,  // Rotation in degrees.
+                flags,
             );
         }
     }
@@ -3430,6 +3530,17 @@ pub mod path {
                 rounded: false,
                 quad: Quad::default(),
             }
+        }
+
+        /// Enables are disables fixed positioning
+        pub fn fixed(mut self, fixed: bool) -> Self {
+            self.quad = self.quad.fixed(fixed);
+            self
+        }
+
+        /// Enables are disables fixed positioning
+        pub fn set_fixed(&mut self, fixed: bool) {
+            self.quad.fixed = fixed;
         }
 
         /// Sets the line's position.
@@ -3794,6 +3905,13 @@ pub mod path {
                 dy += cy as i32 - (h as i32 / 2); // Center the sprite vertically.
             }
 
+            // Set the fixed positioning flag
+            let flags = if self.quad.fixed {
+                flags::POSITION_FIXED
+            } else {
+                0
+            };
+
             // Shift the line right by one pixel when there's no x delta.
             if delta_x == 0. {
                 dx += 1;
@@ -3823,6 +3941,7 @@ pub mod path {
                 self.quad.origin_x, // X rotation origin.
                 self.quad.origin_y, // Y rotation origin.
                 angle,              // Rotation angle in degrees.
+                flags,
             );
         }
     }
@@ -3853,6 +3972,17 @@ pub mod text {
                 scale: 1.0,
                 quad: Quad::default(),
             }
+        }
+
+        /// Enables are disables fixed positioning
+        pub fn fixed(mut self, fixed: bool) -> Self {
+            self.quad = self.quad.fixed(fixed);
+            self
+        }
+
+        /// Enables are disables fixed positioning
+        pub fn set_fixed(&mut self, fixed: bool) {
+            self.quad.fixed = fixed;
         }
 
         pub fn font(mut self, name: &'a str) -> Self {
@@ -4122,6 +4252,13 @@ pub mod text {
                 dy += cy as i32 - (h as i32 / 2); // Center the sprite vertically.
             }
 
+            // Set the fixed positioning flag
+            let flags = if self.quad.fixed {
+                flags::POSITION_FIXED
+            } else {
+                0
+            };
+
             // Apply opacity to the sprite's primary and background colors.
             let color = utils::color::apply_opacity(self.quad.color, self.quad.opacity);
 
@@ -4137,9 +4274,22 @@ pub mod text {
                 color,      // Fill color.
                 self.scale, // Font scale.
                 rotation,   // Rotation in degrees.
+                flags,
             );
         }
     }
+}
+
+//------------------------------------------------------------------------------
+// FLAGS
+//------------------------------------------------------------------------------
+pub mod flags {
+    // Repeats the sprite within the containing quad
+    pub const SPRITE_REPEAT: u32 = 1 << 0;
+    // Scales a sprite to fit the dimensions of the containing quad
+    pub const SPRITE_COVER: u32 = 1 << 1;
+    // Elements drawn with this flag will ignore camera position and zoom settings
+    pub const POSITION_FIXED: u32 = 1 << 2;
 }
 
 //------------------------------------------------------------------------------
@@ -4299,14 +4449,16 @@ pub mod utils {
             origin_x: i32,
             origin_y: i32,
             rotation_deg: i32,
+            flags: u32,
         ) {
             let dest_xy = ((dx as u64) << 32) | (dy as u32 as u64);
             let dest_wh = ((dw as u64) << 32) | (dh as u32 as u64);
             let origin_xy = ((origin_x as u64) << 32) | (origin_y as u64 & 0xffffffff);
             let fill_ab = (color as u64) << 32;
-            ffi::canvas::draw_quad_v1(
+            ffi::canvas::draw_quad2(
                 dest_xy,
                 dest_wh,
+                0,
                 0,
                 0,
                 fill_ab,
@@ -4315,12 +4467,13 @@ pub mod utils {
                 border_color,
                 origin_xy,
                 rotation_deg,
-            )
+                flags,
+            );
         }
     }
 
     pub mod text {
-        use crate::ffi;
+        use crate::{canvas::flags, ffi};
 
         pub fn draw(
             font_name: &str,
@@ -4330,12 +4483,13 @@ pub mod utils {
             color: u32,
             scale: f32,
             rotation: f32,
+            flags: u32,
         ) {
             let font_name_ptr = font_name.as_ptr();
             let font_name_len = font_name.len() as u32;
             let text_ptr = text.as_ptr();
             let text_len = text.len() as u32;
-            ffi::canvas::text2(
+            ffi::canvas::text3(
                 x,
                 y,
                 color,
@@ -4345,6 +4499,7 @@ pub mod utils {
                 font_name_len,
                 text_ptr,
                 text_len,
+                flags,
             )
         }
     }

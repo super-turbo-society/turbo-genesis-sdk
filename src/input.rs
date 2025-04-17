@@ -1,6 +1,6 @@
 use num_traits::NumCast;
 
-use crate::ffi;
+use crate::{bounds::Bounds, ffi};
 
 pub fn gamepad(player: u32) -> Gamepad<Button> {
     let data = &mut [0; std::mem::size_of::<Gamepad<u8>>()];
@@ -155,31 +155,36 @@ impl Into<Gamepad<u8>> for Gamepad<Button> {
     }
 }
 
+pub trait Point {
+    fn intersects_bounds(&self, bound: Bounds) -> bool;
+}
+impl Point for (i32, i32) {
+    fn intersects_bounds(&self, bounds: Bounds) -> bool {
+        bounds.intersects_xy(*self)
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Pointer {
     /// The x position of the mouse cursor or most recent touch event
-    pub x: i32,
+    x: i32,
     /// The y position of the mouse cursor or most recent touch event
-    pub y: i32,
+    y: i32,
     /// The state of the left mouse button or touch
     state: Button,
 }
 impl Pointer {
-    pub fn intersects<X: NumCast, Y: NumCast, W: NumCast, H: NumCast>(
-        x: X,
-        y: Y,
-        w: W,
-        h: H,
-    ) -> bool {
-        let x: i32 = NumCast::from(x).unwrap_or(0);
-        let y: i32 = NumCast::from(y).unwrap_or(0);
-        let w: i32 = NumCast::from(w).unwrap_or(0);
-        let h: i32 = NumCast::from(h).unwrap_or(0);
-        let left = x;
-        let top = y;
-        let right = x + w.saturating_sub(1);
-        let bottom = y + h.saturating_sub(1);
-        x >= left && x <= right && y >= top && y <= bottom
+    pub fn relative_position(&self) -> (i32, i32) {
+        let (x, y, z) = crate::canvas::camera::xyz();
+        let (w, h) = crate::canvas::resolution();
+        let (cx, cy) = (w as f32 / 2.0, h as f32 / 2.0);
+        let (mx, my) = (self.x as f32, self.y as f32);
+        let rel_x = ((mx - cx) / z + x).round() as i32;
+        let rel_y = ((my - cy) / z + y).round() as i32;
+        (rel_x, rel_y)
+    }
+    pub fn fixed_position(&self) -> (i32, i32) {
+        (self.x, self.y)
     }
     pub fn pressed(&self) -> bool {
         self.state.pressed()
