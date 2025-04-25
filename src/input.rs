@@ -1,6 +1,9 @@
 use num_traits::NumCast;
 
-use crate::{bounds::Bounds, ffi};
+use crate::{
+    bounds::{Bounds, IntersectBounds},
+    ffi,
+};
 
 pub fn gamepad(player: u32) -> Gamepad<Button> {
     let data = &mut [0; std::mem::size_of::<Gamepad<u8>>()];
@@ -155,10 +158,7 @@ impl Into<Gamepad<u8>> for Gamepad<Button> {
     }
 }
 
-pub trait Point {
-    fn intersects_bounds(&self, bound: Bounds) -> bool;
-}
-impl Point for (i32, i32) {
+impl IntersectBounds for (i32, i32) {
     fn intersects_bounds(&self, bounds: Bounds) -> bool {
         bounds.intersects_xy(*self)
     }
@@ -174,7 +174,43 @@ pub struct Pointer {
     state: Button,
 }
 impl Pointer {
-    pub fn relative_position(&self) -> (i32, i32) {
+    pub fn intersects<X: NumCast, Y: NumCast, W: NumCast, H: NumCast>(
+        &self,
+        x: X,
+        y: Y,
+        w: W,
+        h: H,
+    ) -> bool {
+        let x: i32 = NumCast::from(x).unwrap_or(0);
+        let y: i32 = NumCast::from(y).unwrap_or(0);
+        let w: i32 = NumCast::from(w).unwrap_or(0);
+        let h: i32 = NumCast::from(h).unwrap_or(0);
+        let left = x;
+        let top = y;
+        let right = x + w.saturating_sub(1);
+        let bottom = y + h.saturating_sub(1);
+        let (px, py) = self.xy();
+        px >= left && px <= right && py >= top && py <= bottom
+    }
+    pub fn intersects_fixed<X: NumCast, Y: NumCast, W: NumCast, H: NumCast>(
+        &self,
+        x: X,
+        y: Y,
+        w: W,
+        h: H,
+    ) -> bool {
+        let x: i32 = NumCast::from(x).unwrap_or(0);
+        let y: i32 = NumCast::from(y).unwrap_or(0);
+        let w: i32 = NumCast::from(w).unwrap_or(0);
+        let h: i32 = NumCast::from(h).unwrap_or(0);
+        let left = x;
+        let top = y;
+        let right = x + w.saturating_sub(1);
+        let bottom = y + h.saturating_sub(1);
+        let (px, py) = self.xy_fixed();
+        px >= left && px <= right && py >= top && py <= bottom
+    }
+    pub fn xy(&self) -> (i32, i32) {
         let (x, y, z) = crate::canvas::camera::xyz();
         let (w, h) = crate::canvas::resolution();
         let (cx, cy) = (w as f32 / 2.0, h as f32 / 2.0);
@@ -183,7 +219,7 @@ impl Pointer {
         let rel_y = ((my - cy) / z + y).round() as i32;
         (rel_x, rel_y)
     }
-    pub fn fixed_position(&self) -> (i32, i32) {
+    pub fn xy_fixed(&self) -> (i32, i32) {
         (self.x, self.y)
     }
     pub fn pressed(&self) -> bool {

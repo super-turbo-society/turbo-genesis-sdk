@@ -410,6 +410,26 @@ impl Bounds {
         self
     }
 
+    /// Scales the bounds width uniformly by a factor.
+    ///
+    /// # Parameters
+    /// - `factor`: The multiplier applied to both width and height.
+    pub fn scale_w<W: NumCast>(mut self, factor: W) -> Self {
+        let factor: f32 = NumCast::from(factor).unwrap_or(1.0);
+        self.w = ((self.w as f32) * factor) as u32;
+        self
+    }
+
+    /// Scales the bounds width uniformly by a factor.
+    ///
+    /// # Parameters
+    /// - `factor`: The multiplier applied to both width and height.
+    pub fn scale_h<H: NumCast>(mut self, factor: H) -> Self {
+        let factor: f32 = NumCast::from(factor).unwrap_or(1.0);
+        self.h = ((self.h as f32) * factor) as u32;
+        self
+    }
+
     /// Returns a new `Bounds` that is a sub-rectangle defined by relative offsets
     /// and dimensions. All parameters are fractions (0.0–1.0) of the parent bounds.
     ///
@@ -1189,4 +1209,8 @@ impl Add for Bounds {
             h: self.h + rhs.h,
         }
     }
+}
+
+pub trait IntersectBounds {
+    fn intersects_bounds(&self, bound: Bounds) -> bool;
 }
