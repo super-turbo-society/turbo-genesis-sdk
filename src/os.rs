@@ -300,7 +300,7 @@ pub mod client {
             const STATUS_PENDING: u32 = 1;
             const STATUS_FAILED: u32 = 2;
 
-            let data = &mut [0; 1024];
+            let data = &mut [0; 4096];
             let mut data_len = 0;
             let err = &mut [0; 1024];
             let mut err_len = 0;
@@ -356,7 +356,7 @@ pub mod client {
         const STATUS_PENDING: u32 = 1;
         const STATUS_FAILED: u32 = 2;
 
-        let data = &mut [0; 1024];
+        let data = &mut [0; 4096];
         let mut data_len = 0;
         let err = &mut [0; 1024];
         let mut err_len = 0;
