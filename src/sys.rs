@@ -47,6 +47,35 @@ pub fn load() -> Result<&'static [u8], i32> {
     }
 }
 
+pub mod local {
+    use crate::ffi;
+    pub fn save(data: &[u8]) -> Result<i32, i32> {
+        let ptr = data.as_ptr();
+        let len = data.len() as u32;
+        let n = ffi::sys::set_local_storage(ptr, len);
+        // If n is > 0, it's an error code
+        if n > 0 {
+            return Err(n);
+        }
+        Ok(n)
+    }
+    pub fn load() -> Result<Vec<u8>, i32> {
+        unsafe {
+            // Allocate a 5mb buffer
+            let mut data = vec![0; 1048576 * 5];
+            let ptr = data.as_mut_ptr();
+            let mut len = 0;
+            let n = ffi::sys::get_local_storage(ptr, &mut len);
+            // If n is > 0, it's an error code
+            if n > 0 {
+                return Err(n);
+            }
+            data.truncate(len as usize);
+            Ok(data)
+        }
+    }
+}
+
 pub mod time {
     pub fn now() -> u64 {
         unsafe {

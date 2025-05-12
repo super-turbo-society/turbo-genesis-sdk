@@ -157,6 +157,51 @@ pub mod sys {
             load(ptr, len)
         }
     }
+
+    #[cfg(not(target_family = "wasm"))]
+    pub fn set_local_storage(ptr: *const u8, len: u32) -> i32 {
+        -1
+    }
+    #[cfg(all(target_family = "wasm", feature = "no-host"))]
+    pub fn set_local_storage(ptr: *const u8, len: u32) -> i32 {
+        let mut state = super::internal::read_snapshot_state();
+        unsafe { std::ptr::copy(ptr, state.as_mut_ptr(), len as usize) };
+        super::internal::write_snapshot_state(&state) as i32
+    }
+    #[cfg(all(target_family = "wasm", not(feature = "no-host")))]
+    pub fn set_local_storage(ptr: *const u8, len: u32) -> i32 {
+        unsafe {
+            #[link(wasm_import_module = "@turbo_genesis/sys")]
+            extern "C" {
+                fn set_local_storage(ptr: *const u8, len: u32) -> i32;
+            }
+            set_local_storage(ptr, len)
+        }
+    }
+
+    #[cfg(not(target_family = "wasm"))]
+    pub fn get_local_storage(ptr: *mut u8, len: *mut u32) -> i32 {
+        return -1;
+    }
+    #[cfg(all(target_family = "wasm", feature = "no-host"))]
+    pub fn get_local_storage(ptr: *mut u8, len: *mut u32) -> i32 {
+        let state = super::internal::read_snapshot_state();
+        unsafe {
+            std::ptr::copy(state.as_ptr(), ptr, state.len());
+            *len = state.len() as u32;
+        };
+        0
+    }
+    #[cfg(all(target_family = "wasm", not(feature = "no-host")))]
+    pub fn get_local_storage(ptr: *mut u8, len: *mut u32) -> i32 {
+        unsafe {
+            #[link(wasm_import_module = "@turbo_genesis/sys")]
+            extern "C" {
+                fn get_local_storage(ptr: *mut u8, len: *mut u32) -> i32;
+            }
+            get_local_storage(ptr, len)
+        }
+    }
 }
 
 #[allow(unused)]

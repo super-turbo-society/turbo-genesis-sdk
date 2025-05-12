@@ -1720,13 +1720,13 @@ pub mod sprite {
 
             // Set the cover flag and unsets the repeat flag
             if self.props.cover {
-                flags ^= flags::SPRITE_REPEAT;
+                flags &= !flags::SPRITE_REPEAT;
                 flags |= flags::SPRITE_COVER;
             }
 
             // Set the repeat flag and unsets the cover flag
             if self.props.repeat {
-                flags ^= flags::SPRITE_COVER;
+                flags &= !flags::SPRITE_COVER;
                 flags |= flags::SPRITE_REPEAT;
             }
 
@@ -4347,7 +4347,7 @@ pub mod text_box {
         pub fn new(text: &'a str) -> Self {
             Self {
                 text,
-                font: "",
+                font: "medium",
                 scale: 1.0,
                 quad: Quad::default(),
                 align: Align::Left,
@@ -4694,12 +4694,10 @@ pub mod text_box {
                         let bottom_over = dy + dh as i32 - (y0 + box_h);
 
                         let glyph_w = dw;
-                        let (dx, dyh, dw, dh, tx, ty) = match self.align {
-                            _ => {
-                                let dh = dh - (bottom_over as u32);
-                                let dw = dw - (right_over as u32);
-                                (dx + left_over, dy, dw - left_over as u32, dh, -left_over, 0)
-                            }
+                        let (dx, dyh, dw, dh, tx, ty) = {
+                            let dh = dh - (bottom_over as u32);
+                            let dw = dw - (right_over as u32);
+                            (dx + left_over, dy, dw - left_over as u32, dh, -left_over, 0)
                         };
                         utils::sprite::draw(
                             dx, dy, dw, dh, sx, sy, sw, sh, tx, ty, draw_color, 0, 0, 0, 0,
@@ -4724,8 +4722,6 @@ pub mod flags {
     pub const SPRITE_COVER: u32 = 1 << 1;
     // Elements drawn with this flag will ignore camera position and zoom settings
     pub const POSITION_FIXED: u32 = 1 << 2;
-    //
-    // pub const USE_BORDER_SIZE_AND_COLOR_FOR_SCALE: u32 = 1 << 3;
 }
 
 //------------------------------------------------------------------------------
