@@ -20,6 +20,7 @@ pub fn pointer() -> Pointer {
         x: mouse.position[0],
         y: mouse.position[1],
         state: mouse.left,
+        scroll: (mouse.wheel[0], mouse.wheel[1]),
     }
 }
 
@@ -172,6 +173,8 @@ pub struct Pointer {
     y: i32,
     /// The state of the left mouse button or touch
     state: Button,
+    /// The scroll delta
+    scroll: (i32, i32),
 }
 impl Pointer {
     pub fn intersects<X: NumCast, Y: NumCast, W: NumCast, H: NumCast>(
@@ -221,6 +224,9 @@ impl Pointer {
     }
     pub fn xy_fixed(&self) -> (i32, i32) {
         (self.x, self.y)
+    }
+    pub fn scroll_delta(&self) -> (i32, i32) {
+        self.scroll
     }
     pub fn pressed(&self) -> bool {
         self.state.pressed()
