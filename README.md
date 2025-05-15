@@ -11,7 +11,7 @@ A flexible Rust SDK for building WebAssembly–powered games on the [Turbo](http
 - **Canvas** (`canvas`): 2D drawing primitives, layers, text
 - **Audio** (`audio`): load/play/loop audio assets
 - **Input** (`input`): keyboard, mouse, touch, gamepad
-- **HTTP** (`http`): fetch, post, JSON convenience
+<!-- - **HTTP** (`http`): fetch, post, JSON convenience -->
 - **System** (`sys`, `os`, `bounds`, `tween`): console logging, timing, tween animations, safe bounds checks
 
 ## 🚀 Getting Started
