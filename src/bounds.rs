@@ -19,6 +19,13 @@ pub fn viewport() -> Bounds {
     Bounds::new(x, y, w, h)
 }
 
+/// Returns the fixed canvas bounds without any camera position or zoom adjustments.
+/// This is typically useful for GUI elements that are fixed in size and position relative to the game's canvas.
+pub fn canvas() -> Bounds {
+    let (w, h) = crate::canvas::resolution();
+    Bounds::new(0, 0, w, h)
+}
+
 /// `Bounds` represents a rectangular region in 2D space.
 /// It is the core primitive for low-res immediate-mode graphics,
 /// providing essential methods for positioning, sizing, and geometric operations.
@@ -48,31 +55,6 @@ impl Bounds {
         let w = NumCast::from(w).unwrap_or(0);
         let h = NumCast::from(h).unwrap_or(0);
         Self { x: 0, y: 0, w, h }
-    }
-
-    /// Returns `true` if the player touch or primary mouse cursor is currently over this bounds.
-    /// It checks if the mouse position intersects with the rectangle defined by `self`.
-    pub fn hovered(&self) -> bool {
-        let p = pointer();
-        self.intersects_position(p.x, p.y)
-    }
-
-    /// Returns `true` if the bounds is hovered and the player touch or left mouse button was just pressed.
-    /// This is useful for detecting the initial press event on an interactive UI element.
-    pub fn just_pressed(&self) -> bool {
-        self.hovered() && pointer().just_pressed()
-    }
-
-    /// Returns `true` if the bounds is hovered and the player touch or left mouse button was just released.
-    /// This helps in detecting the release event over the element.
-    pub fn just_released(&self) -> bool {
-        self.hovered() && pointer().just_released()
-    }
-
-    /// Returns `true` if the bounds is hovered and the player touch or left mouse button is currently pressed.
-    /// This can be used for detecting a continuous press or drag action on the element.
-    pub fn pressed(&self) -> bool {
-        self.hovered() && pointer().pressed()
     }
 
     /// Returns the current position (x, y) of the top-left corner.
@@ -428,6 +410,26 @@ impl Bounds {
         self
     }
 
+    /// Scales the bounds width uniformly by a factor.
+    ///
+    /// # Parameters
+    /// - `factor`: The multiplier applied to both width and height.
+    pub fn scale_w<W: NumCast>(mut self, factor: W) -> Self {
+        let factor: f32 = NumCast::from(factor).unwrap_or(1.0);
+        self.w = ((self.w as f32) * factor) as u32;
+        self
+    }
+
+    /// Scales the bounds width uniformly by a factor.
+    ///
+    /// # Parameters
+    /// - `factor`: The multiplier applied to both width and height.
+    pub fn scale_h<H: NumCast>(mut self, factor: H) -> Self {
+        let factor: f32 = NumCast::from(factor).unwrap_or(1.0);
+        self.h = ((self.h as f32) * factor) as u32;
+        self
+    }
+
     /// Returns a new `Bounds` that is a sub-rectangle defined by relative offsets
     /// and dimensions. All parameters are fractions (0.0–1.0) of the parent bounds.
     ///
@@ -720,6 +722,78 @@ impl Bounds {
             x: self.x,
             y: self.y,
             w: new_w,
+            h: self.h,
+        }
+    }
+
+    /// Expands the bounds by `margin` on *all* four sides.
+    ///
+    /// Opposite of `inset`: moves `x` and `y` up/left by `margin`,
+    /// and increases `w`/`h` by `2 * margin`.
+    pub fn expand<T: NumCast>(&self, margin: T) -> Self {
+        let m: u32 = NumCast::from(margin).unwrap_or(0);
+        // Move origin out
+        let new_x = self.x - (m as i32);
+        let new_y = self.y - (m as i32);
+        // Grow size in both directions
+        let new_w = self.w.saturating_add(m.saturating_mul(2));
+        let new_h = self.h.saturating_add(m.saturating_mul(2));
+        Self {
+            x: new_x,
+            y: new_y,
+            w: new_w,
+            h: new_h,
+        }
+    }
+
+    /// Expands only the *top* edge upward by `margin`.
+    ///
+    /// Opposite of `inset_top`.
+    pub fn expand_top<T: NumCast>(&self, margin: T) -> Self {
+        let m: u32 = NumCast::from(margin).unwrap_or(0);
+        Self {
+            x: self.x,
+            y: self.y - (m as i32),
+            w: self.w,
+            h: self.h.saturating_add(m),
+        }
+    }
+
+    /// Expands only the *bottom* edge downward by `margin`.
+    ///
+    /// Opposite of `inset_bottom`.
+    pub fn expand_bottom<T: NumCast>(&self, margin: T) -> Self {
+        let m: u32 = NumCast::from(margin).unwrap_or(0);
+        Self {
+            x: self.x,
+            y: self.y,
+            w: self.w,
+            h: self.h.saturating_add(m),
+        }
+    }
+
+    /// Expands only the *left* edge leftward by `margin`.
+    ///
+    /// Opposite of `inset_left`.
+    pub fn expand_left<T: NumCast>(&self, margin: T) -> Self {
+        let m: u32 = NumCast::from(margin).unwrap_or(0);
+        Self {
+            x: self.x - (m as i32),
+            y: self.y,
+            w: self.w.saturating_add(m),
+            h: self.h,
+        }
+    }
+
+    /// Expands only the *right* edge rightward by `margin`.
+    ///
+    /// Opposite of `inset_right`.
+    pub fn expand_right<T: NumCast>(&self, margin: T) -> Self {
+        let m: u32 = NumCast::from(margin).unwrap_or(0);
+        Self {
+            x: self.x,
+            y: self.y,
+            w: self.w.saturating_add(m),
             h: self.h,
         }
     }
@@ -1207,4 +1281,8 @@ impl Add for Bounds {
             h: self.h + rhs.h,
         }
     }
+}
+
+pub trait IntersectBounds {
+    fn intersects_bounds(&self, bound: Bounds) -> bool;
 }

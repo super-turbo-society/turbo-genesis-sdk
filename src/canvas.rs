@@ -951,13 +951,6 @@ pub mod sprite {
     use crate::bounds::*;
     use num_traits::NumCast;
 
-    pub mod flags {
-        // Repeats the sprite within the containing quad
-        pub const SPRITE_REPEAT: u32 = 1 << 0;
-        // Scales a sprite to fit the dimensions of the containing quad
-        pub const SPRITE_COVER: u32 = 2 << 0;
-    }
-
     #[derive(Debug, Clone, Copy)]
     pub struct SpriteProps {
         /// X coordinate for the sprite's position.
@@ -994,8 +987,12 @@ pub mod sprite {
         flip_y: bool,
         /// Whether the sprite texture should be repeated.
         repeat: bool,
+        /// Whether the sprite texture should cover the destination rect.
+        cover: bool,
         /// Indicates if the sprite's position is absolute.
         absolute: bool,
+        /// Use fixed positioning (ignores camera)
+        fixed: bool,
         /// Opacity level (0.0 = fully transparent, 1.0 = fully opaque).
         opacity: f32,
         /// Speed factor for sprite animations.
@@ -1023,7 +1020,9 @@ pub mod sprite {
                 flip_x: false,
                 flip_y: false,
                 repeat: false,
+                cover: true,
                 absolute: false,
+                fixed: false,
                 opacity: 1.0,
                 animation_speed: 1.0, // Default animation speed is 1.0
                 frame: None,
@@ -1034,6 +1033,12 @@ pub mod sprite {
         /// Creates new sprite properties with default values.
         pub fn new() -> Self {
             Self::default()
+        }
+
+        /// Enables are disables fixed positioning
+        pub fn fixed(mut self, fixed: bool) -> Self {
+            self.fixed = fixed;
+            self
         }
 
         /// Sets the position of the sprite.
@@ -1152,6 +1157,28 @@ pub mod sprite {
                 name,
                 props: SpriteProps::default(),
             }
+        }
+
+        /// Enables or disables fixed positioning
+        pub fn fixed(mut self, fixed: bool) -> Self {
+            self.props.fixed = fixed;
+            self
+        }
+
+        /// Enables or disables fixed positioning
+        pub fn set_fixed(&mut self, fixed: bool) {
+            self.props.fixed = fixed;
+        }
+
+        /// Sets whether the sprite texture should cover the destination rect.
+        pub fn cover(mut self, cover: bool) -> Self {
+            self.props.cover = cover;
+            self
+        }
+
+        /// Sets whether the sprite texture should cover the destination rect.
+        pub fn set_cover(&mut self, cover: bool) {
+            self.props.cover = cover;
         }
 
         /// Sets the sprite’s position.
@@ -1686,12 +1713,29 @@ pub mod sprite {
             // Initialize flags used to modify drawing behavior.
             let mut flags: u32 = 0;
 
+            // Set the fixed positioning flag
+            if self.props.fixed {
+                flags |= flags::POSITION_FIXED;
+            }
+
+            // Set the cover flag and unsets the repeat flag
+            if self.props.cover {
+                flags &= !flags::SPRITE_REPEAT;
+                flags |= flags::SPRITE_COVER;
+            }
+
+            // Set the repeat flag and unsets the cover flag
+            if self.props.repeat {
+                flags &= !flags::SPRITE_COVER;
+                flags |= flags::SPRITE_REPEAT;
+            }
+
             // Set initial destination coordinates from sprite properties.
             let mut dx = self.props.x;
             let mut dy = self.props.y;
 
             // If absolute positioning is enabled, adjust coordinates relative to the camera.
-            if self.props.absolute {
+            if !self.props.fixed && self.props.absolute {
                 let (cx, cy) = crate::canvas::camera::xy(); // Retrieve camera coordinates.
                 let (w, h) = crate::canvas::resolution(); // Get canvas dimensions.
                 dx += cx as i32 - (w as i32 / 2); // Center the sprite horizontally.
@@ -1700,37 +1744,36 @@ pub mod sprite {
 
             // Determine the destination width (dw) and height (dh) by either using provided dimensions
             // or falling back to the sprite data dimensions, then applying scaling factors.
-            let dw = ((if self.props.w == 0 {
+            let mut dw = if self.props.w == 0 {
                 sprite_data.width
             } else {
                 self.props.w
-            }) as f32
-                * self.props.scale_x) as u32;
-            let dh = ((if self.props.h == 0 {
+            };
+            let mut dh = if self.props.h == 0 {
                 sprite_data.height
             } else {
                 self.props.h
-            }) as f32
-                * self.props.scale_y) as u32;
-
-            // If scaling is applied (i.e., not 1:1), set a flag indicating the sprite should cover the area.
-            if self.props.scale_x != 1. || self.props.scale_y != 1. {
-                flags |= flags::SPRITE_COVER;
-            }
+            };
 
             // Calculate source width (sw) based on horizontal flip.
-            let sw = if self.props.flip_x {
+            let mut sw = if self.props.flip_x {
                 sprite_data.width as i32 * -1 // Negative width indicates a horizontal flip.
             } else {
                 sprite_data.width as i32
             };
 
             // Calculate source height (sh) based on vertical flip.
-            let sh = if self.props.flip_y {
+            let mut sh = if self.props.flip_y {
                 sprite_data.height as i32 * -1 // Negative height indicates a vertical flip.
             } else {
                 sprite_data.height as i32
             };
+
+            // Apply scale to destination width and height in cover mode
+            if flags & flags::SPRITE_COVER != 0 {
+                dw = (dw as f32 * self.props.scale_x) as u32;
+                dh = (dh as f32 * self.props.scale_y) as u32;
+            }
 
             // Apply opacity to the sprite's primary and background colors.
             let color = utils::color::apply_opacity(self.props.color, self.props.opacity);
@@ -1742,11 +1785,6 @@ pub mod sprite {
             let frame_index = self.props.frame.unwrap_or_else(|| {
                 utils::sprite::get_frame_index(&sprite_data, self.props.animation_speed)
             }) % sprite_data.animation_frames.len();
-
-            // If the sprite is set to repeat, mark the repeat flag.
-            if self.props.repeat {
-                flags |= flags::SPRITE_REPEAT;
-            }
 
             // Calculate the x and y position of the current sprite frame within the spritesheet
             let sx = sprite_data.x + (sprite_data.width * frame_index as u32);
@@ -1767,10 +1805,16 @@ pub mod sprite {
                 color,                    // Color with opacity applied.
                 background_color,         // Background color with opacity applied.
                 self.props.border_radius, // Border radius for rounded corners.
-                self.props.origin_x,      // Origin x-coordinate for transformations.
-                self.props.origin_y,      // Origin y-coordinate for transformations.
-                self.props.rotation,      // Rotation angle.
-                flags,                    // Flags that affect drawing behavior.
+                if !self.props.repeat {
+                    0
+                } else {
+                    (self.props.scale_x * 10000.) as u32
+                },
+                u32::from_be((self.props.scale_y * 10000.) as u32),
+                self.props.origin_x, // Origin x-coordinate for transformations.
+                self.props.origin_y, // Origin y-coordinate for transformations.
+                self.props.rotation, // Rotation angle.
+                flags,               // Flags that affect drawing behavior.
             );
         }
     }
@@ -1789,6 +1833,17 @@ pub mod sprite {
                 margins,
                 target: Bounds::default(),
             }
+        }
+
+        /// Enables are disables fixed positioning
+        pub fn fixed(mut self, fixed: bool) -> Self {
+            self.sprite.props.fixed = fixed;
+            self
+        }
+
+        /// Enables are disables fixed positioning
+        pub fn set_fixed(&mut self, fixed: bool) {
+            self.sprite.props.fixed = fixed;
         }
 
         /// Sets the nine-slice’s position.
@@ -2060,7 +2115,12 @@ pub mod sprite {
             let origin_x = self.sprite.props.origin_x;
             let origin_y = self.sprite.props.origin_y;
             let rotation = self.sprite.props.rotation;
-            let flags = sprite::flags::SPRITE_REPEAT;
+            // let flags = flags::SPRITE_REPEAT;
+            let mut flags = flags::SPRITE_REPEAT;
+            if self.sprite.props.fixed {
+                // flags = flags::POSITION_FIXED;
+                flags |= flags::POSITION_FIXED;
+            }
 
             Self::draw_region(
                 &dst_top_left,
@@ -2210,6 +2270,8 @@ pub mod sprite {
                 color,
                 bg_color,
                 border_radius,
+                0,
+                0,
                 origin_x,
                 origin_y,
                 rotation,
@@ -2253,6 +2315,8 @@ mod quad {
         pub origin_y: i32,
         /// Opacity level (0.0 = fully transparent, 1.0 = fully opaque).
         pub opacity: f32,
+        /// Use fixed positioning (ignores camera)
+        pub fixed: bool,
     }
     impl Default for Quad {
         fn default() -> Self {
@@ -2270,6 +2334,7 @@ mod quad {
                 rotation_deg: 0,
                 opacity: 1.0,
                 absolute: false,
+                fixed: false,
             }
         }
     }
@@ -2278,6 +2343,12 @@ mod quad {
         /// Creates new rectangle properties with default values.
         pub fn new() -> Self {
             Self::default()
+        }
+
+        /// Enables are disables fixed positioning
+        pub fn fixed(mut self, fixed: bool) -> Self {
+            self.fixed = fixed;
+            self
         }
 
         /// Sets the position of the rectangle.
@@ -2371,6 +2442,17 @@ pub mod rect {
             Self {
                 quad: Quad::default(),
             }
+        }
+
+        /// Enables are disables fixed positioning
+        pub fn fixed(mut self, fixed: bool) -> Self {
+            self.quad = self.quad.fixed(fixed);
+            self
+        }
+
+        /// Enables are disables fixed positioning
+        pub fn set_fixed(&mut self, fixed: bool) {
+            self.quad.fixed = fixed;
         }
 
         /// Sets the rectangle's position.
@@ -2705,6 +2787,13 @@ pub mod rect {
                 dy += cy as i32 - (h as i32 / 2); // Center the sprite vertically.
             }
 
+            // Set the fixed positioning flag
+            let flags = if self.quad.fixed {
+                flags::POSITION_FIXED
+            } else {
+                0
+            };
+
             // Apply opacity to the sprite's primary and background colors.
             let color = utils::color::apply_opacity(self.quad.color, self.quad.opacity);
             let border_color =
@@ -2723,6 +2812,7 @@ pub mod rect {
                 self.quad.origin_x,      // X rotation origin
                 self.quad.origin_y,      // Y rotation origin
                 self.quad.rotation_deg,  // Rotation in degrees.
+                flags,
             );
         }
     }
@@ -2747,6 +2837,17 @@ pub mod ellipse {
             Self {
                 quad: Quad::default(),
             }
+        }
+
+        /// Enables are disables fixed positioning
+        pub fn fixed(mut self, fixed: bool) -> Self {
+            self.quad = self.quad.fixed(fixed);
+            self
+        }
+
+        /// Enables are disables fixed positioning
+        pub fn set_fixed(&mut self, fixed: bool) {
+            self.quad.fixed = fixed;
         }
 
         /// Sets the rectangle's position.
@@ -3079,6 +3180,13 @@ pub mod ellipse {
                 dy += cy as i32 - (h as i32 / 2); // Center the sprite vertically.
             }
 
+            // Set the fixed positioning flag
+            let flags = if self.quad.fixed {
+                flags::POSITION_FIXED
+            } else {
+                0
+            };
+
             // Calculate border radius.
             let border_radius = self.quad.w.max(self.quad.h);
 
@@ -3100,6 +3208,7 @@ pub mod ellipse {
                 self.quad.origin_x,     // X rotation origin
                 self.quad.origin_y,     // Y rotation origin
                 self.quad.rotation_deg, // Rotation in degrees.
+                flags,
             );
         }
     }
@@ -3124,6 +3233,17 @@ pub mod circ {
             Self {
                 quad: Quad::default(),
             }
+        }
+
+        /// Enables are disables fixed positioning
+        pub fn fixed(mut self, fixed: bool) -> Self {
+            self.quad = self.quad.fixed(fixed);
+            self
+        }
+
+        /// Enables are disables fixed positioning
+        pub fn set_fixed(&mut self, fixed: bool) {
+            self.quad.fixed = fixed;
         }
 
         /// Sets the circle's position.
@@ -3380,6 +3500,13 @@ pub mod circ {
                 dy += cy as i32 - (h as i32 / 2); // Center the sprite vertically.
             }
 
+            // Set the fixed positioning flag
+            let flags = if self.quad.fixed {
+                flags::POSITION_FIXED
+            } else {
+                0
+            };
+
             // Apply opacity to the sprite's primary and background colors.
             let color = utils::color::apply_opacity(self.quad.color, self.quad.opacity);
             let border_color =
@@ -3398,6 +3525,7 @@ pub mod circ {
                 self.quad.origin_x,      // X rotation origin
                 self.quad.origin_y,      // Y rotation origin
                 self.quad.rotation_deg,  // Rotation in degrees.
+                flags,
             );
         }
     }
@@ -3430,6 +3558,17 @@ pub mod path {
                 rounded: false,
                 quad: Quad::default(),
             }
+        }
+
+        /// Enables are disables fixed positioning
+        pub fn fixed(mut self, fixed: bool) -> Self {
+            self.quad = self.quad.fixed(fixed);
+            self
+        }
+
+        /// Enables are disables fixed positioning
+        pub fn set_fixed(&mut self, fixed: bool) {
+            self.quad.fixed = fixed;
         }
 
         /// Sets the line's position.
@@ -3794,6 +3933,13 @@ pub mod path {
                 dy += cy as i32 - (h as i32 / 2); // Center the sprite vertically.
             }
 
+            // Set the fixed positioning flag
+            let flags = if self.quad.fixed {
+                flags::POSITION_FIXED
+            } else {
+                0
+            };
+
             // Shift the line right by one pixel when there's no x delta.
             if delta_x == 0. {
                 dx += 1;
@@ -3823,6 +3969,7 @@ pub mod path {
                 self.quad.origin_x, // X rotation origin.
                 self.quad.origin_y, // Y rotation origin.
                 angle,              // Rotation angle in degrees.
+                flags,
             );
         }
     }
@@ -3853,6 +4000,17 @@ pub mod text {
                 scale: 1.0,
                 quad: Quad::default(),
             }
+        }
+
+        /// Enables are disables fixed positioning
+        pub fn fixed(mut self, fixed: bool) -> Self {
+            self.quad = self.quad.fixed(fixed);
+            self
+        }
+
+        /// Enables are disables fixed positioning
+        pub fn set_fixed(&mut self, fixed: bool) {
+            self.quad.fixed = fixed;
         }
 
         pub fn font(mut self, name: &'a str) -> Self {
@@ -4122,6 +4280,13 @@ pub mod text {
                 dy += cy as i32 - (h as i32 / 2); // Center the sprite vertically.
             }
 
+            // Set the fixed positioning flag
+            let flags = if self.quad.fixed {
+                flags::POSITION_FIXED
+            } else {
+                0
+            };
+
             // Apply opacity to the sprite's primary and background colors.
             let color = utils::color::apply_opacity(self.quad.color, self.quad.opacity);
 
@@ -4137,9 +4302,430 @@ pub mod text {
                 color,      // Fill color.
                 self.scale, // Font scale.
                 rotation,   // Rotation in degrees.
+                flags,
             );
         }
     }
+}
+
+//------------------------------------------------------------------------------
+// TEXTBOX
+//------------------------------------------------------------------------------
+
+pub mod text_box {
+    use super::*;
+    use crate::bounds::Bounds;
+    use num_traits::NumCast;
+    use std::f32::consts::PI;
+
+    #[derive(Debug, Clone, Copy)]
+    pub enum Align {
+        Left,
+        Center,
+        Right,
+    }
+    impl Align {
+        pub fn from_str(s: &str) -> Option<Self> {
+            match s {
+                "left" => Some(Self::Left),
+                "center" => Some(Self::Center),
+                "right" => Some(Self::Right),
+                _ => None,
+            }
+        }
+    }
+
+    #[derive(Debug, Copy, Clone)]
+    pub struct TextBox<'a> {
+        text: &'a str,
+        font: &'a str,
+        scale: f32,
+        quad: Quad,
+        align: Align,
+        start: usize,
+        end: usize,
+    }
+
+    impl<'a> TextBox<'a> {
+        /// Create a new TextBox with default font, scale, alignment, and quad.
+        pub fn new(text: &'a str) -> Self {
+            Self {
+                text,
+                font: "medium",
+                scale: 1.0,
+                quad: Quad::default(),
+                align: Align::Left,
+                start: 0,
+                end: text.len(),
+            }
+        }
+
+        /// Ignore camera when drawing.
+        pub fn fixed(mut self, fixed: bool) -> Self {
+            self.quad = self.quad.fixed(fixed);
+            self
+        }
+        pub fn set_fixed(&mut self, fixed: bool) {
+            self.quad.fixed = fixed;
+        }
+
+        /// Font name.
+        pub fn font(mut self, font: &'a str) -> Self {
+            self.font = font;
+            self
+        }
+
+        /// Font scale.
+        pub fn scale(mut self, scale: f32) -> Self {
+            self.scale = scale;
+            self
+        }
+
+        /// Text alignment within the box.
+        pub fn align(mut self, align: Align) -> Self {
+            self.align = align;
+            self
+        }
+
+        /// Position the box.
+        pub fn position<X: NumCast, Y: NumCast>(mut self, x: X, y: Y) -> Self {
+            let x = NumCast::from(x).unwrap_or(self.quad.x);
+            let y = NumCast::from(y).unwrap_or(self.quad.y);
+            self.quad = self.quad.position(x, y);
+            self
+        }
+        pub fn set_position<X: NumCast, Y: NumCast>(&mut self, x: X, y: Y) {
+            let x = NumCast::from(x).unwrap_or(self.quad.x);
+            let y = NumCast::from(y).unwrap_or(self.quad.y);
+            self.quad = self.quad.position(x, y);
+        }
+
+        /// Position X only.
+        pub fn position_x<X: NumCast>(mut self, x: X) -> Self {
+            let x = NumCast::from(x).unwrap_or(self.quad.x);
+            self.quad = self.quad.position(x, self.quad.y);
+            self
+        }
+        pub fn set_position_x<X: NumCast>(&mut self, x: X) {
+            let x = NumCast::from(x).unwrap_or(self.quad.x);
+            self.quad = self.quad.position(x, self.quad.y);
+        }
+
+        /// Position Y only.
+        pub fn position_y<Y: NumCast>(mut self, y: Y) -> Self {
+            let y = NumCast::from(y).unwrap_or(self.quad.y);
+            self.quad = self.quad.position(self.quad.x, y);
+            self
+        }
+        pub fn set_position_y<Y: NumCast>(&mut self, y: Y) {
+            let y = NumCast::from(y).unwrap_or(self.quad.y);
+            self.quad = self.quad.position(self.quad.x, y);
+        }
+
+        /// Position both.
+        pub fn position_xy<X: NumCast, Y: NumCast>(mut self, (x, y): (X, Y)) -> Self {
+            let x = NumCast::from(x).unwrap_or(self.quad.x);
+            let y = NumCast::from(y).unwrap_or(self.quad.y);
+            self.quad = self.quad.position(x, y);
+            self
+        }
+        pub fn set_position_xy<X: NumCast, Y: NumCast>(&mut self, (x, y): (X, Y)) {
+            let x = NumCast::from(x).unwrap_or(self.quad.x);
+            let y = NumCast::from(y).unwrap_or(self.quad.y);
+            self.quad = self.quad.position(x, y);
+        }
+
+        /// Box size.
+        pub fn size<W: NumCast, H: NumCast>(mut self, w: W, h: H) -> Self {
+            let w: u32 = NumCast::from(w).unwrap_or(self.quad.w);
+            let h: u32 = NumCast::from(h).unwrap_or(self.quad.h);
+            self.quad = self.quad.size(w, h);
+            self
+        }
+        pub fn set_size<W: NumCast, H: NumCast>(&mut self, w: W, h: H) {
+            let w: u32 = NumCast::from(w).unwrap_or(self.quad.w);
+            let h: u32 = NumCast::from(h).unwrap_or(self.quad.h);
+            self.quad = self.quad.size(w, h);
+        }
+        pub fn set_size_w<W: NumCast>(&mut self, w: W) {
+            let w: u32 = NumCast::from(w).unwrap_or(self.quad.w);
+            self.quad = self.quad.size(w, self.quad.h);
+        }
+        pub fn size_h<H: NumCast>(mut self, h: H) -> Self {
+            let h: u32 = NumCast::from(h).unwrap_or(self.quad.h);
+            self.quad = self.quad.size(self.quad.w, h);
+            self
+        }
+        pub fn set_size_h<H: NumCast>(&mut self, h: H) {
+            let h: u32 = NumCast::from(h).unwrap_or(self.quad.h);
+            self.quad = self.quad.size(self.quad.w, h);
+        }
+        pub fn size_wh<W: NumCast, H: NumCast>(mut self, (w, h): (W, H)) -> Self {
+            let w: u32 = NumCast::from(w).unwrap_or(self.quad.w);
+            let h: u32 = NumCast::from(h).unwrap_or(self.quad.h);
+            self.quad = self.quad.size(w, h);
+            self
+        }
+        pub fn set_size_wh<W: NumCast, H: NumCast>(&mut self, (w, h): (W, H)) {
+            let w: u32 = NumCast::from(w).unwrap_or(self.quad.w);
+            let h: u32 = NumCast::from(h).unwrap_or(self.quad.h);
+            self.quad = self.quad.size(w, h);
+        }
+        pub fn width<W: NumCast>(mut self, w: W) -> Self {
+            let w: u32 = NumCast::from(w).unwrap_or(self.quad.w);
+            self.quad = self.quad.size(w, self.quad.h);
+            self
+        }
+        pub fn set_width<W: NumCast>(&mut self, w: W) {
+            let w: u32 = NumCast::from(w).unwrap_or(self.quad.w);
+            self.quad = self.quad.size(w, self.quad.h);
+        }
+        pub fn height<H: NumCast>(mut self, h: H) -> Self {
+            let h: u32 = NumCast::from(h).unwrap_or(self.quad.h);
+            self.quad = self.quad.size(self.quad.w, h);
+            self
+        }
+        pub fn set_height<H: NumCast>(&mut self, h: H) {
+            let h: u32 = NumCast::from(h).unwrap_or(self.quad.h);
+            self.quad = self.quad.size(self.quad.w, h);
+        }
+
+        /// Offset the box.
+        pub fn offset<DX: NumCast, DY: NumCast>(mut self, dx: DX, dy: DY) -> Self {
+            let dx = NumCast::from(dx).unwrap_or(0);
+            let dy = NumCast::from(dy).unwrap_or(0);
+            self.quad = self.quad.offset(dx, dy);
+            self
+        }
+        pub fn set_offset<DX: NumCast, DY: NumCast>(&mut self, dx: DX, dy: DY) {
+            let dx = NumCast::from(dx).unwrap_or(0);
+            let dy = NumCast::from(dy).unwrap_or(0);
+            self.quad = self.quad.offset(dx, dy);
+        }
+
+        /// Text color (uses quad.color).
+        pub fn color(mut self, col: u32) -> Self {
+            self.quad = self.quad.color(col);
+            self
+        }
+        pub fn set_color(&mut self, col: u32) {
+            self.quad = self.quad.color(col);
+        }
+
+        /// Box opacity.
+        pub fn opacity(mut self, o: f32) -> Self {
+            self.quad = self.quad.opacity(o);
+            self
+        }
+        pub fn set_opacity(&mut self, o: f32) {
+            self.quad = self.quad.opacity(o);
+        }
+
+        // Start (inclusive) and end (exclusive)
+        pub fn start(mut self, start: usize) -> Self {
+            self.start = start;
+            self
+        }
+        pub fn set_start(&mut self, start: usize) {
+            self.start = start;
+        }
+        pub fn end(mut self, end: usize) -> Self {
+            self.end = end.min(self.text.len());
+            self
+        }
+        pub fn set_end(&mut self, end: usize) {
+            self.end = end.min(self.text.len());
+        }
+
+        /// Box rotation around its origin.
+        pub fn rotation_deg<A: NumCast>(mut self, deg: A) -> Self {
+            let deg = NumCast::from(deg).unwrap_or(0);
+            self.quad = self.quad.rotation(deg);
+            self
+        }
+        pub fn set_rotation_deg<A: NumCast>(&mut self, deg: A) {
+            let deg = NumCast::from(deg).unwrap_or(0);
+            self.quad = self.quad.rotation(deg);
+        }
+
+        /// Wrap text to lines that fit `max_width`.
+        fn wrap_lines(&self, max_width: f32) -> Vec<String> {
+            let mut lines = Vec::new();
+            let mut current = String::new();
+
+            for word in self.text.split_whitespace() {
+                // If the next word would overflow the line, and it contains hyphens, split it.
+                let mut segments = vec![word.to_string()];
+                let candidate_full = if current.is_empty() {
+                    word.to_string()
+                } else {
+                    format!("{} {}", current, word)
+                };
+                let (w_full, _) = utils::text::measure(self.font, self.scale, &candidate_full);
+
+                if w_full > max_width && word.contains('-') {
+                    // split at hyphens, re‑append the dash to all but last segment
+                    segments = word
+                        .split('-')
+                        .enumerate()
+                        .map(|(i, part)| {
+                            if i + 1 < word.matches('-').count() + 1 {
+                                format!("{}-", part)
+                            } else {
+                                part.to_string()
+                            }
+                        })
+                        .collect();
+                }
+
+                // now wrap each segment
+                for seg in segments {
+                    let candidate = if current.is_empty() {
+                        seg.clone()
+                    } else if current.ends_with('-') {
+                        // no space when current already ends in a hyphen
+                        format!("{}{}", current, seg)
+                    } else {
+                        format!("{} {}", current, seg)
+                    };
+                    let (w, _) = utils::text::measure(self.font, self.scale, &candidate);
+                    if w <= max_width {
+                        current = candidate;
+                    } else {
+                        if !current.is_empty() {
+                            lines.push(current.clone());
+                        }
+                        current = seg;
+                    }
+                }
+            }
+
+            if !current.is_empty() {
+                lines.push(current);
+            }
+            lines
+        }
+
+        /// Draw the wrapped, clipped, aligned text.
+        pub fn draw(&self) {
+            let flags = if self.quad.fixed {
+                flags::POSITION_FIXED
+            } else {
+                0
+            };
+            let x0 = self.quad.x as f32;
+            let y0 = self.quad.y as f32;
+            let max_w = self.quad.w as f32;
+            let max_h = self.quad.h as f32;
+
+            // approximate line height via a capital "M"
+            let (_, line_h) = utils::text::measure(self.font, self.scale, "M");
+            let mut y = y0;
+
+            let color = utils::color::apply_opacity(self.quad.color, self.quad.opacity);
+            let rotation = self.quad.rotation_deg as f32 * PI / 180.0;
+
+            for line in self.wrap_lines(max_w) {
+                if y + line_h > y0 + max_h {
+                    break;
+                }
+                let (line_w, _) = utils::text::measure(self.font, self.scale, &line);
+                let x = match self.align {
+                    Align::Left => x0,
+                    Align::Center => x0 + (max_w - line_w) * 0.5,
+                    Align::Right => x0 + (max_w - line_w),
+                } as i32;
+                let y_i = y as i32;
+
+                utils::text::draw(self.font, &line, x, y_i, color, self.scale, rotation, flags);
+                y += line_h;
+            }
+        }
+        /// Draw by rendering each glyph sprite via `utils::sprite::draw`.
+        pub fn draw_glyphs(&self) {
+            let flags = if self.quad.fixed {
+                flags::POSITION_FIXED
+            } else {
+                0
+            };
+            let x0 = self.quad.x;
+            let y0 = self.quad.y;
+            let box_w = self.quad.w as i32;
+            let box_h = self.quad.h as i32;
+
+            // approximate line height
+            let (_, line_h) = utils::text::measure(self.font, self.scale, "M");
+            let mut y = y0 as f32;
+
+            let draw_color = utils::color::apply_opacity(self.quad.color, self.quad.opacity);
+            let rotation = self.quad.rotation_deg;
+            let origin_x = self.quad.origin_x;
+            let origin_y = self.quad.origin_y;
+
+            let mut num_chars = 0;
+            for line in self.wrap_lines(self.quad.w as f32) {
+                if y > y0 as f32 + box_h as f32 {
+                    break;
+                }
+                // compute starting x based on alignment
+                let line_w = utils::text::measure(self.font, self.scale, &line).0;
+                let mut x = match self.align {
+                    Align::Left => x0 as f32,
+                    Align::Center => x0 as f32 + ((box_w as f32 - line_w) * 0.5),
+                    Align::Right => x0 as f32 + (box_w as f32 - line_w),
+                };
+
+                for ch in line.chars() {
+                    if num_chars > self.end {
+                        break;
+                    }
+                    num_chars += 1;
+                    let key = format!("font_{}_{}", self.font, ch);
+                    if let Some(glyph) = utils::sprite::get_source_data(&key) {
+                        let dw = (glyph.width as f32 * self.scale) as u32;
+                        let dh = (glyph.height as f32 * self.scale) as u32;
+                        let sx = glyph.x;
+                        let sy = glyph.y;
+                        let sw = glyph.width as i32;
+                        let sh = glyph.height as i32;
+                        let dx = x as i32;
+                        let dy = y as i32;
+
+                        // compute how many pixels the glyph extends beyond each edge
+                        let left_over = x0 - dx;
+                        let right_over = dx + dw as i32 - (x0 + box_w);
+                        let top_over = y0 - dy;
+                        let bottom_over = dy + dh as i32 - (y0 + box_h);
+
+                        let glyph_w = dw;
+                        let (dx, dyh, dw, dh, tx, ty) = {
+                            let dh = dh - (bottom_over as u32);
+                            let dw = dw - (right_over as u32);
+                            (dx + left_over, dy, dw - left_over as u32, dh, -left_over, 0)
+                        };
+                        utils::sprite::draw(
+                            dx, dy, dw, dh, sx, sy, sw, sh, tx, ty, draw_color, 0, 0, 0, 0,
+                            origin_x, origin_y, rotation, flags,
+                        );
+                        x += glyph_w as f32;
+                    }
+                }
+                y += line_h;
+            }
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+// FLAGS
+//------------------------------------------------------------------------------
+pub mod flags {
+    // Repeats the sprite within the containing quad
+    pub const SPRITE_REPEAT: u32 = 1 << 0;
+    // Scales a sprite to fit the dimensions of the containing quad
+    pub const SPRITE_COVER: u32 = 1 << 1;
+    // Elements drawn with this flag will ignore camera position and zoom settings
+    pub const POSITION_FIXED: u32 = 1 << 2;
 }
 
 //------------------------------------------------------------------------------
@@ -4149,8 +4735,8 @@ pub mod utils {
     use super::*;
 
     pub mod sprite {
-        use crate::ffi;
         use crate::sys::tick;
+        use crate::{canvas::flags, ffi};
         use borsh::{BorshDeserialize, BorshSerialize};
         use std::{collections::BTreeMap, ops::Div};
 
@@ -4255,6 +4841,8 @@ pub mod utils {
             color: u32,
             background_color: u32,
             border_radius: u32,
+            border_size: u32,
+            border_color: u32,
             origin_x: i32,
             origin_y: i32,
             rotatation_deg: i32,
@@ -4275,8 +4863,8 @@ pub mod utils {
                 sprite_xy_offset,
                 fill_ab,
                 border_radius,
-                0,
-                0,
+                border_size,
+                border_color,
                 origin_xy,
                 rotatation_deg,
                 flags,
@@ -4299,14 +4887,16 @@ pub mod utils {
             origin_x: i32,
             origin_y: i32,
             rotation_deg: i32,
+            flags: u32,
         ) {
             let dest_xy = ((dx as u64) << 32) | (dy as u32 as u64);
             let dest_wh = ((dw as u64) << 32) | (dh as u32 as u64);
             let origin_xy = ((origin_x as u64) << 32) | (origin_y as u64 & 0xffffffff);
             let fill_ab = (color as u64) << 32;
-            ffi::canvas::draw_quad_v1(
+            ffi::canvas::draw_quad2(
                 dest_xy,
                 dest_wh,
+                0,
                 0,
                 0,
                 fill_ab,
@@ -4315,12 +4905,16 @@ pub mod utils {
                 border_color,
                 origin_xy,
                 rotation_deg,
-            )
+                flags,
+            );
         }
     }
 
     pub mod text {
-        use crate::ffi;
+        use crate::{
+            canvas::{flags, utils},
+            ffi,
+        };
 
         pub fn draw(
             font_name: &str,
@@ -4330,12 +4924,13 @@ pub mod utils {
             color: u32,
             scale: f32,
             rotation: f32,
+            flags: u32,
         ) {
             let font_name_ptr = font_name.as_ptr();
             let font_name_len = font_name.len() as u32;
             let text_ptr = text.as_ptr();
             let text_len = text.len() as u32;
-            ffi::canvas::text2(
+            ffi::canvas::text3(
                 x,
                 y,
                 color,
@@ -4345,7 +4940,42 @@ pub mod utils {
                 font_name_len,
                 text_ptr,
                 text_len,
+                flags,
             )
+        }
+
+        /// Measure pixel width and height of `text` for a given `font` and `scale`.
+        ///
+        /// Looks up each glyph as a sprite named "font_{font}_{ch}" and sums widths per line,
+        /// using the maximum glyph height for line height. Lines split on '\n'.
+        pub fn measure(font: &str, scale: f32, text: &str) -> (f32, f32) {
+            let mut max_line_width = 0.0_f32;
+            let mut current_width = 0.0_f32;
+            let mut max_glyph_height = 0.0_f32;
+            for ch in text.chars() {
+                if ch == '\n' {
+                    if current_width > max_line_width {
+                        max_line_width = current_width;
+                    }
+                    current_width = 0.0;
+                } else {
+                    let key = format!("font_{}_{}", font, ch);
+                    if let Some(src) = utils::sprite::get_source_data(&key) {
+                        let w = src.width as f32 * scale;
+                        let h = src.height as f32 * scale;
+                        current_width += w;
+                        if h > max_glyph_height {
+                            max_glyph_height = h;
+                        }
+                    }
+                }
+            }
+            if current_width > max_line_width {
+                max_line_width = current_width;
+            }
+            let lines = text.lines().count() as f32;
+            let total_height = max_glyph_height * lines;
+            (max_line_width, total_height)
         }
     }
 
@@ -4421,7 +5051,7 @@ mod macros {
             }
             let mut sprite = anim.sprite();
             // 2. For each key-value pair, call the corresponding method on the sprite.
-            $(sprite = __sprite__!(@set sprite, $key, $val);)*
+            $(sprite = $crate::__sprite__!(@set sprite, $key, $val);)*
             // 3. Draw it!
             sprite.draw();
         }};
@@ -4430,7 +5060,7 @@ mod macros {
             let name = $name;
             let mut sprite = $crate::canvas::animation::get(name).sprite();
             // 2. For each key-value pair, call the corresponding method on the sprite.
-            $(sprite = __sprite__!(@set sprite, $key, $val);)*
+            $(sprite = $crate::__sprite__!(@set sprite, $key, $val);)*
             // 3. Draw it!
             sprite.draw();
         }};
@@ -4438,7 +5068,7 @@ mod macros {
             // 1. Make a sprite with the given name
             let mut sprite = $anim.sprite();
             // 2. For each key-value pair, call the corresponding method on the sprite.
-            $(sprite = __sprite__!(@set sprite, $key, $val);)*
+            $(sprite = $crate::__sprite__!(@set sprite, $key, $val);)*
             // 3. Draw it!
             sprite.draw();
         }};
@@ -4447,7 +5077,7 @@ mod macros {
             let name = $name;
             let mut sprite = $crate::canvas::sprite(name);
             // 2. For each key-value pair, call the corresponding method on the sprite.
-            $(sprite = __sprite__!(@set sprite, $key, $val);)*
+            $(sprite = $crate::__sprite__!(@set sprite, $key, $val);)*
             // 3. Draw it!
             sprite.draw();
         }};
@@ -4480,7 +5110,7 @@ mod macros {
             // 1. Make a nine-slice with the given name
             let mut nine_slice = $crate::canvas::nine_slice($name, $margins);
             // 2. For each key-value pair, call the corresponding method on the nine_slice.
-            $(nine_slice = __nine_slice__!(@set nine_slice, $key, $val);)*
+            $(nine_slice = $crate::__nine_slice__!(@set nine_slice, $key, $val);)*
             // 3. Draw it!
             nine_slice.draw();
         }};
@@ -4513,7 +5143,7 @@ mod macros {
             // 1. Make a rect
             let mut rect = $crate::canvas::rect::Rectangle::new();
             // 2. For each key-value pair, call the corresponding method on the rect.
-            $(rect = __rect__!(@set rect, $key, $val);)*
+            $(rect = $crate::__rect__!(@set rect, $key, $val);)*
             // 3. Draw it!
             rect.draw();
         }};
@@ -4544,7 +5174,7 @@ mod macros {
             // 1. Make a rect
             let mut ellipse = $crate::canvas::ellipse::Ellipse::new();
             // 2. For each key-value pair, call the corresponding method on the ellipse.
-            $(ellipse = __ellipse__!(@set ellipse, $key, $val);)*
+            $(ellipse = $crate::__ellipse__!(@set ellipse, $key, $val);)*
             // 3. Draw it!
             ellipse.draw();
         }};
@@ -4575,7 +5205,7 @@ mod macros {
             // 1. Make a circ
             let mut circ = $crate::canvas::circ::Circle::new();
             // 2. For each key-value pair, call the corresponding method on the circ.
-            $(circ = __circ__!(@set circ, $key, $val);)*
+            $(circ = $crate::__circ__!(@set circ, $key, $val);)*
             // 3. Draw it!
             circ.draw();
         }};
@@ -4602,7 +5232,7 @@ mod macros {
             // 1. Make a line
             let mut path = $crate::canvas::path::Path::new();
             // 2. For each key-value pair, call the corresponding method on the line.
-            $(path = __path__!(@set path, $key, $val);)*
+            $(path = $crate::__path__!(@set path, $key, $val);)*
             // 3. Draw it!
             path.draw();
         }};
@@ -4634,7 +5264,7 @@ mod macros {
             let string = format!($string, $($arg),*);
             let mut text = $crate::canvas::text::Text::new(&string);
             // 2. For each key-value pair, call the corresponding method on the text.
-            $(text = __text__!(@set text, $key, $val);)*
+            $(text = $crate::__text__!(@set text, $key, $val);)*
             // 3. Draw it!
             text.draw();
         }};
@@ -4643,7 +5273,7 @@ mod macros {
             // 1. Make a text
             let mut text = $crate::canvas::text::Text::new($string);
             // 2. For each key-value pair, call the corresponding method on the text.
-            $(text = __text__!(@set text, $key, $val);)*
+            $(text = $crate::__text__!(@set text, $key, $val);)*
             // 3. Draw it!
             text.draw();
         }};
@@ -4668,5 +5298,36 @@ mod macros {
         (@set $text:ident, position, $val:expr) => { $text.position_xy($val) };
         (@set $text:ident, rotation, $val:expr) => { $text.rotation_deg($val) };
         (@set $text:ident, $key:ident, $val:expr) => { $text.$key($val) };
+    }
+
+    //--------------------------------------------------------------------------
+    // text_box!
+    //--------------------------------------------------------------------------
+
+    #[doc(inline)]
+    pub use crate::__text_box__ as text_box;
+
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __text_box__ {
+        ($text:expr, $( $key:ident = $val:expr ),* $(,)*) => {{
+            let mut tb = $crate::canvas::text_box::TextBox::new($text);
+            $(tb = $crate::__text_box__!(@set tb, $key, $val);)*
+            tb.draw_glyphs();
+        }};
+        (@set $tb:ident, align, $val:expr) => {{
+            use $crate::canvas::text_box::Align;
+            $tb.align(Align::from_str($val).unwrap_or(Align::Left))
+        }};
+        (@set $tb:ident, x, $val:expr) => { $tb.position_x($val) };
+        (@set $tb:ident, y, $val:expr) => { $tb.position_y($val) };
+        (@set $tb:ident, xy, $val:expr) => { $tb.position_xy($val) };
+        (@set $tb:ident, position, $val:expr) => { $tb.position_xy($val) };
+        (@set $tb:ident, w, $val:expr) => { $tb.width($val) };
+        (@set $tb:ident, h, $val:expr) => { $tb.height($val) };
+        (@set $tb:ident, wh, $val:expr) => { $tb.size_wh($val) };
+        (@set $tb:ident, size, $val:expr) => { $tb.size_wh($val) };
+        (@set $tb:ident, rotation, $val:expr) => { $tb.rotation_deg($val) };
+        (@set $tb:ident, $key:ident, $val:expr) => { $tb.$key($val) };
     }
 }
