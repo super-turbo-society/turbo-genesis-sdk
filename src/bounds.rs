@@ -726,6 +726,78 @@ impl Bounds {
         }
     }
 
+    /// Expands the bounds by `margin` on *all* four sides.
+    ///
+    /// Opposite of `inset`: moves `x` and `y` up/left by `margin`,
+    /// and increases `w`/`h` by `2 * margin`.
+    pub fn expand<T: NumCast>(&self, margin: T) -> Self {
+        let m: u32 = NumCast::from(margin).unwrap_or(0);
+        // Move origin out
+        let new_x = self.x - (m as i32);
+        let new_y = self.y - (m as i32);
+        // Grow size in both directions
+        let new_w = self.w.saturating_add(m.saturating_mul(2));
+        let new_h = self.h.saturating_add(m.saturating_mul(2));
+        Self {
+            x: new_x,
+            y: new_y,
+            w: new_w,
+            h: new_h,
+        }
+    }
+
+    /// Expands only the *top* edge upward by `margin`.
+    ///
+    /// Opposite of `inset_top`.
+    pub fn expand_top<T: NumCast>(&self, margin: T) -> Self {
+        let m: u32 = NumCast::from(margin).unwrap_or(0);
+        Self {
+            x: self.x,
+            y: self.y - (m as i32),
+            w: self.w,
+            h: self.h.saturating_add(m),
+        }
+    }
+
+    /// Expands only the *bottom* edge downward by `margin`.
+    ///
+    /// Opposite of `inset_bottom`.
+    pub fn expand_bottom<T: NumCast>(&self, margin: T) -> Self {
+        let m: u32 = NumCast::from(margin).unwrap_or(0);
+        Self {
+            x: self.x,
+            y: self.y,
+            w: self.w,
+            h: self.h.saturating_add(m),
+        }
+    }
+
+    /// Expands only the *left* edge leftward by `margin`.
+    ///
+    /// Opposite of `inset_left`.
+    pub fn expand_left<T: NumCast>(&self, margin: T) -> Self {
+        let m: u32 = NumCast::from(margin).unwrap_or(0);
+        Self {
+            x: self.x - (m as i32),
+            y: self.y,
+            w: self.w.saturating_add(m),
+            h: self.h,
+        }
+    }
+
+    /// Expands only the *right* edge rightward by `margin`.
+    ///
+    /// Opposite of `inset_right`.
+    pub fn expand_right<T: NumCast>(&self, margin: T) -> Self {
+        let m: u32 = NumCast::from(margin).unwrap_or(0);
+        Self {
+            x: self.x,
+            y: self.y,
+            w: self.w.saturating_add(m),
+            h: self.h,
+        }
+    }
+
     /// Anchors the current bounds to the left edge of the container.
     /// The returned bounds maintains the same size and original vertical position.
     pub fn anchor_left(&self, container: &Self) -> Self {
