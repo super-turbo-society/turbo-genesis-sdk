@@ -1805,7 +1805,11 @@ pub mod sprite {
                 color,                    // Color with opacity applied.
                 background_color,         // Background color with opacity applied.
                 self.props.border_radius, // Border radius for rounded corners.
-                (self.props.scale_x * 10000.) as u32,
+                if !self.props.repeat {
+                    0
+                } else {
+                    (self.props.scale_x * 10000.) as u32
+                },
                 u32::from_be((self.props.scale_y * 10000.) as u32),
                 self.props.origin_x, // Origin x-coordinate for transformations.
                 self.props.origin_y, // Origin y-coordinate for transformations.
@@ -4731,8 +4735,8 @@ pub mod utils {
     use super::*;
 
     pub mod sprite {
-        use crate::ffi;
         use crate::sys::tick;
+        use crate::{canvas::flags, ffi};
         use borsh::{BorshDeserialize, BorshSerialize};
         use std::{collections::BTreeMap, ops::Div};
 
@@ -4845,7 +4849,7 @@ pub mod utils {
             flags: u32,
         ) {
             let dest_xy = ((dx as u64) << 32) | (dy as u64 & 0xffffffff);
-            let dest_wh = ((dw as u64) << 32) | (dh as f32 as u64);
+            let dest_wh = ((dw as u64) << 32) | (dh as u32 as u64);
             let sprite_xy = ((sx as u64) << 32) | (sy as u64);
             let sprite_xy_offset = ((texture_x as u64) << 32) | (texture_y as u32 as u64);
             let sprite_wh = ((sw as u64) << 32) | (sh as u32 as u64);
