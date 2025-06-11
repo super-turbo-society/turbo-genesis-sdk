@@ -20,7 +20,7 @@ serde_json = "1"
 solana-sdk = { version = "1.18.26", optional = true }
 toml = "0.8.19"
 num-traits = "0.2.19"
-turbo-macros = { version = "*", path = "./turbo-macros" }
+turbo-macros = "0.1.0"
 
 [features]
 no-host = []
