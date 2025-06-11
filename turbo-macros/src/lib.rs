@@ -32,7 +32,7 @@ pub fn game(_attr: TokenStream, item: TokenStream) -> TokenStream {
         pub unsafe extern "C" fn run() {            
             static mut GAME_STATE: Option<#struct_ident> = None;
 
-            let mut state = GAME_STATE.take().unwrap_or_else(|_| #struct_ident::new());
+            let mut state = GAME_STATE.take().unwrap_or_else(#struct_ident::new);
 
             state.update();
 
