@@ -2,6 +2,10 @@
 name = "turbo-macros"
 version = "0.1.0"
 edition = "2021"
+description = "Turbo Genesis SDK Macros"
+license = "MIT"
+authors = ["@jozanza (hello@jsavary.com)"]
+repository = "https://github.com/super-turbo-society/turbo-genesis-sdk/tree/main/turbo-macros"
 
 [lib]
 proc-macro = true
