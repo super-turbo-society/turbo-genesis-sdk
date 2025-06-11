@@ -18,9 +18,12 @@ pub mod solana;
 pub use borsh;
 pub use structstruck;
 pub use toml;
+pub use turbo_macros::*;
 
 #[allow(unused_imports)]
 pub mod prelude {
+    pub use crate::borsh::*;
+    pub use crate::structstruck::*;
     pub use crate::bounds::*;
     pub use crate::canvas::*;
     pub use crate::input::*;
@@ -28,6 +31,7 @@ pub mod prelude {
     pub use crate::sys::*;
     pub use crate::tween::*;
     pub use crate::*;
+    pub use turbo_macros::*;
 }
 
 #[macro_export]
