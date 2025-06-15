@@ -1,0 +1,74 @@
+leaname: Notify Discord on commit and PR open
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened]
+
+jobs:
+  notify-discord:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Send Discord notification
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            PR_NUMBER="${{ github.event.pull_request.number }}"
+            PR_TITLE="${{ github.event.pull_request.title }}"
+            PR_URL="${{ github.event.pull_request.html_url }}"
+            PR_AUTHOR="${{ github.event.pull_request.user.login }}"
+
+            jq -n \
+              --arg repo "$GITHUB_REPOSITORY" \
+              --arg pr_number "#$PR_NUMBER" \
+              --arg pr_title "$PR_TITLE" \
+              --arg pr_url "$PR_URL" \
+              --arg pr_author "$PR_AUTHOR" \
+              --arg timestamp "$TIMESTAMP" \
+              '{
+                "embeds": [{
+                  "title": "🧪 PR Opened",
+                  "description": ("Pull Request \($pr_number): [\($pr_title)](\($pr_url))"),
+                  "color": 3447003,
+                  "fields": [
+                    {"name": "Author", "value": $pr_author}
+                  ],
+                  "footer": { "text": "PR Event" },
+                  "timestamp": $timestamp
+                }]
+              }' > payload.json
+
+          else
+            COMMIT_URL="https://github.com/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}"
+            jq -n \
+              --arg repo "$GITHUB_REPOSITORY" \
+              --arg url "$COMMIT_URL" \
+              --arg commit "${GITHUB_SHA}" \
+              --arg timestamp "$TIMESTAMP" \
+              '{
+                "embeds": [{
+                  "title": "🚀 New Commit to Main",
+                  "description": ("Project **\($repo)** received a new commit."),
+                  "color": 7506394,
+                  "fields": [
+                    {"name": "Commit", "value": "[\($commit)](\($url))"}
+                  ],
+                  "footer": { "text": "Push Event" },
+                  "timestamp": $timestamp
+                }]
+              }' > payload.json
+          fi
+
+          curl -H "Content-Type: application/json" \
+            -X POST \
+            -d @payload.json \
+            "$DISCORD_WEBHOOK"
