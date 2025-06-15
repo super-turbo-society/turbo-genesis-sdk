@@ -1,4 +1,4 @@
-leaname: Notify Discord on commit and PR open
+name: Notify Discord on commit and PR open
 
 on:
   push:
