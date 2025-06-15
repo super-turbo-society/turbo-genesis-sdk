@@ -48,7 +48,10 @@ jobs:
               }' > payload.json
 
           else
+            AUTHOR=$(git log -1 --pretty=%an)
+            MESSAGE=$(git log -1 --pretty=%B)
             COMMIT_URL="https://github.com/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}"
+
             jq -n \
               --arg repo "$GITHUB_REPOSITORY" \
               --arg url "$COMMIT_URL" \
