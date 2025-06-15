@@ -23,5 +23,4 @@ num-traits = "0.2.19"
 turbo-macros = "0.2.0"
 
 [features]
-no-host = []
 solana = ["solana-sdk"]
