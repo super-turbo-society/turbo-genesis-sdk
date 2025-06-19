@@ -4,29 +4,22 @@
 [![Crates.io](https://img.shields.io/crates/v/turbo-genesis-sdk.svg)](https://crates.io/crates/turbo-genesis-sdk)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
+![Turbo logo banner](./banner.png)
+
 A flexible Rust SDK for building WebAssembly–powered games on the [Turbo](https://docs.turbo.computer), with first-class support for graphics, audio, input, and netcode.
 
 ## 🌟 Features
 
-- **Canvas** (`canvas`): 2D drawing primitives, layers, text
-- **Audio** (`audio`): load/play/loop audio assets
-- **Input** (`input`): keyboard, mouse, touch, gamepad
+- **Canvas**: 2D drawing primitives text, sprites (static and animated), etc + camera movement and zoom.
+- **Audio**: Load/play/loop audio assets.
+- **Input**: Handle keyboard, mouse, touch, and gamepad input.
+- **System**: Console logging, get monotonic and system time, save data to local storage.
+- **Utility**: Built-in libraries for easing transitions (tweening) and creating advanced GUI layouts.
 <!-- - **HTTP** (`http`): fetch, post, JSON convenience -->
-- **System** (`sys`, `os`, `bounds`, `tween`): console logging, timing, tween animations, safe bounds checks
 
 ## 🚀 Getting Started
 
 1. Install Turbo
-
-   ```sh
-   curl -sSfL https://turbo.computer/install.sh | sh
-   ```
-
-   Make sure you also have the wasm target installed as well
-
-   ```sh
-   rustup target add wasm32-unknown-unknown
-   ```
 
    You can find full install instructions on the [Turbo Docs](https://docs.turbo.computer/learn/installation)
 
@@ -40,25 +33,38 @@ A flexible Rust SDK for building WebAssembly–powered games on the [Turbo](http
 
    ```toml
    [dependencies]
-   turbo = { package = "turbo-genesis-sdk", version = "*" }
+   turbo = { package = "turbo-genesis-sdk", version = "..." }
    ```
 
    The SDK version will vary based on the version of `turbo` installed. It is best to ensure your on the latest version of `turbo` and the SDK when starting a new project.
 
 1. **Write your code**
+
    Open `src/lib.rs` and drop in:
 
    ```rs
-    use turbo::prelude::*;
+    use turbo::*;
 
-    turbo::go!({
+   #[game]
+   #[derive(BorshDeserialize, BorshSerialize)]
+   struct MyGame {
+      greeting: String,
+   };
+   impl MyGame {
+      pub fn new() -> Self {
+         Self {
+            greeting: "Hello, Turbo!".to_string(),
+         }
+      }
+      pub fn update(&mut self) -> Self {
         // Clear the background with a hex color:
         clear(0xff00ffff);
         // Draw text to the screen:
-        text!("Hello, Turbo!");
+        text!(&self.greeting);
         // Draw a rotated square:
         rect!(w = 50, h = 50, color = 0xffffffff, rotation_deg = 45);
-    });
+      }
+   }
    ```
 
 1. **Run with Turbo**
