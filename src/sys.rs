@@ -19,6 +19,14 @@ pub fn log(text: &str) {
     ffi::sys::log(ptr, len)
 }
 
+pub fn emit(name: &str, data: &str) {
+    let name_ptr = name.as_ptr();
+    let name_len = name.len() as u32;
+    let data_ptr = data.as_ptr();
+    let data_len = data.len() as u32;
+    ffi::sys::emit(name_ptr, name_len, data_ptr, data_len)
+}
+
 pub fn save(data: &[u8]) -> Result<i32, i32> {
     let ptr = data.as_ptr();
     let len = data.len() as u32;
