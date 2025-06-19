@@ -4,7 +4,7 @@ version = "0.2.0"
 edition = "2021"
 description = "Turbo Genesis SDK Macros"
 license = "MIT"
-authors = ["@jozanza (hello@jsavary.com)"]
+authors = ["@jozanza (jozanza@turbo.computer)"]
 repository = "https://github.com/super-turbo-society/turbo-genesis-sdk/tree/main/turbo-macros"
 
 [lib]

@@ -3,7 +3,7 @@ name = "turbo-genesis-sdk"
 version = "4.0.0-alpha.0"
 description = "Turbo Genesis SDK"
 license = "MIT"
-authors = ["@jozanza (hello@jsavary.com)"]
+authors = ["@jozanza (jozanza@turbo.computer)"]
 edition = "2021"
 repository = "https://github.com/super-turbo-society/turbo-genesis-sdk"
 

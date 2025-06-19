@@ -1,0 +1,13 @@
+[package]
+name = "turbo-types"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["@jozanza (jozanza@turbo.computer)"]
+repository = "https://github.com/super-turbo-society/turbo-genesis-sdk"
+
+[lib]
+crate-type = ["lib"]
+
+[dependencies]
+num-traits = "0.2.19"
