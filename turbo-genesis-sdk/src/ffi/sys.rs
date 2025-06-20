@@ -1,4 +1,17 @@
 #[cfg(not(target_family = "wasm"))]
+pub fn emit(name_ptr: *const u8, name_len: u32, data_ptr: *const u8, data_len: u32) {}
+#[cfg(target_family = "wasm")]
+pub fn emit(name_ptr: *const u8, name_len: u32, data_ptr: *const u8, data_len: u32) {
+    unsafe {
+        #[link(wasm_import_module = "@turbo_genesis/sys")]
+        extern "C" {
+            fn emit(name_ptr: *const u8, name_len: u32, data_ptr: *const u8, data_len: u32);
+        }
+        emit(name_ptr, name_len, data_ptr, data_len)
+    }
+}
+
+#[cfg(not(target_family = "wasm"))]
 pub fn tick() -> u32 {
     0
 }
