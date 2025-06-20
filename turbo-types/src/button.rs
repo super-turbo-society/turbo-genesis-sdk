@@ -1,5 +1,9 @@
+use borsh::{BorshDeserialize, BorshSerialize};
+
 /// Represents the state of an input (controller or mouse button) at a given moment.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, BorshDeserialize, BorshSerialize)]
+#[borsh(use_discriminant = true)]
 pub enum Button {
     Released = 0,
     JustPressed = 1,
@@ -61,10 +65,16 @@ mod tests {
         // Test next() method of Button enum
         assert_eq!(Button::Released.next(true), Button::JustPressed);
         assert_eq!(Button::Released.next(false), Button::Released);
-        assert_eq!(Button::JustReleased.next(true), Button::JustPressed);
+        assert_eq!(
+            Button::JustReleased.next(true),
+            Button::JustPressed
+        );
         assert_eq!(Button::JustReleased.next(false), Button::Released);
         assert_eq!(Button::JustPressed.next(true), Button::Pressed);
-        assert_eq!(Button::JustPressed.next(false), Button::JustReleased);
+        assert_eq!(
+            Button::JustPressed.next(false),
+            Button::JustReleased
+        );
         assert_eq!(Button::Pressed.next(true), Button::Pressed);
         assert_eq!(Button::Pressed.next(false), Button::JustReleased);
     }

@@ -9,3 +9,9 @@ mod pointer;
 
 pub use mouse::*;
 mod mouse;
+
+pub use keyboard::*;
+mod keyboard;
+
+pub use wheel::*;
+mod wheel;

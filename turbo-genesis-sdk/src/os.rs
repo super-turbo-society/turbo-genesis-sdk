@@ -7,7 +7,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 fn from_base64<'a, D: Deserializer<'a>>(deserializer: D) -> Result<Vec<u8>, D::Error> {
     use serde::de::Error;
-    String::deserialize(deserializer).and_then(|string| {
+    <String as Deserialize>::deserialize(deserializer).and_then(|string| {
         b64.decode(&string)
             .map_err(|err| Error::custom(err.to_string()))
     })
@@ -640,10 +640,7 @@ pub mod server {
     }
 
     // Implement for Borsh
-    impl<T> AutoDeserialize for T
-    where
-        T: BorshDeserialize,
-    {
+    impl<T: BorshDeserialize> AutoDeserialize for T {
         fn auto_deserialize(data: &[u8]) -> Result<Self, std::io::Error> {
             T::try_from_slice(data).map_err(|_| {
                 std::io::Error::new(
@@ -654,10 +651,7 @@ pub mod server {
         }
     }
     // Implement for Borsh
-    impl<T> AutoSerialize for T
-    where
-        T: BorshSerialize,
-    {
+    impl<T: BorshSerialize> AutoSerialize for T {
         fn auto_serialize(&self) -> Result<Vec<u8>, std::io::Error> {
             self.try_to_vec().map_err(|_| {
                 std::io::Error::new(

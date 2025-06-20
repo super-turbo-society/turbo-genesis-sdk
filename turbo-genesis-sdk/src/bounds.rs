@@ -26,6 +26,14 @@ pub fn canvas() -> Bounds {
     Bounds::new(0, 0, w, h)
 }
 
+/// Creates a new `Bounds` with the specified width and height,
+/// defaulting to the origin (0,0).
+pub fn new<W: NumCast, H: NumCast>(w: W, h: H) -> Bounds {
+    let w = NumCast::from(w).unwrap_or(0);
+    let h = NumCast::from(h).unwrap_or(0);
+    Bounds::new(0, 0, w, h)
+}
+
 /// `Bounds` represents a rectangular region in 2D space.
 /// It is the core primitive for low-res immediate-mode graphics,
 /// providing essential methods for positioning, sizing, and geometric operations.

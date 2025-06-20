@@ -1,6 +1,7 @@
 use crate::Button;
+use borsh::{BorshDeserialize, BorshSerialize};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, BorshDeserialize, BorshSerialize)]
 pub struct Gamepad {
     /// The state of the up button.
     pub up: Button,

@@ -5,22 +5,20 @@ description = "Turbo Genesis SDK"
 license = "MIT"
 authors = ["@jozanza (jozanza@turbo.computer)"]
 edition = "2021"
-repository = "https://github.com/super-turbo-society/turbo-genesis-sdk"
+repository = "https://github.com/super-turbo-society/turbo-genesis-sdk/tree/main/turbo-genesis-sdk"
 
 [lib]
 crate-type = ["lib"]
 
 [dependencies]
-base64 = "0.22.1"
-borsh = "<=0.10.3"
-bytemuck = { version = "1.15.0", features = ["derive"] }
-structstruck = "0.4.1"
-serde = { version = "1.0.217", features = ["derive"] }
-serde_json = "1"
-solana-sdk = { version = "1.18.26", optional = true }
-toml = "0.8.19"
-num-traits = "0.2.19"
-turbo-macros = "0.2.0"
+base64 = "0.22"
+borsh = "1.5"
+num-traits = "0.2"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+solana-sdk = { version = "1.0", optional = true }
+turbo-macros = { version = "0.2.0", path = "../turbo-macros" }
+turbo-types = { version = "0.1.0", path = "../turbo-types" }
 
 [features]
 solana = ["solana-sdk"]
