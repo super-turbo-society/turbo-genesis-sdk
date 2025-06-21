@@ -1,12 +1,11 @@
-use num_traits::NumCast;
-
 use crate::bounds::Bounds;
+use num_traits::NumCast;
 
 /// Retrieves the current camera position as an (x, y, z) tuple.
 /// The values are filled by calling the FFI function `get_camera2`.
 pub fn xyz() -> (f32, f32, f32) {
     let mut cam: [f32; 3] = [0.; 3];
-    crate::ffi::canvas::get_camera2(cam.as_mut_ptr());
+    turbo_genesis_ffi::canvas::get_camera(cam.as_mut_ptr());
     (cam[0], cam[1], cam[2])
 }
 
@@ -45,7 +44,7 @@ pub fn set_xyz<X: NumCast, Y: NumCast>(x: X, y: Y, z: f32) {
     let x: f32 = NumCast::from(x).unwrap_or(0.0);
     let y: f32 = NumCast::from(y).unwrap_or(0.0);
     let z = f32::max(z, 0.0);
-    crate::ffi::canvas::set_camera2(x, y, z);
+    turbo_genesis_ffi::canvas::set_camera(x, y, z);
 }
 
 /// Sets the camera's x and y coordinates while retaining the current z (zoom) value.

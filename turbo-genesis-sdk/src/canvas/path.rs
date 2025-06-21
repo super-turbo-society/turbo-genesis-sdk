@@ -1,5 +1,6 @@
-use super::*;
+use super::{flags, quad, utils};
 use num_traits::NumCast;
+use quad::Quad;
 
 /// A builder-style line type.
 #[derive(Debug, Clone, Copy)]
@@ -370,8 +371,7 @@ impl Path {
         let distance = distance_f;
 
         // Calculate the angle in degrees.
-        let mut angle =
-            (delta_y.atan2(delta_x) * (180.0 / std::f64::consts::PI)).round() as i32;
+        let mut angle = (delta_y.atan2(delta_x) * (180.0 / std::f64::consts::PI)).round() as i32;
         angle += self.quad.rotation_deg;
 
         // Compute the midpoint between start and end as floats.

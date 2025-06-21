@@ -1,0 +1,11 @@
+[package]
+name = "turbo-genesis-ffi"
+version = "0.1.0"
+edition = "2021"
+description = "Turbo Genesis SDK FFI interface"
+license = "MIT"
+authors = ["@jozanza (jozanza@turbo.computer)"]
+repository = "https://github.com/super-turbo-society/turbo-genesis-sdk/tree/main/turbo-genesis-ffi"
+
+[lib]
+crate-type = ["lib"]

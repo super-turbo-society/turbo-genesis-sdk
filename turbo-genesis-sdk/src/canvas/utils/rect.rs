@@ -1,5 +1,3 @@
-use crate::ffi;
-
 pub fn draw(
     color: u32,
     dx: i32,
@@ -18,7 +16,7 @@ pub fn draw(
     let dest_wh = ((dw as u64) << 32) | (dh as u32 as u64);
     let origin_xy = ((origin_x as u64) << 32) | (origin_y as u64 & 0xffffffff);
     let fill_ab = (color as u64) << 32;
-    ffi::canvas::draw_quad2(
+    turbo_genesis_ffi::canvas::draw_quad(
         dest_xy,
         dest_wh,
         0,

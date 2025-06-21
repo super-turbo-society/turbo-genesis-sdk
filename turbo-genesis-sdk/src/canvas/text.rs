@@ -1,5 +1,6 @@
-use super::*;
+use super::{flags, quad, utils};
 use num_traits::NumCast;
+use quad::Quad;
 
 /// A builder-style rectangle type.
 #[derive(Debug, Clone, Copy)]

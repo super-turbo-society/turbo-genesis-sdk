@@ -1,7 +1,4 @@
-use crate::{
-    canvas::{flags, utils},
-    ffi,
-};
+use super::sprite;
 
 pub fn draw(
     font_name: &str,
@@ -17,7 +14,7 @@ pub fn draw(
     let font_name_len = font_name.len() as u32;
     let text_ptr = text.as_ptr();
     let text_len = text.len() as u32;
-    ffi::canvas::text3(
+    turbo_genesis_ffi::canvas::text(
         x,
         y,
         color,
@@ -47,7 +44,7 @@ pub fn measure(font: &str, scale: f32, text: &str) -> (f32, f32) {
             current_width = 0.0;
         } else {
             let key = format!("font_{}_{}", font, ch);
-            if let Some(src) = utils::sprite::get_source_data(&key) {
+            if let Some(src) = sprite::get_source_data(&key) {
                 let w = src.width as f32 * scale;
                 let h = src.height as f32 * scale;
                 current_width += w;

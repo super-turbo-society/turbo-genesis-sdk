@@ -59,6 +59,7 @@ macro_rules! __sprite__ {
     (@set $sprite:ident, size, $val:expr) => { $sprite.size_wh($val) };
     (@set $sprite:ident, origin, $val:expr) => { $sprite.origin_xy($val) };
     (@set $sprite:ident, rotation, $val:expr) => { $sprite.rotation_deg($val) };
+    (@set $sprite:ident, bounds, $val:expr) => { $sprite.xy($val.xy()).wh($val.wh()) };
     (@set $sprite:ident, $key:ident, $val:expr) => { $sprite.$key($val) };
 }
 
@@ -92,6 +93,7 @@ macro_rules! __nine_slice__ {
     (@set $nine_slice:ident, size, $val:expr) => { $nine_slice.size_wh($val) };
     (@set $nine_slice:ident, origin, $val:expr) => { $nine_slice.origin_xy($val) };
     (@set $nine_slice:ident, rotation, $val:expr) => { $nine_slice.rotation_deg($val) };
+    (@set $nine_slice:ident, bounds, $val:expr) => { $nine_slice.xy($val.xy()).wh($val.wh()) };
     (@set $nine_slice:ident, $key:ident, $val:expr) => { $nine_slice.$key($val) };
 }
 
@@ -123,6 +125,7 @@ macro_rules! __rect__ {
     (@set $rect:ident, size, $val:expr) => { $rect.size_wh($val) };
     (@set $rect:ident, origin, $val:expr) => { $rect.origin_xy($val) };
     (@set $rect:ident, rotation, $val:expr) => { $rect.rotation_deg($val) };
+    (@set $rect:ident, bounds, $val:expr) => { $rect.xy($val.xy()).wh($val.wh()) };
     (@set $rect:ident, $key:ident, $val:expr) => { $rect.$key($val) };
 }
 
@@ -154,6 +157,7 @@ macro_rules! __ellipse__ {
     (@set $ellipse:ident, size, $val:expr) => { $ellipse.size_wh($val) };
     (@set $ellipse:ident, origin, $val:expr) => { $ellipse.origin_xy($val) };
     (@set $ellipse:ident, rotation, $val:expr) => { $ellipse.rotation_deg($val) };
+    (@set $ellipse:ident, bounds, $val:expr) => { $ellipse.xy($val.xy()).wh($val.wh()) };
     (@set $ellipse:ident, $key:ident, $val:expr) => { $ellipse.$key($val) };
 }
 
@@ -181,6 +185,7 @@ macro_rules! __circ__ {
     (@set $circ:ident, position, $val:expr) => { $circ.position_xy($val) };
     (@set $circ:ident, d, $val:expr) => { $circ.diameter($val) };
     (@set $circ:ident, origin, $val:expr) => { $circ.origin_xy($val) };
+    (@set $circ:ident, bounds, $val:expr) => { $circ.xy($val.xy()).diameter($val.w().max($val.h())) };
     (@set $circ:ident, $key:ident, $val:expr) => { $circ.$key($val) };
 }
 
@@ -294,5 +299,6 @@ macro_rules! __text_box__ {
     (@set $tb:ident, wh, $val:expr) => { $tb.size_wh($val) };
     (@set $tb:ident, size, $val:expr) => { $tb.size_wh($val) };
     (@set $tb:ident, rotation, $val:expr) => { $tb.rotation_deg($val) };
+    (@set $tb:ident, bounds, $val:expr) => { $tb.xy($val.xy()).wh($val.wh()) };
     (@set $tb:ident, $key:ident, $val:expr) => { $tb.$key($val) };
 }

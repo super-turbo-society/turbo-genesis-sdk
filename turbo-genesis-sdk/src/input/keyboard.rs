@@ -1,7 +1,7 @@
 use crate::{ffi, serialize};
 use serialize::Borsh;
 use std::ops::Deref;
-use turbo_types::{KeyCode as TurboKeyCode, Keyboard as TurboKeyboard};
+use turbo_genesis_abi::{TurboKeyCode, TurboKeyboard};
 
 /// Wrapper for the ABI-defined `TurboKeyCode`, allowing local trait impls and extensions.
 #[derive(Debug)]

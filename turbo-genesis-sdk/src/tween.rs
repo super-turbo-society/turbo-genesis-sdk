@@ -207,7 +207,7 @@ where
         self.start = self.get();
         self.end = new_end;
         self.elapsed = 0;
-        self.start_tick = Some(sys::tick());
+        self.start_tick = Some(turbo_genesis_ffi::sys::tick() as usize);
         *self
     }
 
@@ -215,7 +215,7 @@ where
         self.start = self.get();
         self.end = self.end + delta;
         self.elapsed = 0;
-        self.start_tick = Some(sys::tick());
+        self.start_tick = Some(turbo_genesis_ffi::sys::tick() as usize);
     }
 
     pub fn get(&mut self) -> T {
@@ -223,9 +223,9 @@ where
             return self.end;
         }
         if self.start_tick.is_none() {
-            self.start_tick = Some(sys::tick());
+            self.start_tick = Some(turbo_genesis_ffi::sys::tick() as usize);
         }
-        self.elapsed = sys::tick() - self.start_tick.unwrap_or(0);
+        self.elapsed = turbo_genesis_ffi::sys::tick() as usize - self.start_tick.unwrap_or(0);
         let t = self.elapsed as f64 / self.duration.max(1) as f64;
         let eased_t = self.easing.apply(t);
         T::interpolate(eased_t, self.start, self.end)
@@ -239,7 +239,7 @@ where
     pub fn elapsed_since_done(&mut self) -> Option<usize> {
         let _ = self.get(); // ensure get has been called before checking fields
         let end_tick = self.start_tick.map_or(0, |t| t + self.duration);
-        let t = sys::tick();
+        let t = turbo_genesis_ffi::sys::tick() as usize;
         if t >= end_tick {
             return Some(t - end_tick);
         }
@@ -251,121 +251,20 @@ pub trait Interpolate<T> {
     fn interpolate(t: f64, start: T, end: T) -> T;
 }
 
-impl Interpolate<f32> for f32 {
-    fn interpolate(t: f64, start: f32, end: f32) -> f32 {
-        let n = start as f64 + (end as f64 - start as f64) * t;
-        n as f32
-    }
+macro_rules! impl_interpolate_for {
+    ($($t:ty),*) => {
+        $(
+            impl Interpolate<$t> for $t {
+                fn interpolate(t: f64, start: $t, end: $t) -> $t {
+                    let diff = end as f64 - start as f64;
+                    (start as f64 + diff * t) as $t
+                }
+            }
+        )*
+    };
 }
 
-impl Interpolate<f64> for f64 {
-    fn interpolate(t: f64, start: f64, end: f64) -> f64 {
-        let n = start as f64 + (end as f64 - start as f64) * t;
-        n
-    }
-}
-
-impl Interpolate<usize> for usize {
-    fn interpolate(t: f64, start: usize, end: usize) -> usize {
-        let n = start as f64 + (end as f64 - start as f64) * t;
-        n as usize
-    }
-}
-
-impl Interpolate<isize> for isize {
-    fn interpolate(t: f64, start: isize, end: isize) -> isize {
-        let n = start as f64 + (end as f64 - start as f64) * t;
-        n as isize
-    }
-}
-
-impl Interpolate<u64> for u64 {
-    fn interpolate(t: f64, start: u64, end: u64) -> u64 {
-        let n = start as f64 + (end as f64 - start as f64) * t;
-        n as u64
-    }
-}
-
-impl Interpolate<i64> for i64 {
-    fn interpolate(t: f64, start: i64, end: i64) -> i64 {
-        let n = start as f64 + (end as f64 - start as f64) * t;
-        n as i64
-    }
-}
-
-impl Interpolate<u32> for u32 {
-    fn interpolate(t: f64, start: u32, end: u32) -> u32 {
-        let n = start as f64 + (end as f64 - start as f64) * t;
-        n as u32
-    }
-}
-
-impl Interpolate<i32> for i32 {
-    fn interpolate(t: f64, start: i32, end: i32) -> i32 {
-        let n = start as f64 + (end as f64 - start as f64) * t;
-        n as i32
-    }
-}
-
-impl Interpolate<u16> for u16 {
-    fn interpolate(t: f64, start: u16, end: u16) -> u16 {
-        let n = start as f64 + (end as f64 - start as f64) * t;
-        n as u16
-    }
-}
-
-impl Interpolate<i16> for i16 {
-    fn interpolate(t: f64, start: i16, end: i16) -> i16 {
-        let n = start as f64 + (end as f64 - start as f64) * t;
-        n as i16
-    }
-}
-
-impl Interpolate<u8> for u8 {
-    fn interpolate(t: f64, start: u8, end: u8) -> u8 {
-        let n = start as f64 + (end as f64 - start as f64) * t;
-        n as u8
-    }
-}
-
-impl Interpolate<i8> for i8 {
-    fn interpolate(t: f64, start: i8, end: i8) -> i8 {
-        let n = start as f64 + (end as f64 - start as f64) * t;
-        n as i8
-    }
-}
-
-impl Interpolate<(f32, f32)> for (f32, f32) {
-    fn interpolate(t: f64, start: (f32, f32), end: (f32, f32)) -> (f32, f32) {
-        let x = start.0 as f64 + (end.0 as f64 - start.0 as f64) * t;
-        let y = start.1 as f64 + (end.1 as f64 - start.1 as f64) * t;
-        (x as f32, y as f32)
-    }
-}
-
-impl Interpolate<(f64, f64)> for (f64, f64) {
-    fn interpolate(t: f64, start: (f64, f64), end: (f64, f64)) -> (f64, f64) {
-        let x = start.0 + (end.0 - start.0) * t;
-        let y = start.1 + (end.1 - start.1) * t;
-        (x, y)
-    }
-}
-
-impl Interpolate<(i32, i32)> for (i32, i32) {
-    fn interpolate(t: f64, start: (i32, i32), end: (i32, i32)) -> (i32, i32) {
-        let x = start.0 as f64 + (end.0 as f64 - start.0 as f64) * t;
-        let y = start.1 as f64 + (end.1 as f64 - start.1 as f64) * t;
-        (x as i32, y as i32)
-    }
-}
-
-impl Interpolate<(u32, u32)> for (u32, u32) {
-    fn interpolate(t: f64, start: (u32, u32), end: (u32, u32)) -> (u32, u32) {
-        let x = start.0 as f64 + (end.0 as f64 - start.0 as f64) * t;
-        let y = start.1 as f64 + (end.1 as f64 - start.1 as f64) * t;
-        (x as u32, y as u32)
-    }
-}
+impl_interpolate_for!(f32, f64, i8, i16, i32, i64, isize, u8, u16, u32, u64, usize);
 
 /// Implements interpolation for `Bounds` so that a `Tween<Bounds>`
 /// can smoothly transition all its properties (x, y, w, h) over time.

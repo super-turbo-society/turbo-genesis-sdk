@@ -1,5 +1,3 @@
-use crate::sys::tick;
-use crate::{canvas::flags, ffi};
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::{collections::BTreeMap, ops::Div};
 
@@ -39,7 +37,7 @@ pub fn get_source_data(name: &str) -> Option<SpriteSourceData> {
     #[allow(static_mut_refs)]
     unsafe {
         // Check latest sprite data nonce
-        let nonce = ffi::canvas::get_sprite_data_nonce_v1();
+        let nonce = turbo_genesis_ffi::canvas::get_sprite_data_nonce();
 
         // If nonce has been updated, refresh data
         if TURBO_SPRITE_DATA_NONCE < nonce {
@@ -48,7 +46,7 @@ pub fn get_source_data(name: &str) -> Option<SpriteSourceData> {
             let data_ptr = data.as_mut_ptr();
             let mut len = data.len() as u32;
             let len_ptr = &mut len;
-            ffi::canvas::get_sprite_data_v1(data_ptr, len_ptr);
+            turbo_genesis_ffi::canvas::get_sprite_data(data_ptr, len_ptr);
 
             // Deserialize sprite data
             match <BTreeMap<String, SpriteSourceData>>::deserialize(&mut &data[..]) {
@@ -59,7 +57,7 @@ pub fn get_source_data(name: &str) -> Option<SpriteSourceData> {
                 }
                 // Log the error
                 Err(err) => {
-                    crate::println!("Sprite data deserialization failed: {err:?}");
+                    crate::log!("Sprite data deserialization failed: {err:?}");
                 }
             }
         }
@@ -70,7 +68,7 @@ pub fn get_source_data(name: &str) -> Option<SpriteSourceData> {
 }
 
 pub fn get_frame_index(sprite_data: &SpriteSourceData, speed: f32) -> usize {
-    let elapsed_time = (tick() as f32 / 60.0) * 1000.0;
+    let elapsed_time = (turbo_genesis_ffi::sys::tick() as f32 / 60.0) * 1000.0;
     let total_duration = sprite_data
         .animation_frames
         .iter()
@@ -118,7 +116,7 @@ pub fn draw(
     let sprite_wh = ((sw as u64) << 32) | (sh as u32 as u64);
     let origin_xy = ((origin_x as u64) << 32) | (origin_y as u64 & 0xffffffff);
     let fill_ab = (background_color as u64) << 32 | (color as u64 & 0xffffffff);
-    ffi::canvas::draw_quad2(
+    turbo_genesis_ffi::canvas::draw_quad(
         dest_xy,
         dest_wh,
         sprite_xy,

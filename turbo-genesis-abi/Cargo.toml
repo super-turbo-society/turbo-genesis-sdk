@@ -1,0 +1,14 @@
+[package]
+name = "turbo-genesis-abi"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["@jozanza (jozanza@turbo.computer)"]
+repository = "https://github.com/super-turbo-society/turbo-genesis-sdk/tree/main/turbo-genesis-abi"
+
+[lib]
+crate-type = ["lib"]
+
+[dependencies]
+num-traits = "^0.2.19"
+borsh = "^1.5.7"

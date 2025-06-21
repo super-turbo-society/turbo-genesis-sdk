@@ -1,5 +1,7 @@
-use super::*;
+use super::{flags, quad, utils};
+use crate::bounds::Bounds;
 use num_traits::NumCast;
+use quad::Quad;
 
 /// A builder-style circle type.
 #[derive(Debug, Clone, Copy)]
@@ -289,8 +291,7 @@ impl Circle {
 
         // Apply opacity to the sprite's primary and background colors.
         let color = utils::color::apply_opacity(self.quad.color, self.quad.opacity);
-        let border_color =
-            utils::color::apply_opacity(self.quad.border_color, self.quad.opacity);
+        let border_color = utils::color::apply_opacity(self.quad.border_color, self.quad.opacity);
 
         // Draw the circle using the utility function.
         utils::rect::draw(

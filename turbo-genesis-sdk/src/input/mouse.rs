@@ -2,7 +2,7 @@ use crate::{bounds::Bounds, canvas, ffi, serialize};
 use num_traits::NumCast;
 use serialize::Borsh;
 use std::ops::Deref;
-use turbo_types::Mouse as TurboMouse;
+use turbo_genesis_abi::TurboMouse;
 
 /// A wrapper around `TurboMouse` for screen-space (fixed-pixel) mouse data.
 #[derive(Debug)]

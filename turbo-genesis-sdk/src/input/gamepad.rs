@@ -1,7 +1,7 @@
 use crate::{ffi, serialize};
 use serialize::Borsh;
 use std::ops::Deref;
-use turbo_types::Gamepad as TurboGamepad;
+use turbo_genesis_abi::TurboGamepad;
 
 /// Wrapper around the ABI-defined `TurboGamepad` type with local extensions or trait impls.
 #[derive(Debug)]

@@ -1,4 +1,3 @@
-use crate::input::pointer;
 use borsh::{BorshDeserialize, BorshSerialize};
 use num_traits::NumCast;
 use std::ops::Add;
@@ -1289,8 +1288,4 @@ impl Add for Bounds {
             h: self.h + rhs.h,
         }
     }
-}
-
-pub trait IntersectBounds {
-    fn intersects_bounds(&self, bound: Bounds) -> bool;
 }

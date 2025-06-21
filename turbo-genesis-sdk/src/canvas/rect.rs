@@ -1,5 +1,6 @@
-use super::*;
+use super::{flags, quad, utils};
 use num_traits::NumCast;
+use quad::Quad;
 
 /// A builder-style rectangle type.
 #[derive(Debug, Clone, Copy)]
@@ -367,8 +368,7 @@ impl Rectangle {
 
         // Apply opacity to the sprite's primary and background colors.
         let color = utils::color::apply_opacity(self.quad.color, self.quad.opacity);
-        let border_color =
-            utils::color::apply_opacity(self.quad.border_color, self.quad.opacity);
+        let border_color = utils::color::apply_opacity(self.quad.border_color, self.quad.opacity);
 
         // Draw the rectangle using the utility function.
         utils::rect::draw(

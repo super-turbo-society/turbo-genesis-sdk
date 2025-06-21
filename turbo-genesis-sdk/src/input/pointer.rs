@@ -2,7 +2,7 @@ use crate::{bounds::Bounds, canvas, ffi, serialize};
 use num_traits::NumCast;
 use serialize::Borsh;
 use std::ops::Deref;
-use turbo_types::Pointer as TurboPointer;
+use turbo_genesis_abi::TurboPointer;
 
 /// Wrapper around the ABI-defined `TurboPointer`, representing a pointer (e.g. touch or mouse) in fixed screen-space (pixels).
 #[derive(Debug)]

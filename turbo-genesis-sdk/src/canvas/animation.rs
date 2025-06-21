@@ -1,4 +1,4 @@
-use super::*;
+use super::{sprite, utils};
 use sprite::Sprite;
 use std::collections::BTreeMap;
 use utils::sprite::{SpriteAnimationDirection, SpriteAnimationFrame};

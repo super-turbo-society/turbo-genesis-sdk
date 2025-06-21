@@ -1,6 +1,7 @@
-use super::*;
+use super::{quad, utils, flags};
 use crate::bounds::Bounds;
 use num_traits::NumCast;
+use quad::Quad;
 use std::f32::consts::PI;
 
 #[derive(Debug, Clone, Copy)]
@@ -389,8 +390,8 @@ impl<'a> TextBox<'a> {
                         (dx + left_over, dy, dw - left_over as u32, dh, -left_over, 0)
                     };
                     utils::sprite::draw(
-                        dx, dy, dw, dh, sx, sy, sw, sh, tx, ty, draw_color, 0, 0, 0, 0,
-                        origin_x, origin_y, rotation, flags,
+                        dx, dy, dw, dh, sx, sy, sw, sh, tx, ty, draw_color, 0, 0, 0, 0, origin_x,
+                        origin_y, rotation, flags,
                     );
                     x += glyph_w as f32;
                 }

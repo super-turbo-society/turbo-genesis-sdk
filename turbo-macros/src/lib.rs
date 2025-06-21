@@ -3,7 +3,7 @@ use quote::quote;
 use syn::{parse_macro_input, Attribute, Item, ItemStruct};
 
 #[proc_macro_attribute]
-pub fn turbo_game(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn game(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as ItemStruct);
     let struct_ident = input.ident.clone();
 
@@ -44,7 +44,7 @@ pub fn turbo_game(_attr: TokenStream, item: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_attribute]
-pub fn turbo_serialize(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn serialize(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut input = parse_macro_input!(item as Item);
 
     // clone the ident early to avoid borrowing issues

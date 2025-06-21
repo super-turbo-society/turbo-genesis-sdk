@@ -1,3 +1,8 @@
 [workspace]
-members = ["turbo-genesis-sdk", "turbo-macros", "turbo-types"]
+members = [
+    "turbo-genesis-ffi",
+    "turbo-genesis-sdk",
+    "turbo-genesis-abi",
+    "turbo-macros",
+]
 resolver = "2"
