@@ -12,6 +12,15 @@ unsafe extern "C" {
         channel_id_ptr: *const u8,
         channel_id_len: u32,
     ) -> u32;
+    #[link_name = "channel_connect"]
+    unsafe fn _channel_connect(
+        program_id_ptr: *const u8,
+        program_id_len: u32,
+        channel_kind_ptr: *const u8,
+        channel_kind_len: u32,
+        channel_id_ptr: *const u8,
+        channel_id_len: u32,
+    ) -> u32;
     #[link_name = "channel_recv"]
     unsafe fn _channel_recv(
         program_id_ptr: *const u8,
@@ -88,6 +97,26 @@ pub fn channel_is_connected(
 ) -> u32 {
     unsafe {
         _channel_is_connected(
+            program_id_ptr,
+            program_id_len,
+            channel_kind_ptr,
+            channel_kind_len,
+            channel_id_ptr,
+            channel_id_len,
+        )
+    }
+}
+
+pub fn channel_connect(
+    program_id_ptr: *const u8,
+    program_id_len: u32,
+    channel_kind_ptr: *const u8,
+    channel_kind_len: u32,
+    channel_id_ptr: *const u8,
+    channel_id_len: u32,
+) -> u32 {
+    unsafe {
+        _channel_connect(
             program_id_ptr,
             program_id_len,
             channel_kind_ptr,

@@ -1,14 +1,14 @@
-use crate::{bounds::Bounds, canvas, ffi, serialize};
+use crate::{bounds::Bounds, canvas};
+use borsh::BorshDeserialize;
 use num_traits::NumCast;
-use serialize::Borsh;
 use std::ops::Deref;
-use turbo_genesis_abi::TurboPointer;
+use turbo_genesis_abi::{TurboMouse, TurboPointer};
 
 /// Wrapper around the ABI-defined `TurboPointer`, representing a pointer (e.g. touch or mouse) in fixed screen-space (pixels).
 #[derive(Debug)]
-pub struct FixedPointer(TurboPointer);
+pub struct ScreenPointer(TurboPointer);
 
-impl FixedPointer {
+impl ScreenPointer {
     /// Returns whether the pointer is currently intersecting a given screen-space bounding box.
     fn intersects_bounds(&self, bounds: Bounds) -> bool {
         bounds.intersects_xy(self.xy())
@@ -16,7 +16,7 @@ impl FixedPointer {
 }
 
 /// Enables transparent access to fields and methods on the inner `TurboPointer`.
-impl Deref for FixedPointer {
+impl Deref for ScreenPointer {
     type Target = TurboPointer;
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -25,9 +25,9 @@ impl Deref for FixedPointer {
 
 /// Wrapper around the ABI-defined `TurboPointer`, transformed into relative (camera/world-space) coordinates.
 #[derive(Debug)]
-pub struct RelativePointer(TurboPointer);
+pub struct WorldPointer(TurboPointer);
 
-impl RelativePointer {
+impl WorldPointer {
     /// Returns whether the pointer is currently intersecting a given world-space bounding box.
     fn intersects_bounds(&self, bounds: Bounds) -> bool {
         bounds.intersects_xy(self.xy())
@@ -35,7 +35,7 @@ impl RelativePointer {
 }
 
 /// Enables transparent access to fields and methods on the inner `TurboPointer`.
-impl Deref for RelativePointer {
+impl Deref for WorldPointer {
     type Target = TurboPointer;
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -43,30 +43,56 @@ impl Deref for RelativePointer {
 }
 
 /// Retrieves the pointer position in fixed screen-space (pixel) coordinates.
-pub fn fixed() -> FixedPointer {
-    // Allocate a fixed-size buffer to hold the serialized TurboPointer data.
-    let data = &mut [0; std::mem::size_of::<TurboPointer>()];
+pub fn screen() -> ScreenPointer {
+    // Allocate a fixed-size buffer to hold the serialized TurboMouse data.
+    let data = &mut [0; std::mem::size_of::<TurboMouse>()];
 
     // Call FFI to fill the buffer with the current pointer state.
-    ffi::input::mouse(data.as_mut_ptr());
+    turbo_genesis_ffi::input::mouse(data.as_mut_ptr());
 
-    // Deserialize from bytes into a TurboPointer.
-    let inner = TurboPointer::try_from_slice(data).expect("Could not deserialize Pointer");
+    // Deserialize from bytes into a TurboMouse.
+    let mouse = match TurboMouse::deserialize(&mut &data[..]) {
+        Err(err) => {
+            crate::log!("[turbo] Could not deserialize Mouse: {:?}", err);
+            panic!()
+        }
+        Ok(inner) => inner,
+    };
 
-    // Wrap in the FixedPointer type and return.
-    FixedPointer(inner)
+    // Convert mouse to pointer
+    let inner = TurboPointer {
+        state: mouse.left,
+        x: mouse.x,
+        y: mouse.y,
+    };
+
+    // Wrap in the ScreenPointer type and return.
+    ScreenPointer(inner)
 }
 
 /// Retrieves the pointer position transformed into world-space (camera-relative) coordinates.
-pub fn relative() -> RelativePointer {
+pub fn world() -> WorldPointer {
     // Allocate buffer for raw FFI pointer data.
-    let data = &mut [0; std::mem::size_of::<TurboPointer>()];
+    let data = &mut [0; std::mem::size_of::<TurboMouse>()];
 
     // Populate buffer from FFI.
-    ffi::input::mouse(data.as_mut_ptr());
+    turbo_genesis_ffi::input::mouse(data.as_mut_ptr());
 
     // Deserialize raw pointer data.
-    let mut inner = TurboPointer::try_from_slice(data).expect("Could not deserialize Pointer");
+    let mouse = match TurboMouse::deserialize(&mut &data[..]) {
+        Err(err) => {
+            crate::log!("[turbo] Could not deserialize Mouse: {:?}", err);
+            panic!()
+        }
+        Ok(inner) => inner,
+    };
+
+    // Convert mouse to pointer
+    let mut inner = TurboPointer {
+        state: mouse.left,
+        x: mouse.x,
+        y: mouse.y,
+    };
 
     // Get current camera transform: position (x, y) and zoom (z).
     let (x, y, z) = canvas::camera::xyz();
@@ -85,5 +111,5 @@ pub fn relative() -> RelativePointer {
     inner.y = rel_y;
 
     // Wrap and return the camera-relative pointer.
-    RelativePointer(inner)
+    WorldPointer(inner)
 }

@@ -1,14 +1,14 @@
-use crate::{bounds::Bounds, canvas, ffi, serialize};
+use crate::{bounds::Bounds, canvas};
+use borsh::BorshDeserialize;
 use num_traits::NumCast;
-use serialize::Borsh;
 use std::ops::Deref;
 use turbo_genesis_abi::TurboMouse;
 
 /// A wrapper around `TurboMouse` for screen-space (fixed-pixel) mouse data.
 #[derive(Debug)]
-pub struct FixedMouse(TurboMouse);
+pub struct ScreenMouse(TurboMouse);
 
-impl FixedMouse {
+impl ScreenMouse {
     /// Returns whether the mouse is currently intersecting a given bounding box.
     fn intersects_bounds(&self, bounds: Bounds) -> bool {
         bounds.intersects_xy(self.xy())
@@ -16,7 +16,7 @@ impl FixedMouse {
 }
 
 /// Enables transparent access to the inner `TurboMouse` fields and methods.
-impl Deref for FixedMouse {
+impl Deref for ScreenMouse {
     type Target = TurboMouse;
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -25,9 +25,9 @@ impl Deref for FixedMouse {
 
 /// A wrapper around `TurboMouse` for camera-relative (world-space) mouse data.
 #[derive(Debug)]
-pub struct RelativeMouse(TurboMouse);
+pub struct WorldMouse(TurboMouse);
 
-impl RelativeMouse {
+impl WorldMouse {
     /// Returns whether the mouse is currently intersecting a given world-space bounding box.
     fn intersects_bounds(&self, bounds: Bounds) -> bool {
         bounds.intersects_xy(self.xy())
@@ -35,7 +35,7 @@ impl RelativeMouse {
 }
 
 /// Enables transparent access to the inner `TurboMouse` fields and methods.
-impl Deref for RelativeMouse {
+impl Deref for WorldMouse {
     type Target = TurboMouse;
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -43,28 +43,42 @@ impl Deref for RelativeMouse {
 }
 
 /// Fetches mouse position in fixed screen coordinates (raw pixels).
-pub fn fixed() -> FixedMouse {
+pub fn screen() -> ScreenMouse {
     // Allocate a buffer the size of the serialized TurboMouse ABI.
     let data = &mut [0; std::mem::size_of::<TurboMouse>()];
 
     // Call the FFI function to populate the buffer with mouse data.
-    ffi::input::mouse(data.as_mut_ptr());
+    turbo_genesis_ffi::input::mouse(data.as_mut_ptr());
 
     // Deserialize the buffer into a TurboMouse and wrap it.
-    let inner = TurboMouse::try_from_slice(data).expect("Could not deserialize Mouse");
-    FixedMouse(inner)
+    let inner = match TurboMouse::deserialize(&mut &data[..]) {
+        Err(err) => {
+            crate::log!("[turbo] Could not deserialize Mouse: {:?}", err);
+            panic!()
+        }
+        Ok(inner) => inner,
+    };
+
+    // Wrap and return the camera-fixed mouse.
+    ScreenMouse(inner)
 }
 
 /// Fetches mouse position transformed into camera-relative (world-space) coordinates.
-pub fn relative() -> RelativeMouse {
+pub fn world() -> WorldMouse {
     // Allocate a buffer the size of the serialized TurboMouse ABI.
     let data = &mut [0; std::mem::size_of::<TurboMouse>()];
 
     // Populate the buffer via FFI.
-    ffi::input::mouse(data.as_mut_ptr());
+    turbo_genesis_ffi::input::mouse(data.as_mut_ptr());
 
     // Deserialize into a `TurboMouse`.
-    let mut inner = TurboMouse::try_from_slice(data).expect("Could not deserialize Mouse");
+    let mut inner = match TurboMouse::deserialize(&mut &data[..]) {
+        Err(err) => {
+            crate::log!("[turbo] Could not deserialize Mouse: {:?}", err);
+            panic!()
+        }
+        Ok(inner) => inner,
+    };
 
     // Get current camera transform: position (x, y) and zoom (z).
     let (x, y, z) = canvas::camera::xyz();
@@ -83,5 +97,5 @@ pub fn relative() -> RelativeMouse {
     inner.y = rel_y;
 
     // Wrap and return the camera-relative mouse.
-    RelativeMouse(inner)
+    WorldMouse(inner)
 }

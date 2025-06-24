@@ -2,7 +2,7 @@ use crate::{bounds::Bounds, sys};
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::ops::Add;
 
-// Define easing function types
+/// Standard easing function types used to modify interpolation curves.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, BorshSerialize, BorshDeserialize)]
 pub enum Easing {
     #[default]
@@ -33,6 +33,7 @@ pub enum Easing {
 
 #[allow(unused)]
 impl Easing {
+    /// All easing variants (for menus, debug UIs, etc).
     pub const ALL: [Self; 23] = [
         Self::Linear,
         Self::EaseInQuad,
@@ -58,6 +59,8 @@ impl Easing {
         Self::EaseInOutCirc,
         Self::EaseInBack,
     ];
+
+    /// Apply the easing function to a normalized `t` in [0.0, 1.0]
     pub fn apply(&self, t: f64) -> f64 {
         match *self {
             Easing::Linear => t,
@@ -80,7 +83,7 @@ impl Easing {
                     4.0 * t * t * t
                 } else {
                     let t = t - 1.0;
-                    (t * t * t * 4.0) + 1.0
+                    1.0 + 4.0 * t * t * t
                 }
             }
             Easing::EaseInQuart => t * t * t * t,
@@ -116,14 +119,14 @@ impl Easing {
                 if t == 0.0 {
                     0.0
                 } else {
-                    (2.0 as f64).powf(10.0 * (t - 1.0))
+                    2f64.powf(10.0 * (t - 1.0))
                 }
             }
             Easing::EaseOutExpo => {
                 if t == 1.0 {
                     1.0
                 } else {
-                    1.0 - (2.0 as f64).powf(-10.0 * t)
+                    1.0 - 2f64.powf(-10.0 * t)
                 }
             }
             Easing::EaseInOutExpo => {
@@ -132,9 +135,9 @@ impl Easing {
                 } else if t == 1.0 {
                     1.0
                 } else if t < 0.5 {
-                    (2.0 as f64).powf(10.0 * (2.0 * t - 1.0)) * 0.5
+                    0.5 * 2f64.powf(10.0 * (2.0 * t - 1.0))
                 } else {
-                    (2.0 - (2.0 as f64).powf(-10.0 * (2.0 * t - 1.0))) * 0.5
+                    0.5 * (2.0 - 2f64.powf(-10.0 * (2.0 * t - 1.0)))
                 }
             }
             Easing::EaseInCirc => 1.0 - (1.0 - t * t).sqrt(),
@@ -155,7 +158,7 @@ impl Easing {
     }
 }
 
-// Define a generic Tween struct
+/// A generic time-based interpolator from `start` to `end`.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, BorshSerialize, BorshDeserialize)]
 pub struct Tween<T> {
     pub start: T,
@@ -171,6 +174,7 @@ impl<T> Tween<T>
 where
     T: Copy + Default + PartialEq + Interpolate<T> + Add<Output = T>,
 {
+    /// Creates a new tween with zero duration.
     pub fn new(start: T) -> Self {
         Self {
             start,
@@ -182,24 +186,29 @@ where
         }
     }
 
+    /// Sets duration and returns modified tween.
     pub fn duration(&mut self, duration: usize) -> Self {
         self.duration = duration;
         *self
     }
 
+    /// Sets easing and returns modified tween.
     pub fn ease(&mut self, easing: Easing) -> Self {
         self.easing = easing;
         *self
     }
 
+    /// Mutably set duration.
     pub fn set_duration(&mut self, duration: usize) {
         self.duration = duration;
     }
 
+    /// Mutably set easing function.
     pub fn set_ease(&mut self, easing: Easing) {
         self.easing = easing;
     }
 
+    /// Starts a new tween toward `new_end`.
     pub fn set(&mut self, new_end: T) -> Self {
         if new_end == self.end {
             return *self;
@@ -211,6 +220,7 @@ where
         *self
     }
 
+    /// Adds a delta to the end value and resets.
     pub fn add(&mut self, delta: T) {
         self.start = self.get();
         self.end = self.end + delta;
@@ -218,6 +228,7 @@ where
         self.start_tick = Some(turbo_genesis_ffi::sys::tick() as usize);
     }
 
+    /// Returns the current interpolated value.
     pub fn get(&mut self) -> T {
         if self.duration == 0 || self.elapsed >= self.duration {
             return self.end;
@@ -231,26 +242,31 @@ where
         T::interpolate(eased_t, self.start, self.end)
     }
 
+    /// Returns true if tween is complete.
     pub fn done(&mut self) -> bool {
-        let _ = self.get(); // ensure get has been called before checking fields
+        let _ = self.get();
         self.duration == 0 || self.elapsed >= self.duration
     }
 
+    /// Returns ticks since tween completed.
     pub fn elapsed_since_done(&mut self) -> Option<usize> {
-        let _ = self.get(); // ensure get has been called before checking fields
+        let _ = self.get();
         let end_tick = self.start_tick.map_or(0, |t| t + self.duration);
         let t = turbo_genesis_ffi::sys::tick() as usize;
         if t >= end_tick {
-            return Some(t - end_tick);
+            Some(t - end_tick)
+        } else {
+            None
         }
-        None
     }
 }
 
+/// Trait for interpolatable types.
 pub trait Interpolate<T> {
     fn interpolate(t: f64, start: T, end: T) -> T;
 }
 
+/// Macro for implementing `Interpolate` for primitive types.
 macro_rules! impl_interpolate_for {
     ($($t:ty),*) => {
         $(
@@ -266,18 +282,13 @@ macro_rules! impl_interpolate_for {
 
 impl_interpolate_for!(f32, f64, i8, i16, i32, i64, isize, u8, u16, u32, u64, usize);
 
-/// Implements interpolation for `Bounds` so that a `Tween<Bounds>`
-/// can smoothly transition all its properties (x, y, w, h) over time.
+/// Implements interpolation for `Bounds` by interpolating each field.
 impl Interpolate<Bounds> for Bounds {
     fn interpolate(t: f64, start: Bounds, end: Bounds) -> Bounds {
         Bounds {
-            // Interpolate the x-coordinate (left position)
             x: i32::interpolate(t, start.x, end.x),
-            // Interpolate the y-coordinate (top position)
             y: i32::interpolate(t, start.y, end.y),
-            // Interpolate the width
             w: u32::interpolate(t, start.w, end.w),
-            // Interpolate the height
             h: u32::interpolate(t, start.h, end.h),
         }
     }

@@ -15,7 +15,7 @@ A flexible Rust SDK for building WebAssembly–powered games on the [Turbo](http
 - **Input**: Handle keyboard, mouse, touch, and gamepad input.
 - **System**: Console logging, get monotonic and system time, save data to local storage.
 - **Utility**: Built-in libraries for easing transitions (tweening) and creating advanced GUI layouts.
-<!-- - **HTTP** (`http`): fetch, post, JSON convenience -->
+- **Network**: Connect to the Turbo OS gaming backend to easily create online multiplayer experiences.
 
 ## 🚀 Getting Started
 
@@ -45,7 +45,7 @@ A flexible Rust SDK for building WebAssembly–powered games on the [Turbo](http
    ```rs
     use turbo::*;
 
-   #[game]
+   #[turbo::game]
    #[derive(BorshDeserialize, BorshSerialize)]
    struct MyGame {
       greeting: String,
@@ -56,7 +56,7 @@ A flexible Rust SDK for building WebAssembly–powered games on the [Turbo](http
             greeting: "Hello, Turbo!".to_string(),
          }
       }
-      pub fn update(&mut self) -> Self {
+      pub fn update(&mut self) {
         // Clear the background with a hex color:
         clear(0xff00ffff);
         // Draw text to the screen:

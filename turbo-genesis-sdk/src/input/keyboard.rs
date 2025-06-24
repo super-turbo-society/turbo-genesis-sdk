@@ -1,11 +1,10 @@
-use crate::{ffi, serialize};
-use serialize::Borsh;
+use borsh::BorshDeserialize;
 use std::ops::Deref;
 use turbo_genesis_abi::{TurboKeyCode, TurboKeyboard};
 
 /// Wrapper for the ABI-defined `TurboKeyCode`, allowing local trait impls and extensions.
 #[derive(Debug)]
-struct KeyCode(TurboKeyCode);
+pub struct KeyCode(TurboKeyCode);
 
 /// Enables transparent access to the inner `TurboKeyCode`.
 impl Deref for KeyCode {
@@ -17,7 +16,7 @@ impl Deref for KeyCode {
 
 /// Wrapper for the ABI-defined `TurboKeyboard`, enabling local methods and trait impls.
 #[derive(Debug)]
-struct Keyboard(TurboKeyboard);
+pub struct Keyboard(TurboKeyboard);
 
 /// Allows direct field and method access on the inner `TurboKeyboard`.
 impl Deref for Keyboard {
@@ -37,7 +36,7 @@ pub fn get() -> Keyboard {
     let len_ptr = &mut len;
 
     // Call into FFI to fill `data` with serialized keyboard bytes and update `len`.
-    ffi::input::keyboard(data.as_mut_ptr(), len_ptr);
+    turbo_genesis_ffi::input::keyboard(data.as_mut_ptr(), len_ptr);
 
     // Deserialize the ABI bytes into a `TurboKeyboard`.
     let inner = TurboKeyboard::try_from_slice(data).expect("Could not deserialize Keyboard");

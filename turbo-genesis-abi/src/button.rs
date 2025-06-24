@@ -2,9 +2,10 @@ use borsh::{BorshDeserialize, BorshSerialize};
 
 /// Represents the state of an input (controller or mouse button) at a given moment.
 #[repr(u8)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, BorshDeserialize, BorshSerialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, BorshDeserialize, BorshSerialize)]
 #[borsh(use_discriminant = true)]
 pub enum TurboButton {
+    #[default]
     Released = 0,
     JustPressed = 1,
     Pressed = 2,

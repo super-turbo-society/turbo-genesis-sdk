@@ -53,7 +53,7 @@ impl SpriteAnimationProps {
             sprite_id,
             sprite_data_nonce: utils::sprite::get_source_data_nonce(),
             frame: 0,
-            started_at: crate::sys::tick(),
+            started_at: turbo_genesis_ffi::sys::tick() as usize,
             iterations: 0,
             repeat: 0,
             direction: SpriteAnimationDirection::Forward,
@@ -182,7 +182,7 @@ impl SpriteAnimationProps {
     /// Pauses the animation by recording the current tick if not already paused.
     pub fn pause(&mut self) {
         if self.paused_at.is_none() {
-            self.paused_at = Some(crate::sys::tick());
+            self.paused_at = Some(turbo_genesis_ffi::sys::tick() as usize);
         }
     }
 
@@ -200,7 +200,7 @@ impl SpriteAnimationProps {
 
     /// Restarts the animation, resetting time, frame, pause durations, and iterations.
     pub fn restart(&mut self) {
-        self.started_at = crate::sys::tick();
+        self.started_at = turbo_genesis_ffi::sys::tick() as usize;
         self.frame = 0;
         self.iterations = 0;
         self.paused_at = None;
@@ -230,7 +230,7 @@ impl SpriteAnimationProps {
         if num_frames == 0 {
             return;
         }
-        let now = crate::sys::tick();
+        let now = turbo_genesis_ffi::sys::tick() as usize;
 
         // If the animation is paused, update the current pause duration and do not advance.
         if let Some(paused_at) = self.paused_at {
@@ -383,7 +383,7 @@ impl SpriteAnimation {
     pub fn get_or_insert(key: &str) -> &mut Self {
         #[allow(static_mut_refs)]
         unsafe {
-            let t = crate::sys::tick(); // Get the current tick count.
+            let t = turbo_genesis_ffi::sys::tick() as usize; // Get the current tick count.
             let hash = utils::hash::fnv1a(key.as_bytes()); // Hash the sprite name.
 
             // Retrieve the animation from the global map or create a new one.

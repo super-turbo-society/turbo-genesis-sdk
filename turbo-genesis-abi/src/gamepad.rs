@@ -1,7 +1,9 @@
 use crate::TurboButton;
 use borsh::{BorshDeserialize, BorshSerialize};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, BorshDeserialize, BorshSerialize)]
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, BorshDeserialize, BorshSerialize,
+)]
 pub struct TurboGamepad {
     /// The state of the up button.
     pub up: TurboButton,
@@ -23,4 +25,18 @@ pub struct TurboGamepad {
     pub start: TurboButton,
     /// The state of the Select button.
     pub select: TurboButton,
+}
+impl TurboGamepad {
+    pub fn main_events_cleared(&mut self) {
+        self.up.main_events_cleared();
+        self.down.main_events_cleared();
+        self.left.main_events_cleared();
+        self.right.main_events_cleared();
+        self.a.main_events_cleared();
+        self.b.main_events_cleared();
+        self.x.main_events_cleared();
+        self.y.main_events_cleared();
+        self.start.main_events_cleared();
+        self.select.main_events_cleared();
+    }
 }

@@ -2,7 +2,9 @@ use crate::TurboButton;
 use borsh::{BorshDeserialize, BorshSerialize};
 use num_traits::NumCast;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, BorshDeserialize, BorshSerialize)]
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, BorshDeserialize, BorshSerialize,
+)]
 pub struct TurboMouse {
     /// The state of the left mouse button.
     pub left: TurboButton,
@@ -16,10 +18,12 @@ pub struct TurboMouse {
     pub delta_x: i32,
     /// The y scroll delta
     pub delta_y: i32,
-    /// The z scroll delta
-    pub delta_z: i32,
 }
 impl TurboMouse {
+    pub fn main_events_cleared(&mut self) {
+        self.left.main_events_cleared();
+        self.right.main_events_cleared();
+    }
     pub fn intersects<X: NumCast, Y: NumCast, W: NumCast, H: NumCast>(
         &self,
         x: X,
@@ -43,9 +47,6 @@ impl TurboMouse {
     }
     pub fn scroll_xy(&self) -> (i32, i32) {
         (self.delta_x, self.delta_y)
-    }
-    pub fn scroll_xyz(&self) -> (i32, i32, i32) {
-        (self.delta_x, self.delta_y, self.delta_z)
     }
     pub fn pressed(&self) -> bool {
         self.left.pressed() || self.right.pressed()

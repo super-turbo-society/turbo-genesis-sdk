@@ -10,5 +10,5 @@ repository = "https://github.com/super-turbo-society/turbo-genesis-sdk/tree/main
 crate-type = ["lib"]
 
 [dependencies]
-num-traits = "^0.2.19"
-borsh = "^1.5.7"
+num-traits = "0.2"
+borsh = { version = "1.5", features = ["derive"] }

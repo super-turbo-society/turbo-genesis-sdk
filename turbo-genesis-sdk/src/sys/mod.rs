@@ -5,7 +5,7 @@ pub mod random;
 
 pub mod console;
 
-pub mod data;
+pub mod hot;
 
 pub mod events;
 

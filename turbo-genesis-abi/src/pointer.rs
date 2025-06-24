@@ -2,7 +2,7 @@ use crate::TurboButton;
 use borsh::{BorshDeserialize, BorshSerialize};
 use num_traits::NumCast;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, BorshDeserialize, BorshSerialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, BorshDeserialize, BorshSerialize)]
 pub struct TurboPointer {
     /// The state of the left mouse button or touch
     pub state: TurboButton,
@@ -12,6 +12,9 @@ pub struct TurboPointer {
     pub y: i32,
 }
 impl TurboPointer {
+    pub fn main_events_cleared(&mut self) {
+        self.state.main_events_cleared();
+    }
     pub fn intersects<X: NumCast, Y: NumCast, W: NumCast, H: NumCast>(
         &self,
         x: X,

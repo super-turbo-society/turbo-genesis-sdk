@@ -1,5 +1,4 @@
-use crate::{ffi, serialize};
-use serialize::Borsh;
+use borsh::BorshDeserialize;
 use std::ops::Deref;
 use turbo_genesis_abi::TurboGamepad;
 
@@ -22,10 +21,16 @@ pub fn get(gamepad_index: usize) -> Gamepad {
     let data = &mut [0; std::mem::size_of::<Gamepad>()];
 
     // Call the FFI function to populate the buffer with serialized gamepad data.
-    ffi::input::gamepad(gamepad_index as u32, data.as_mut_ptr());
+    turbo_genesis_ffi::input::gamepad(gamepad_index as u32, data.as_mut_ptr());
 
     // Deserialize the buffer into a TurboGamepad using the Borsh ABI.
-    let inner = TurboGamepad::try_from_slice(data).expect("Could not deserialize Gamepad");
+    let inner = match TurboGamepad::deserialize(&mut &data[..]) {
+        Err(err) => {
+            crate::log!("[turbo] Could not deserialize Gamepad: {:?}", err);
+            panic!()
+        }
+        Ok(inner) => inner,
+    };
 
     // Wrap the ABI value in our local `Gamepad` type.
     Gamepad(inner)

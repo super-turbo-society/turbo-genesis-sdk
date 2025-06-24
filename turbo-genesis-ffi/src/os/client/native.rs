@@ -11,6 +11,16 @@ pub fn channel_is_connected(
 ) -> u32 {
     0
 }
+pub fn channel_connect(
+    _: *const u8,
+    _: u32,
+    _: *const u8,
+    _: u32,
+    _: *const u8,
+    _: u32,
+) -> u32 {
+    0
+}
 pub fn channel_recv(
     _: *const u8,
     _: u32,
