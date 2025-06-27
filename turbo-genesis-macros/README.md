@@ -62,8 +62,8 @@ Registers a struct or enum as a Turbo command callable from clients. Adds:
 #[command(name = "greet")]
 struct GreetCommand { user: String }
 
-impl GreetCommand {
-    fn run(&mut self, user_id: &str) -> Result<(), CommandError> { ... }
+impl CommandHandler for GreetCommand {
+    fn run(&mut self, user_id: &str) -> Result<(), std::io::Error> { ... }
 }
 ```
 
@@ -81,6 +81,8 @@ Defines a duplex WebSocket-style handler for Turbo's channel system. Provides:
 struct ChatHandler;
 
 impl ChannelHandler for ChatHandler {
+    type Send = ChatLog;
+    type Recv = ChatMessage;
     fn on_connect(&mut self, user_id: &str) { ... }
     fn on_data(&mut self, user_id: &str, msg: ChatMessage) { ... }
     fn on_interval(&mut self) { ... }
@@ -117,8 +119,6 @@ Injects:
 
 - [docs.rs/turbo-genesis-macros](https://docs.rs/turbo-genesis-macros)
 - Part of the [TurboGenesis SDK](https://github.com/super-turbo-society/turbo-genesis-sdk)
-
----
 
 ## 📜 License
 
