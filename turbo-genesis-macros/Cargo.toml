@@ -1,11 +1,11 @@
 [package]
-name = "turbo-macros"
-version = "0.2.0"
+name = "turbo-genesis-macros"
+version = "0.1.0"
 edition = "2021"
 description = "Turbo Genesis SDK Macros"
 license = "MIT"
 authors = ["@jozanza (jozanza@turbo.computer)"]
-repository = "https://github.com/super-turbo-society/turbo-genesis-sdk/tree/main/turbo-macros"
+repository = "https://github.com/super-turbo-society/turbo-genesis-sdk/tree/main/turbo-genesis-macros"
 
 [lib]
 proc-macro = true

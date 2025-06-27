@@ -3,6 +3,6 @@ members = [
     "turbo-genesis-ffi",
     "turbo-genesis-sdk",
     "turbo-genesis-abi",
-    "turbo-macros",
+    "turbo-genesis-macros",
 ]
 resolver = "2"

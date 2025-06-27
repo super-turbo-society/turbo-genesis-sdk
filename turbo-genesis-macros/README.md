@@ -69,7 +69,7 @@ This macro compiles conditionally depending on whether or not hot-reloading is e
 
 ## 📖 Documentation
 
-- Full API docs on [docs.rs/turbo-macros](https://docs.rs/turbo-macros)
+- Full API docs on [docs.rs/turbo-genesis-macros](https://docs.rs/turbo-genesis-macros)
 
 ## 📜 License
 

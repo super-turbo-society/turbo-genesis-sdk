@@ -29,4 +29,4 @@ pub use serde;
 pub use serde_json;
 pub use serde_json::json;
 
-pub use turbo_macros::{channel, command, game, program, serialize};
+pub use turbo_genesis_macros::{channel, command, game, program, serialize};

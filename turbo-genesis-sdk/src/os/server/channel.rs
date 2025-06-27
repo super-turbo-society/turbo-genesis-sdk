@@ -127,35 +127,3 @@ pub trait ChannelHandler {
         Ok(())
     }
 }
-
-// #[derive(BorshDeserialize, BorshSerialize)]
-// struct Foo {
-//     foo: u32,
-// }
-
-// #[derive(BorshDeserialize, BorshSerialize)]
-// struct Bar {
-//     foo: u32,
-// }
-
-// #[turbo_macros::channel("channel_name")]
-// struct EchoChannel {
-//     connected: std::collections::BTreeSet<String>, // All Connected Players
-// }
-// impl ChannelHandler<Foo, Bar> for EchoChannel {
-//     fn new() -> Self {
-//         Self {
-//             connected: std::collections::BTreeSet::new(),
-//         }
-//     }
-//     fn on_open(&mut self, settings: &mut ChannelSettings) {
-//         settings.set_interval(64);
-//     }
-//     fn on_connect(&mut self, user_id: &str) {
-//         self.connected.insert(user_id.to_string());
-//         self.send(user_id, Foo { foo: 0 });
-//     }
-//     fn on_data(&mut self, user_id: &str, data: Bar) {
-//         self.broadcast(Foo { foo: 0 });
-//     }
-// }
