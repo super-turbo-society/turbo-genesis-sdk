@@ -2,7 +2,7 @@ use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
     parse::{Parse, ParseStream},
-    parse_macro_input, DeriveInput, Item, LitStr,
+    parse_macro_input, Item, LitStr,
 };
 
 // =============================================================================
@@ -26,6 +26,7 @@ pub fn serialize(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let expanded = quote! {
         #[derive(
             Debug,
+            Clone,
             turbo::borsh::BorshDeserialize,
             turbo::borsh::BorshSerialize,
             turbo::serde::Deserialize,
@@ -114,54 +115,156 @@ pub fn game(_attr: TokenStream, item: TokenStream) -> TokenStream {
 // Channel
 // =============================================================================
 
-/// Macro attribute to generate the extern handler
 #[proc_macro_attribute]
 pub fn channel(attr: TokenStream, item: TokenStream) -> TokenStream {
-    let attr_string = attr.to_string();
-    let export_name = format!("channel/{}", attr_string.trim_matches('"'));
+    channel::channel(attr, item)
+}
 
-    let input = parse_macro_input!(item as DeriveInput);
-    let struct_name = &input.ident;
-    let wrapper_name = format_ident!("__turbo_channel_{}", struct_name.to_string().to_lowercase());
+mod channel {
+    use super::*;
+    struct ChannelArgs {
+        name: String,
+    }
+    impl Parse for ChannelArgs {
+        fn parse(input: ParseStream) -> syn::Result<Self> {
+            let mut name = None;
 
-    let expanded = quote! {
-        #[export_name = #export_name]
-        unsafe extern "C" fn #wrapper_name() {
-            use crate::os::server;
-            use server::channel::*;
-            let handler = &mut #struct_name::new();
-            let settings = &mut ChannelSettings::default();
-            handler.on_open(settings);
-            let timeout = settings.interval.unwrap_or(u32::MAX).max(16); // cap timeout at 16ms
-            loop {
-                match recv_with_timeout(timeout) {
-                    Ok(ChannelMessage::Connect(user_id, _data)) => {
-                        handler.on_connect(&user_id, &user_id);
-                    }
-                    Ok(ChannelMessage::Disconnect(user_id, _data)) => {
-                        handler.on_disconnect(&user_id);
-                    }
-                    Ok(ChannelMessage::Data(user_id, data)) => {
-                        match #struct_name::parse(&data) {
-                            Ok(data) => handler.on_data(&user_id, data),
-                            Err(err) => server::log!("Error parsing data from user {user_id}: {err:?}"),
-                        }
-                    }
-                    Err(ChannelError::Timeout) => {
-                        handler.on_interval();
-                    }
-                    Err(_) => {
-                        handler.on_close();
-                        return
-                    },
+            while !input.is_empty() {
+                let ident: syn::Ident = input.parse()?;
+                let _: syn::Token![=] = input.parse()?;
+                let value: LitStr = input.parse()?;
+
+                match ident.to_string().as_str() {
+                    "name" => name = Some(value.value()),
+                    _ => return Err(syn::Error::new_spanned(ident, "unexpected attribute key")),
+                }
+
+                if input.peek(syn::Token![,]) {
+                    let _: syn::Token![,] = input.parse()?;
                 }
             }
+
+            let name = name.ok_or_else(|| input.error("missing `name`"))?;
+
+            Ok(Self { name })
         }
+    }
+    /// Macro attribute to generate the extern handler
+    pub fn channel(attr: TokenStream, item: TokenStream) -> TokenStream {
+        let args = parse_macro_input!(attr as ChannelArgs);
+        let input = parse_macro_input!(item as Item);
 
-        #input
-    };
+        let export_name = format!("channel/{}", args.name);
+        let ident = match &input {
+            Item::Struct(s) => &s.ident,
+            Item::Enum(e) => &e.ident,
+            _ => return quote!(compile_error!("Must be used on a struct or enum");).into(),
+        };
 
-    TokenStream::from(expanded)
+        let channel_name = format!("{}", args.name);
+        let channel_link_section_ident = format_ident!("_channel_link_section_{}", channel_name);
+        let channel_extern_fn_ident = format_ident!("_channel_extern_fn_{}", channel_name);
+
+        // Generate byte arrays
+        let channel_name_bytes = channel_name.as_bytes().iter().map(|b| quote! { #b });
+        let channel_name_len = channel_name_bytes.len();
+
+        let expanded = quote! {
+            // Register channel under turbo_programs custom section
+            // Entry format: <program>/channels/<channel>,
+            // Note: The trailing comma is important
+            const _: () = {
+                const LEN: usize = PROGRAM_NAME_BYTES.len() + 10 + #channel_name_len + 1;
+                const fn build_bytes() -> [u8; LEN] {
+                    let mut tmp = [0u8; LEN];
+                    let mut base = 0;
+                    // Insert program name
+                    let pname = PROGRAM_NAME_BYTES;
+                    let mut i = 0;
+                    while i < pname.len() {
+                        tmp[base + i] = pname[i];
+                        i += 1;
+                    }
+                    base += pname.len();
+                    // Insert namespace
+                    let namespace = b"/channels/";
+                    let mut i = 0;
+                    while i < namespace.len() {
+                        tmp[base + i] = namespace[i];
+                        i += 1;
+                    }
+                    base += namespace.len();
+                    // Insert channel name
+                    let chan = [#(#channel_name_bytes),*];
+                    let mut i = 0;
+                    while i < chan.len() {
+                        tmp[base + i] = chan[i];
+                        i += 1;
+                    }
+                    base += chan.len();
+                    // Insert trailing comma
+                    tmp[base] = b',';
+                    tmp
+                }
+
+                #[doc(hidden)]
+                #[used]
+                #[link_section = "turbo_programs"]
+                #[allow(non_upper_case_globals)]
+                pub static #channel_link_section_ident: [u8; LEN] = build_bytes();
+            };
+
+            #[unsafe(export_name = #export_name)]
+            unsafe extern "C" fn #channel_extern_fn_ident() {
+                use turbo::os::server;
+                use server::channel::*;
+                let handler = &mut #ident::new();
+                let settings = &mut ChannelSettings::default();
+                handler.on_open(settings);
+                let timeout = settings.interval.unwrap_or(u32::MAX).max(16); // cap timeout at 16ms
+                loop {
+                    match recv_with_timeout(timeout) {
+                        Ok(ChannelMessage::Connect(user_id, _data)) => {
+                            handler.on_connect(user_id);
+                        }
+                        Ok(ChannelMessage::Disconnect(user_id, _data)) => {
+                            handler.on_disconnect(user_id);
+                        }
+                        Ok(ChannelMessage::Data(user_id, data)) => {
+                            match #ident::parse(&data) {
+                                Ok(data) => handler.on_data(user_id, data),
+                                Err(err) => server::log!("Error parsing data from user {user_id}: {err:?}"),
+                            }
+                        }
+                        Err(ChannelError::Timeout) => {
+                            handler.on_interval();
+                        }
+                        Err(_) => {
+                            handler.on_close();
+                            return
+                        },
+                    }
+                }
+            }
+
+            impl #ident {
+                pub fn subscribe() -> Option<turbo::os::client::channel::ChannelConnection<
+                    <Self as turbo::os::server::channel::ChannelHandler>::Recv,
+                    <Self as turbo::os::server::channel::ChannelHandler>::Send,
+                >> {
+                    turbo::os::client::channel::Channel::<
+                        <Self as turbo::os::server::channel::ChannelHandler>::Recv,
+                        <Self as turbo::os::server::channel::ChannelHandler>::Send,
+                    >::subscribe(PROGRAM_ID, #channel_name, "*")
+                }
+            }
+
+            #[turbo::serialize]
+            #input
+        };
+
+        TokenStream::from(expanded)
+    }
 }
 
 // =============================================================================
@@ -176,12 +279,10 @@ pub fn command(attr: TokenStream, item: TokenStream) -> TokenStream {
 mod command {
     use super::*;
     struct CommandArgs {
-        program: String,
         name: String,
     }
     impl Parse for CommandArgs {
         fn parse(input: ParseStream) -> syn::Result<Self> {
-            let mut program = None;
             let mut name = None;
 
             while !input.is_empty() {
@@ -190,7 +291,6 @@ mod command {
                 let value: LitStr = input.parse()?;
 
                 match ident.to_string().as_str() {
-                    "program" => program = Some(value.value()),
                     "name" => name = Some(value.value()),
                     _ => return Err(syn::Error::new_spanned(ident, "unexpected attribute key")),
                 }
@@ -200,10 +300,9 @@ mod command {
                 }
             }
 
-            let program = program.ok_or_else(|| input.error("missing `program`"))?;
             let name = name.ok_or_else(|| input.error("missing `name`"))?;
 
-            Ok(Self { program, name })
+            Ok(Self { name })
         }
     }
 
@@ -218,32 +317,25 @@ mod command {
             _ => return quote!(compile_error!("Must be used on a struct or enum");).into(),
         };
 
-        let command_link_section_ident = format_ident!("_link_section_{}", args.name);
-        let command_extern_fn_ident = format_ident!("_extern_fn_{}", args.name);
-        let command_string = format!("{}", args.name);
-
-        let manifest =
-            std::env::var("CARGO_MANIFEST_DIR").expect("Could not access CARGO_MANIFEST_DIR");
-        let cargo_toml = std::fs::read_to_string(format!("{manifest}/Cargo.toml"))
-            .expect("Could not read Cargo.toml");
-        let parsed: toml_edit::DocumentMut =
-            cargo_toml.parse().expect("Could not parse Cargo.toml");
-        let user_id = parsed["package"]["metadata"]["turbo"]["user"]
-            .as_str()
-            .expect("Could not find package.metadata.turbo.user entry in Cargo.toml");
+        //
+        let command_name = format!("{}", args.name);
+        let command_link_section_ident = format_ident!("_command_link_section_{}", command_name);
+        let command_extern_fn_ident = format_ident!("_command_extern_fn_{}", command_name);
 
         // Generate byte arrays
-        let command_name_bytes = args.name.as_bytes().iter().map(|b| quote! { #b });
-        let command_name_len = args.name.len();
+        let command_name_bytes = command_name.as_bytes().iter().map(|b| quote! { #b });
+        let command_name_len = command_name_bytes.len();
 
         let expanded = quote! {
             // Register command under turbo_programs custom section
-            // format = program/command,
+            // Entry format: <program>/commands/<command>,
+            // Note: The trailing comma is important
             const _: () = {
-                const LEN: usize = PROGRAM_NAME_BYTES.len() + 1 + #command_name_len + 1;
+                const LEN: usize = PROGRAM_NAME_BYTES.len() + 10 + #command_name_len + 1;
                 const fn build_bytes() -> [u8; LEN] {
                     let mut tmp = [0u8; LEN];
                     let mut base = 0;
+                    // Insert program name
                     let pname = PROGRAM_NAME_BYTES;
                     let mut i = 0;
                     while i < pname.len() {
@@ -251,15 +343,23 @@ mod command {
                         i += 1;
                     }
                     base += pname.len();
-                    tmp[base] = b'/';
-                    base += 1;
-                    let cmd = [#(#command_name_bytes),*];
-                    i = 0;
-                    while i < cmd.len() {
-                        tmp[base + i] = cmd[i];
+                    // Insert namespace
+                    let namespace = b"/commands/";
+                    let mut i = 0;
+                    while i < namespace.len() {
+                        tmp[base + i] = namespace[i];
                         i += 1;
                     }
-                    base += cmd.len();
+                    base += namespace.len();
+                    // Insert command name
+                    let chan = [#(#command_name_bytes),*];
+                    let mut i = 0;
+                    while i < chan.len() {
+                        tmp[base + i] = chan[i];
+                        i += 1;
+                    }
+                    base += chan.len();
+                    // Insert trailing comma
                     tmp[base] = b',';
                     tmp
                 }
@@ -276,12 +376,12 @@ mod command {
 
             impl #ident {
                 pub fn exec(self) -> String {
-                    turbo::os::client::command::exec(PROGRAM_ID, #command_string, self)
+                    turbo::os::client::command::exec(PROGRAM_ID, #command_name, self)
                 }
             }
 
             #[cfg(turbo_no_run)]
-            #[export_name = #export_name]
+            #[unsafe(export_name = #export_name)]
             unsafe extern "C" fn #command_extern_fn_ident() -> usize {
                 let user_id = turbo::os::server::command::user_id();
                 let mut cmd = turbo::os::server::command::parse_input::<#ident>();
@@ -346,7 +446,6 @@ pub fn program(_attr: TokenStream, item: TokenStream) -> TokenStream {
             let path = std::path::Path::new(PROGRAM_ID).join(key.as_ref());
             turbo::os::client::fs::watch(path).parse()
         }
-        
     };
 
     match &mut module.content {

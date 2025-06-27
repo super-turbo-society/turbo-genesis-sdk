@@ -76,22 +76,3 @@ pub fn invoke(program_id: &str, command: &str, data: &[u8]) -> Result<(), std::i
         code => Err(std::io::Error::other(format!("Error Code: {code}"))),
     }
 }
-
-// #[derive(BorshSerialize, BorshDeserialize)]
-// struct Counter {
-//     total: i32,
-// }
-
-// #[turbo::command("counter")]
-// #[derive(BorshSerialize, BorshDeserialize)]
-// struct Add {
-//     amount: i32,
-// }
-// impl CommandHandler for Add {
-//     fn run(&mut self, user_id: &str) -> Result<(), io::Error> {
-//         use turbo::os::server::*;
-//         let mut counter = fs::read("global_counter")?;
-//         fs::write("global_counter", &counter)?;
-//         Ok(())
-//     }
-// }

@@ -66,7 +66,7 @@ pub use __os_server_log__ as log;
 #[macro_export]
 macro_rules! __os_server_bail__ {
     ($($arg:tt)*) => {
-        return Err(std::io::Error::new(std::io::ErrorKind::Other, format!($($arg)*)))
+        return Err(std::io::Error::other(format!($($arg)*)));
     };
 }
 

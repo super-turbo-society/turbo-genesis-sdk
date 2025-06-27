@@ -1,10 +1,20 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::collections::BTreeMap;
 
+// pub trait ChannelTypes {
+//     type Send;
+//     type Recv;
+// }
+
+// impl<Tx, Rx> ChannelTypes for ChannelHandler<Tx, Rx> {
+//     type Send = Tx;
+//     type Recv = Rx;
+// }
+
 /// Channel settings
 #[derive(Debug, Clone)]
 pub struct ChannelSettings {
-    interval: Option<u32>,
+    pub interval: Option<u32>,
 }
 impl ChannelSettings {
     pub fn set_interval(&mut self, ms: u32) {
@@ -74,7 +84,8 @@ pub fn recv() -> Result<ChannelMessage, ChannelError> {
 }
 
 /// Sends a message to a specific connected client
-pub fn send(user_id: &str, data: &[u8]) -> bool {
+pub fn send<T: BorshSerialize>(user_id: &str, data: T) -> bool {
+    let data = borsh::to_vec(&data).unwrap();
     let err = turbo_genesis_ffi::os::server::channel_send(
         user_id.as_ptr(),
         user_id.len(),
@@ -85,29 +96,32 @@ pub fn send(user_id: &str, data: &[u8]) -> bool {
 }
 
 /// Broadcasts a message to all connected clients
-pub fn broadcast(data: &[u8]) -> bool {
+pub fn broadcast<T: BorshSerialize>(data: T) -> bool {
+    let data = borsh::to_vec(&data).unwrap();
     let err = turbo_genesis_ffi::os::server::channel_broadcast(data.as_ptr(), data.len());
     err == 0
 }
 
 /// Trait that channel handlers must implement
-pub trait ChannelHandler<Send: BorshSerialize, Recv: BorshDeserialize> {
+pub trait ChannelHandler {
+    type Send: BorshSerialize;
+    type Recv: BorshDeserialize;
     fn new() -> Self;
     fn on_open(&mut self, settings: &mut ChannelSettings) {}
-    fn on_connect(&mut self, user_id: &str) {}
-    fn on_disconnect(&mut self, user_id: &str) {}
-    fn on_data(&mut self, user_id: &str, data: Recv) {}
+    fn on_connect(&mut self, user_id: String) {}
+    fn on_disconnect(&mut self, user_id: String) {}
+    fn on_data(&mut self, user_id: String, data: Self::Recv) {}
     fn on_interval(&mut self) {}
     fn on_close(&mut self) {}
-    fn parse(data: &[u8]) -> Result<Recv, std::io::Error> {
-        Recv::try_from_slice(&data)
+    fn parse(data: &[u8]) -> Result<Self::Recv, std::io::Error> {
+        Self::Recv::try_from_slice(&data)
     }
-    fn send(&self, user_id: &str, data: Send) -> Result<(), std::io::Error> {
+    fn send(&self, user_id: &str, data: Self::Send) -> Result<(), std::io::Error> {
         let data = borsh::to_vec(&data)?;
         send(user_id, &data);
         Ok(())
     }
-    fn broadcast(&self, data: Send) -> Result<(), std::io::Error> {
+    fn broadcast(&self, data: Self::Send) -> Result<(), std::io::Error> {
         let data = borsh::to_vec(&data)?;
         broadcast(&data);
         Ok(())
