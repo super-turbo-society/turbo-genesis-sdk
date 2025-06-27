@@ -1,76 +1,125 @@
-# Turbo Macros
+# Turbo Genesis Macros
 
-[![docs.rs](https://docs.rs/turbo-genesis-sdk/badge.svg)](https://docs.rs/turbo-genesis-sdk)
-[![Crates.io](https://img.shields.io/crates/v/turbo-genesis-sdk.svg)](https://crates.io/crates/turbo-genesis-sdk)
+[![docs.rs](https://docs.rs/turbo-genesis-macros/badge.svg)](https://docs.rs/turbo-genesis-macros)
+[![Crates.io](https://img.shields.io/crates/v/turbo-genesis-macros.svg)](https://crates.io/crates/turbo-genesis-macros)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![Turbo logo banner](./banner.png)
 
-This crate defines a procedural macros for use in Turbo ecosystem crates.
+Procedural macros for the TurboGenesis game runtime. These macros reduce boilerplate and expose intuitive annotations for defining game state, commands, channels, and program metadata compiled to WebAssembly.
+
+---
 
 ## ✨ `#[game]`
 
-The proc macro attribute `#[game]` for simplifying state management and FFI bindings in Turbo-powered games compiled to WebAssembly.
+Creates a WASM entrypoint with hot-reload support and runtime state persistence. Applies `#[turbo::serialize]` and generates:
 
-The `#[game]` macro decorates a `struct` or `enum` representing your game's top-level state. It generates a `#[no_mangle] pub extern "C" fn run()` entrypoint for WASM. This function handles:
-
-- Deserializing state from Turbo's runtime storage (in hot-reload mode).
-- Serializing state after each game loop (in hot-reload mode).
-- Calling `.update()` on the game state struct or enum each frame.
-
-This ensures minimal boilerplate in user-facing game code.
-
-### Example
-
-This macro is exported from the [`Turbo SDK`](https://github.com/super-turbo-society/turbo-genesis-sdk) via the `use turbo::*` statement. Usage is as follows:
+- A `#[no_mangle] pub extern "C" fn run()` symbol
+- Conditional branching for hot reload vs. static mode
+- Automatic state (de)serialization and update loop
 
 ```rust
-use turbo::*;
-use borsh::{BorshSerialize, BorshDeserialize};
-
 #[game]
-#[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]
 pub struct MyGame {
     tick: u32,
 }
+
 impl MyGame {
-    // This method will initialize your game state during the first frame.
-    pub fn new() -> Self {
-        Self { tick: 0 }
-    }
-    // This method runs each frame. Use it to update state and draw graphics.
-    pub fn update(&mut self) {
-        self.tick += 1;
-    }
+    pub fn new() -> Self { Self { tick: 0 } }
+    pub fn update(&mut self) { self.tick += 1; }
 }
 ```
 
-### Notes
-
-#### 🔧 Requirements
-
-Your struct must implement the following methods:
+Requirements:
 
 - `fn new() -> Self`
 - `fn update(&mut self)`
+- `BorshSerialize + BorshDeserialize`
 
-Your struct must implement the following traits:
+---
 
-- `BorshSerialize`
-- `BorshDeserialize`
+## 🧬 `#[serialize]`
 
-#### 🏴‍☠️ Compilation
+Applies `BorshSerialize`, `BorshDeserialize`, `serde::Serialize`, and `serde::Deserialize` to structs and enums.
 
-This macro compiles conditionally depending on whether or not hot-reloading is enabled.
+```rust
+#[serialize]
+struct SaveData {
+    level: u8,
+    items: Vec<String>,
+}
+```
 
-| Flag                            | Behavior                                                            |
-| ------------------------------- | ------------------------------------------------------------------- |
-| `#[cfg(turbo_hot_reload)]`      | Loads state from `turbo::sys::load()` each run, saves after update. |
-| `#[cfg(not(turbo_hot_reload))]` | Stores persistent state in a `static mut Option<T>`.                |
+---
 
-## 📖 Documentation
+## 🎮 `#[command(name = "foo")]`
 
-- Full API docs on [docs.rs/turbo-genesis-macros](https://docs.rs/turbo-genesis-macros)
+Registers a struct or enum as a Turbo command callable from clients. Adds:
+
+- `exec()` method for client invocation
+- Server entrypoint export
+
+```rust
+#[command(name = "greet")]
+struct GreetCommand { user: String }
+
+impl GreetCommand {
+    fn run(&mut self, user_id: &str) -> Result<(), CommandError> { ... }
+}
+```
+
+---
+
+## 📡 `#[channel(name = "chat")]`
+
+Defines a duplex WebSocket-style handler for Turbo's channel system. Provides:
+
+- An extern entrypoint for server dispatch
+- A `subscribe()` method for clients
+
+```rust
+#[channel(name = "chat")]
+struct ChatHandler;
+
+impl ChannelHandler for ChatHandler {
+    fn on_connect(&mut self, user_id: &str) { ... }
+    fn on_data(&mut self, user_id: &str, msg: ChatMessage) { ... }
+    fn on_interval(&mut self) { ... }
+    fn on_close(&mut self) { ... }
+}
+```
+
+---
+
+## 📦 `#[program]`
+
+Declares a module as a Turbo program, injects runtime constants, and calculates a stable program ID using the user UUID.
+
+```toml
+[package.metadata.turbo]
+user = "<uuid>"
+```
+
+```rust
+#[program]
+mod my_game {
+    // Now contains PROGRAM_ID, PROGRAM_NAME, etc.
+}
+```
+
+Injects:
+
+- `PROGRAM_NAME`, `PROGRAM_ID`, `PROGRAM_OWNER`
+- `watch(path)` to observe reactive file changes
+
+---
+
+## 📚 Documentation
+
+- [docs.rs/turbo-genesis-macros](https://docs.rs/turbo-genesis-macros)
+- Part of the [TurboGenesis SDK](https://github.com/super-turbo-society/turbo-genesis-sdk)
+
+---
 
 ## 📜 License
 
-This project is licensed under MIT. See [LICENSE](LICENSE.md) for details.
+MIT License. See [LICENSE](LICENSE.md).

@@ -1,16 +1,6 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::collections::BTreeMap;
 
-// pub trait ChannelTypes {
-//     type Send;
-//     type Recv;
-// }
-
-// impl<Tx, Rx> ChannelTypes for ChannelHandler<Tx, Rx> {
-//     type Send = Tx;
-//     type Recv = Rx;
-// }
-
 /// Channel settings
 #[derive(Debug, Clone)]
 pub struct ChannelSettings {
@@ -108,9 +98,9 @@ pub trait ChannelHandler {
     type Recv: BorshDeserialize;
     fn new() -> Self;
     fn on_open(&mut self, settings: &mut ChannelSettings) {}
-    fn on_connect(&mut self, user_id: String) {}
-    fn on_disconnect(&mut self, user_id: String) {}
-    fn on_data(&mut self, user_id: String, data: Self::Recv) {}
+    fn on_connect(&mut self, user_id: &str) {}
+    fn on_disconnect(&mut self, user_id: &str) {}
+    fn on_data(&mut self, user_id: &str, data: Self::Recv) {}
     fn on_interval(&mut self) {}
     fn on_close(&mut self) {}
     fn parse(data: &[u8]) -> Result<Self::Recv, std::io::Error> {

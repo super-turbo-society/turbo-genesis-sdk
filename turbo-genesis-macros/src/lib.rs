@@ -225,14 +225,14 @@ mod channel {
                 loop {
                     match recv_with_timeout(timeout) {
                         Ok(ChannelMessage::Connect(user_id, _data)) => {
-                            handler.on_connect(user_id);
+                            handler.on_connect(&user_id);
                         }
                         Ok(ChannelMessage::Disconnect(user_id, _data)) => {
-                            handler.on_disconnect(user_id);
+                            handler.on_disconnect(&user_id);
                         }
                         Ok(ChannelMessage::Data(user_id, data)) => {
                             match #ident::parse(&data) {
-                                Ok(data) => handler.on_data(user_id, data),
+                                Ok(data) => handler.on_data(&user_id, data),
                                 Err(err) => server::log!("Error parsing data from user {user_id}: {err:?}"),
                             }
                         }
