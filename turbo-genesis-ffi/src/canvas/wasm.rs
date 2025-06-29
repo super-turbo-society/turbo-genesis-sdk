@@ -22,7 +22,7 @@ unsafe extern "C" {
     );
     #[link_name = "get_sprite_data_nonce_v1"]
     unsafe fn _get_sprite_data_nonce() -> u64;
-    #[link_name = "_get_sprite_data_v1"]
+    #[link_name = "get_sprite_data_v1"]
     unsafe fn _get_sprite_data(data_ptr: *mut u8, len_ptr: *mut u32);
     #[link_name = "draw_quad2"]
     unsafe fn _draw_quad(
