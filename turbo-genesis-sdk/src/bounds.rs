@@ -1,5 +1,6 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 use num_traits::NumCast;
+use serde::{Deserialize, Serialize};
 use std::ops::Add;
 
 //------------------------------------------------------------------------------
@@ -36,7 +37,9 @@ pub fn new<W: NumCast, H: NumCast>(w: W, h: H) -> Bounds {
 /// `Bounds` represents a rectangular region in 2D space.
 /// It is the core primitive for low-res immediate-mode graphics,
 /// providing essential methods for positioning, sizing, and geometric operations.
-#[derive(Debug, Clone, Copy, Default, PartialEq, BorshDeserialize, BorshSerialize)]
+#[derive(
+    Debug, Clone, Copy, Default, PartialEq, BorshDeserialize, BorshSerialize, Serialize, Deserialize,
+)]
 pub struct Bounds {
     // Top-left corner coordinates.
     pub(crate) x: i32,

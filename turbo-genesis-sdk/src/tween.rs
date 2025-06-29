@@ -1,9 +1,21 @@
 use crate::{bounds::Bounds, sys};
 use borsh::{BorshDeserialize, BorshSerialize};
+use serde::{Deserialize, Serialize};
 use std::ops::Add;
 
 /// Standard easing function types used to modify interpolation curves.
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, BorshSerialize, BorshDeserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Default,
+    PartialEq,
+    Eq,
+    BorshDeserialize,
+    BorshSerialize,
+    Serialize,
+    Deserialize,
+)]
 pub enum Easing {
     #[default]
     Linear,
@@ -159,7 +171,18 @@ impl Easing {
 }
 
 /// A generic time-based interpolator from `start` to `end`.
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, BorshSerialize, BorshDeserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Default,
+    PartialEq,
+    Eq,
+    BorshDeserialize,
+    BorshSerialize,
+    Serialize,
+    Deserialize,
+)]
 pub struct Tween<T> {
     pub start: T,
     pub end: T,
