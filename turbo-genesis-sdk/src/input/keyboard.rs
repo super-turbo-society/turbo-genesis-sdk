@@ -39,7 +39,7 @@ pub fn get() -> Keyboard {
     turbo_genesis_ffi::input::keyboard(data.as_mut_ptr(), len_ptr);
 
     // Deserialize the ABI bytes into a `TurboKeyboard`.
-    let inner = TurboKeyboard::try_from_slice(data).expect("Could not deserialize Keyboard");
+    let inner = TurboKeyboard::try_from_slice(&data[..len as usize]).expect("Could not deserialize Keyboard");
 
     // Wrap in local `Keyboard` type for ergonomic use.
     Keyboard(inner)
