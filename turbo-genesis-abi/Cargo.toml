@@ -1,0 +1,15 @@
+[package]
+name = "turbo-genesis-abi"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["@jozanza (jozanza@turbo.computer)"]
+repository = "https://github.com/super-turbo-society/turbo-genesis-sdk/tree/main/turbo-genesis-abi"
+description = "Defines data structures that are passed between the SDK and the wasm host in the TurboGenesis game runtime."
+
+[lib]
+crate-type = ["lib"]
+
+[dependencies]
+num-traits = "0.2"
+borsh = { version = "1.5", features = ["derive"] }

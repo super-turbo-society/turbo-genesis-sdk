@@ -1,0 +1,20 @@
+[package]
+name = "turbo-genesis-macros"
+version = "0.1.0"
+edition = "2021"
+description = "Turbo Genesis SDK Macros"
+license = "MIT"
+authors = ["@jozanza (jozanza@turbo.computer)"]
+repository = "https://github.com/super-turbo-society/turbo-genesis-sdk/tree/main/turbo-genesis-macros"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = { version = "2.0", features = ["full", "extra-traits"] }
+quote = "1.0"
+proc-macro2 = "1.0"
+toml_edit = "0.22"
+sha2 = "0.10.9"
+uuid = "1.17.0"
+base64 = "0.22"
