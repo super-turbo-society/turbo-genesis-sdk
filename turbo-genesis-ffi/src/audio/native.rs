@@ -13,3 +13,9 @@ pub fn stop_sound(_: *const u8, _: u32) -> u32 {
 pub fn is_sound_playing(_: *const u8, _: u32) -> u32 {
     0
 }
+
+pub fn get_volume(key_ptr: *const u8, key_len: u32) -> f32 {
+    0.0
+}
+
+pub fn set_volume(key_ptr: *const u8, key_len: u32, decibels: f32) {}
