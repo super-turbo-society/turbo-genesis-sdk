@@ -248,14 +248,14 @@ mod channel {
             }
 
             impl #ident {
-                pub fn subscribe() -> Option<turbo::os::client::channel::ChannelConnection<
+                pub fn subscribe(channel_key: Option<&str>) -> Option<turbo::os::client::channel::ChannelConnection<
                     <Self as turbo::os::server::channel::ChannelHandler>::Recv,
                     <Self as turbo::os::server::channel::ChannelHandler>::Send,
                 >> {
                     turbo::os::client::channel::Channel::<
                         <Self as turbo::os::server::channel::ChannelHandler>::Recv,
                         <Self as turbo::os::server::channel::ChannelHandler>::Send,
-                    >::subscribe(PROGRAM_ID, #channel_name, "*")
+                    >::subscribe(PROGRAM_ID, #channel_name, channel_key.unwrap_or_default())
                 }
             }
 
