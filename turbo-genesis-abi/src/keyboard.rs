@@ -599,6 +599,25 @@ impl TurboKeyboard {
     pub fn f35(&self) -> TurboButton {
         self.get(&TurboKeyCode::F35)
     }
+    /// Returns a vector of all characters just pressed this frame.
+    pub fn chars(&self) -> Vec<char> {
+        let shift = self.shift_left().pressed() || self.shift_right().pressed();
+        self.keys
+            .iter()
+            .filter_map(|(key, btn)| {
+                if btn.just_pressed() {
+                    key.as_char(shift)
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    /// Returns a string of all characters just pressed this frame.
+    pub fn text(&self) -> String {
+        self.chars().iter().collect()
+    }
 }
 
 /// Based on winit KeyCode which is based on the w3c UI Events spec.
@@ -800,6 +819,136 @@ pub enum TurboKeyCode {
     F34,
     F35,
 }
+impl TurboKeyCode {
+    pub fn as_char(&self, shift: bool) -> Option<char> {
+        use TurboKeyCode::*;
+        match (self, shift) {
+            // Letters
+            (KeyA, false) => Some('a'),
+            (KeyA, true) => Some('A'),
+            (KeyB, false) => Some('b'),
+            (KeyB, true) => Some('B'),
+            (KeyC, false) => Some('c'),
+            (KeyC, true) => Some('C'),
+            (KeyD, false) => Some('d'),
+            (KeyD, true) => Some('D'),
+            (KeyE, false) => Some('e'),
+            (KeyE, true) => Some('E'),
+            (KeyF, false) => Some('f'),
+            (KeyF, true) => Some('F'),
+            (KeyG, false) => Some('g'),
+            (KeyG, true) => Some('G'),
+            (KeyH, false) => Some('h'),
+            (KeyH, true) => Some('H'),
+            (KeyI, false) => Some('i'),
+            (KeyI, true) => Some('I'),
+            (KeyJ, false) => Some('j'),
+            (KeyJ, true) => Some('J'),
+            (KeyK, false) => Some('k'),
+            (KeyK, true) => Some('K'),
+            (KeyL, false) => Some('l'),
+            (KeyL, true) => Some('L'),
+            (KeyM, false) => Some('m'),
+            (KeyM, true) => Some('M'),
+            (KeyN, false) => Some('n'),
+            (KeyN, true) => Some('N'),
+            (KeyO, false) => Some('o'),
+            (KeyO, true) => Some('O'),
+            (KeyP, false) => Some('p'),
+            (KeyP, true) => Some('P'),
+            (KeyQ, false) => Some('q'),
+            (KeyQ, true) => Some('Q'),
+            (KeyR, false) => Some('r'),
+            (KeyR, true) => Some('R'),
+            (KeyS, false) => Some('s'),
+            (KeyS, true) => Some('S'),
+            (KeyT, false) => Some('t'),
+            (KeyT, true) => Some('T'),
+            (KeyU, false) => Some('u'),
+            (KeyU, true) => Some('U'),
+            (KeyV, false) => Some('v'),
+            (KeyV, true) => Some('V'),
+            (KeyW, false) => Some('w'),
+            (KeyW, true) => Some('W'),
+            (KeyX, false) => Some('x'),
+            (KeyX, true) => Some('X'),
+            (KeyY, false) => Some('y'),
+            (KeyY, true) => Some('Y'),
+            (KeyZ, false) => Some('z'),
+            (KeyZ, true) => Some('Z'),
+
+            // Digits
+            (Digit0, false) => Some('0'),
+            (Digit0, true) => Some(')'),
+            (Digit1, false) => Some('1'),
+            (Digit1, true) => Some('!'),
+            (Digit2, false) => Some('2'),
+            (Digit2, true) => Some('@'),
+            (Digit3, false) => Some('3'),
+            (Digit3, true) => Some('#'),
+            (Digit4, false) => Some('4'),
+            (Digit4, true) => Some('$'),
+            (Digit5, false) => Some('5'),
+            (Digit5, true) => Some('%'),
+            (Digit6, false) => Some('6'),
+            (Digit6, true) => Some('^'),
+            (Digit7, false) => Some('7'),
+            (Digit7, true) => Some('&'),
+            (Digit8, false) => Some('8'),
+            (Digit8, true) => Some('*'),
+            (Digit9, false) => Some('9'),
+            (Digit9, true) => Some('('),
+
+            // Symbols
+            (Space, _) => Some(' '),
+            (Enter, _) => Some('\n'),
+            (Tab, _) => Some('\t'),
+            (Backquote, false) => Some('`'),
+            (Backquote, true) => Some('~'),
+            (Minus, false) => Some('-'),
+            (Minus, true) => Some('_'),
+            (Equal, false) => Some('='),
+            (Equal, true) => Some('+'),
+            (BracketLeft, false) => Some('['),
+            (BracketLeft, true) => Some('{'),
+            (BracketRight, false) => Some(']'),
+            (BracketRight, true) => Some('}'),
+            (Backslash, false) => Some('\\'),
+            (Backslash, true) => Some('|'),
+            (Semicolon, false) => Some(';'),
+            (Semicolon, true) => Some(':'),
+            (Quote, false) => Some('\''),
+            (Quote, true) => Some('"'),
+            (Comma, false) => Some(','),
+            (Comma, true) => Some('<'),
+            (Period, false) => Some('.'),
+            (Period, true) => Some('>'),
+            (Slash, false) => Some('/'),
+            (Slash, true) => Some('?'),
+
+            // Numpad (basic)
+            (Numpad0, _) => Some('0'),
+            (Numpad1, _) => Some('1'),
+            (Numpad2, _) => Some('2'),
+            (Numpad3, _) => Some('3'),
+            (Numpad4, _) => Some('4'),
+            (Numpad5, _) => Some('5'),
+            (Numpad6, _) => Some('6'),
+            (Numpad7, _) => Some('7'),
+            (Numpad8, _) => Some('8'),
+            (Numpad9, _) => Some('9'),
+            (NumpadAdd, _) => Some('+'),
+            (NumpadSubtract, _) => Some('-'),
+            (NumpadMultiply, _) => Some('*'),
+            (NumpadDivide, _) => Some('/'),
+            (NumpadDecimal, _) => Some('.'),
+            (NumpadEqual, _) => Some('='),
+
+            _ => None,
+        }
+    }
+}
+
 impl TurboKeyCode {
     pub const ALL: &[Self] = &[
         Self::Backquote,
