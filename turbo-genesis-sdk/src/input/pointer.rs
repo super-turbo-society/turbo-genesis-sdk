@@ -10,7 +10,7 @@ pub struct ScreenPointer(TurboPointer);
 
 impl ScreenPointer {
     /// Returns whether the pointer is currently intersecting a given screen-space bounding box.
-    fn intersects_bounds(&self, bounds: Bounds) -> bool {
+    pub fn intersects_bounds(&self, bounds: Bounds) -> bool {
         bounds.intersects_xy(self.xy())
     }
 }
@@ -29,7 +29,7 @@ pub struct WorldPointer(TurboPointer);
 
 impl WorldPointer {
     /// Returns whether the pointer is currently intersecting a given world-space bounding box.
-    fn intersects_bounds(&self, bounds: Bounds) -> bool {
+    pub fn intersects_bounds(&self, bounds: Bounds) -> bool {
         bounds.intersects_xy(self.xy())
     }
 }
