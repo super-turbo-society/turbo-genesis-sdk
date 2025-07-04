@@ -7,7 +7,7 @@ pub fn rand() -> u32 {
 }
 
 /// Generates a random instance of any `Copy + Default` type by filling its bytes from `rand()`.
-pub fn gen<T: Copy + Default>() -> T {
+pub fn generate<T: Copy + Default>() -> T {
     let mut out = T::default();
     let out_bytes =
         unsafe { core::slice::from_raw_parts_mut(&mut out as *mut T as *mut u8, size_of::<T>()) };

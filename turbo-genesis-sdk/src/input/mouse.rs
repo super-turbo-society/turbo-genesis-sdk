@@ -10,7 +10,7 @@ pub struct ScreenMouse(TurboMouse);
 
 impl ScreenMouse {
     /// Returns whether the mouse is currently intersecting a given bounding box.
-    fn intersects_bounds(&self, bounds: Bounds) -> bool {
+    pub fn intersects_bounds(&self, bounds: Bounds) -> bool {
         bounds.intersects_xy(self.xy())
     }
 }
@@ -29,7 +29,7 @@ pub struct WorldMouse(TurboMouse);
 
 impl WorldMouse {
     /// Returns whether the mouse is currently intersecting a given world-space bounding box.
-    fn intersects_bounds(&self, bounds: Bounds) -> bool {
+    pub fn intersects_bounds(&self, bounds: Bounds) -> bool {
         bounds.intersects_xy(self.xy())
     }
 }
