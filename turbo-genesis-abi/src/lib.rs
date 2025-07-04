@@ -12,3 +12,6 @@ mod mouse;
 
 pub use keyboard::*;
 mod keyboard;
+
+pub use metadata::*;
+mod metadata;
