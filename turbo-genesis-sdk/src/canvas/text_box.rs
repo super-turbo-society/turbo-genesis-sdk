@@ -1,5 +1,5 @@
-use super::{quad, utils, flags};
-use crate::bounds::Bounds;
+use super::{flags, quad, utils};
+use crate::bounds::{self, Bounds};
 use num_traits::NumCast;
 use quad::Quad;
 use std::f32::consts::PI;
@@ -30,20 +30,35 @@ pub struct TextBox<'a> {
     align: Align,
     start: usize,
     end: usize,
+    preserve_whitespace: bool,
 }
 
 impl<'a> TextBox<'a> {
     /// Create a new TextBox with default font, scale, alignment, and quad.
     pub fn new(text: &'a str) -> Self {
+        let bounds = bounds::canvas();
+        let (default_w, default_h) = bounds.wh();
         Self {
             text,
             font: "medium",
             scale: 1.0,
-            quad: Quad::default(),
+            quad: Quad::default().size(default_w, default_h),
             align: Align::Left,
             start: 0,
             end: text.len(),
+            preserve_whitespace: true,
         }
+    }
+
+    /// Whether or not to preserve whitespace when drawing text.
+    pub fn preserve_whitespace(mut self, preserve_whitespace: bool) -> Self {
+        self.preserve_whitespace = preserve_whitespace;
+        self
+    }
+
+    /// Whether or not to preserve whitespace when drawing text.
+    pub fn set_preserve_whitespace(mut self, preserve_whitespace: bool) {
+        self.preserve_whitespace = preserve_whitespace;
     }
 
     /// Ignore camera when drawing.
@@ -51,6 +66,8 @@ impl<'a> TextBox<'a> {
         self.quad = self.quad.fixed(fixed);
         self
     }
+
+    /// Ignore camera when drawing.
     pub fn set_fixed(&mut self, fixed: bool) {
         self.quad.fixed = fixed;
     }
@@ -239,96 +256,76 @@ impl<'a> TextBox<'a> {
         let mut lines = Vec::new();
         let mut current = String::new();
 
-        for word in self.text.split_whitespace() {
-            // If the next word would overflow the line, and it contains hyphens, split it.
-            let mut segments = vec![word.to_string()];
-            let candidate_full = if current.is_empty() {
-                word.to_string()
-            } else {
-                format!("{} {}", current, word)
-            };
-            let (w_full, _) = utils::text::measure(self.font, self.scale, &candidate_full);
+        // UTF-8-safe slicing
+        let text = self
+            .text
+            .char_indices()
+            .skip_while(|(i, _)| *i < self.start)
+            .take_while(|(i, _)| *i < self.end)
+            .map(|(_, c)| c)
+            .collect::<String>();
 
-            if w_full > max_width && word.contains('-') {
-                // split at hyphens, re‑append the dash to all but last segment
-                segments = word
-                    .split('-')
-                    .enumerate()
-                    .map(|(i, part)| {
-                        if i + 1 < word.matches('-').count() + 1 {
-                            format!("{}-", part)
-                        } else {
-                            part.to_string()
+        // Tokenize input while preserving whitespace and newlines
+        let tokens: Vec<String> = if self.preserve_whitespace {
+            let mut out = vec![];
+            let mut buf = String::new();
+
+            for c in text.chars() {
+                match c {
+                    '\n' => {
+                        if !buf.is_empty() {
+                            out.push(buf.clone());
+                            buf.clear();
                         }
-                    })
-                    .collect();
+                        out.push("\n".to_string());
+                    }
+                    ' ' | '\t' => {
+                        if !buf.is_empty() {
+                            out.push(buf.clone());
+                            buf.clear();
+                        }
+                        out.push(c.to_string()); // preserve as standalone space/tab token
+                    }
+                    _ => buf.push(c),
+                }
+            }
+            if !buf.is_empty() {
+                out.push(buf);
+            }
+            out
+        } else {
+            text.split_whitespace().map(|s| s.to_string()).collect()
+        };
+
+        for token in tokens {
+            if token == "\n" {
+                lines.push(current.clone());
+                current.clear();
+                continue;
             }
 
-            // now wrap each segment
-            for seg in segments {
-                let candidate = if current.is_empty() {
-                    seg.clone()
-                } else if current.ends_with('-') {
-                    // no space when current already ends in a hyphen
-                    format!("{}{}", current, seg)
-                } else {
-                    format!("{} {}", current, seg)
-                };
-                let (w, _) = utils::text::measure(self.font, self.scale, &candidate);
-                if w <= max_width {
-                    current = candidate;
-                } else {
-                    if !current.is_empty() {
-                        lines.push(current.clone());
-                    }
-                    current = seg;
+            let candidate = format!("{}{}", current, token);
+            let (w, _) = utils::text::measure(self.font, self.scale, &candidate);
+
+            if w <= max_width {
+                current = candidate;
+            } else {
+                if !current.is_empty() {
+                    lines.push(current.clone());
                 }
+                current = token;
             }
         }
 
         if !current.is_empty() {
             lines.push(current);
         }
+
         lines
     }
 
-    /// Draw the wrapped, clipped, aligned text.
-    pub fn draw(&self) {
-        let flags = if self.quad.fixed {
-            flags::POSITION_FIXED
-        } else {
-            0
-        };
-        let x0 = self.quad.x as f32;
-        let y0 = self.quad.y as f32;
-        let max_w = self.quad.w as f32;
-        let max_h = self.quad.h as f32;
-
-        // approximate line height via a capital "M"
-        let (_, line_h) = utils::text::measure(self.font, self.scale, "M");
-        let mut y = y0;
-
-        let color = utils::color::apply_opacity(self.quad.color, self.quad.opacity);
-        let rotation = self.quad.rotation_deg as f32 * PI / 180.0;
-
-        for line in self.wrap_lines(max_w) {
-            if y + line_h > y0 + max_h {
-                break;
-            }
-            let (line_w, _) = utils::text::measure(self.font, self.scale, &line);
-            let x = match self.align {
-                Align::Left => x0,
-                Align::Center => x0 + (max_w - line_w) * 0.5,
-                Align::Right => x0 + (max_w - line_w),
-            } as i32;
-            let y_i = y as i32;
-
-            utils::text::draw(self.font, &line, x, y_i, color, self.scale, rotation, flags);
-            y += line_h;
-        }
-    }
     /// Draw by rendering each glyph sprite via `utils::sprite::draw`.
-    pub fn draw_glyphs(&self) {
+    pub fn draw(&self) {
         let flags = if self.quad.fixed {
             flags::POSITION_FIXED
         } else {
