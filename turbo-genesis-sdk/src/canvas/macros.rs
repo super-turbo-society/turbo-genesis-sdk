@@ -286,6 +286,10 @@ macro_rules! __text_box__ {
         $(tb = $crate::__text_box__!(@set tb, $key, $val);)*
         tb.draw();
     }};
+    ($text:expr) => {{
+        let mut tb = $crate::canvas::text_box::TextBox::new($text);
+        tb.draw();
+    }};
     (@set $tb:ident, align, $val:expr) => {{
         use $crate::canvas::text_box::Align;
         $tb.align(Align::from_str($val).unwrap_or(Align::Left))
