@@ -13,13 +13,9 @@ impl ScreenPointer {
     pub fn intersects_bounds(&self, bounds: Bounds) -> bool {
         bounds.intersects_xy(self.xy())
     }
-    /// Returns whether the pointer is currently intersecting a given world-space bounding box and it was just pressed.
+    /// Returns whether the pointer is currently intersecting a given screen-space bounding box and it was just pressed.
     pub fn just_pressed_bounds(&self, bounds: Bounds) -> bool {
         self.just_pressed() && bounds.intersects_xy(self.xy())
-    }
-    /// Returns whether the pointer is currently intersecting a given world-space bounding box and it was pressed.
-    pub fn pressed_bounds(&self, bounds: Bounds) -> bool {
-        self.pressed() && bounds.intersects_xy(self.xy())
     }
 }
 
@@ -43,10 +39,6 @@ impl WorldPointer {
     /// Returns whether the pointer is currently intersecting a given world-space bounding box and it was just pressed.
     pub fn just_pressed_bounds(&self, bounds: Bounds) -> bool {
         self.just_pressed() && bounds.intersects_xy(self.xy())
-    }
-    /// Returns whether the pointer is currently intersecting a given world-space bounding box and it was pressed.
-    pub fn pressed_bounds(&self, bounds: Bounds) -> bool {
-        self.pressed() && bounds.intersects_xy(self.xy())
     }
 }
 

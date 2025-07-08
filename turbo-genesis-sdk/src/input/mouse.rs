@@ -13,6 +13,14 @@ impl ScreenMouse {
     pub fn intersects_bounds(&self, bounds: Bounds) -> bool {
         bounds.intersects_xy(self.xy())
     }
+    /// Returns whether the mouse is currently intersecting a given screen-space bounding box and its left button was just pressed.
+    pub fn just_left_clicked_bounds(&self, bounds: Bounds) -> bool {
+        self.left.just_pressed() && bounds.intersects_xy(self.xy())
+    }
+    /// Returns whether the mouse is currently intersecting a given screen-space bounding box and its right button was just pressed.
+    pub fn just_right_clicked_bounds(&self, bounds: Bounds) -> bool {
+        self.right.just_pressed() && bounds.intersects_xy(self.xy())
+    }
 }
 
 /// Enables transparent access to the inner `TurboMouse` fields and methods.
@@ -31,6 +39,14 @@ impl WorldMouse {
     /// Returns whether the mouse is currently intersecting a given world-space bounding box.
     pub fn intersects_bounds(&self, bounds: Bounds) -> bool {
         bounds.intersects_xy(self.xy())
+    }
+    /// Returns whether the mouse is currently intersecting a given world-space bounding box and its left button was just pressed.
+    pub fn just_left_clicked_bounds(&self, bounds: Bounds) -> bool {
+        self.left.just_pressed() && bounds.intersects_xy(self.xy())
+    }
+    /// Returns whether the mouse is currently intersecting a given world-space bounding box and its right button was just pressed.
+    pub fn just_right_clicked_bounds(&self, bounds: Bounds) -> bool {
+        self.right.just_pressed() && bounds.intersects_xy(self.xy())
     }
 }
 
