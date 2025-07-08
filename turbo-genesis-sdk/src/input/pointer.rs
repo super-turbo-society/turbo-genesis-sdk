@@ -4,7 +4,7 @@ use num_traits::NumCast;
 use std::ops::Deref;
 use turbo_genesis_abi::{TurboMouse, TurboPointer};
 
-/// Wrapper around the ABI-defined `TurboPointer`, representing a pointer (e.g. touch or mouse) in fixed screen-space (pixels).
+/// A pointer input (e.g. mouse or touch) with position in fixed screen-space pixel coordinates.
 #[derive(Debug)]
 pub struct ScreenPointer(TurboPointer);
 
@@ -12,6 +12,14 @@ impl ScreenPointer {
     /// Returns whether the pointer is currently intersecting a given screen-space bounding box.
     pub fn intersects_bounds(&self, bounds: Bounds) -> bool {
         bounds.intersects_xy(self.xy())
+    }
+    /// Returns whether the pointer is currently intersecting a given world-space bounding box and it was just pressed.
+    pub fn just_pressed_bounds(&self, bounds: Bounds) -> bool {
+        self.just_pressed() && bounds.intersects_xy(self.xy())
+    }
+    /// Returns whether the pointer is currently intersecting a given world-space bounding box and it was pressed.
+    pub fn pressed_bounds(&self, bounds: Bounds) -> bool {
+        self.pressed() && bounds.intersects_xy(self.xy())
     }
 }
 
@@ -23,7 +31,7 @@ impl Deref for ScreenPointer {
     }
 }
 
-/// Wrapper around the ABI-defined `TurboPointer`, transformed into relative (camera/world-space) coordinates.
+/// A pointer input transformed into world-space coordinates, relative to the current camera view.
 #[derive(Debug)]
 pub struct WorldPointer(TurboPointer);
 
@@ -31,6 +39,14 @@ impl WorldPointer {
     /// Returns whether the pointer is currently intersecting a given world-space bounding box.
     pub fn intersects_bounds(&self, bounds: Bounds) -> bool {
         bounds.intersects_xy(self.xy())
+    }
+    /// Returns whether the pointer is currently intersecting a given world-space bounding box and it was just pressed.
+    pub fn just_pressed_bounds(&self, bounds: Bounds) -> bool {
+        self.just_pressed() && bounds.intersects_xy(self.xy())
+    }
+    /// Returns whether the pointer is currently intersecting a given world-space bounding box and it was pressed.
+    pub fn pressed_bounds(&self, bounds: Bounds) -> bool {
+        self.pressed() && bounds.intersects_xy(self.xy())
     }
 }
 

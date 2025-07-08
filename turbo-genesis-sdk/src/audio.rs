@@ -75,7 +75,11 @@ pub fn set_volume(name: &str, volume: f32) {
 pub fn mute(name: &str) {
     unsafe {
         UNMUTE_VOLUMES.with(|a| {
-            a.borrow_mut().insert(name.to_string(), get_volume(name));
+            let volume = get_volume(name);
+            a.borrow_mut().insert(
+                name.to_string(),
+                if volume <= 0.0001 { 1.0 } else { volume },
+            );
         })
     }
     set_volume(name, 0.0);
