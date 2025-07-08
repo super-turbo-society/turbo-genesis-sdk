@@ -57,3 +57,19 @@ pub fn is_sound_playing(key_ptr: *const u8, key_len: u32) -> u32 {
         is_sound_playing(key_ptr, key_len)
     }
 }
+
+#[cfg(not(target_family = "wasm"))]
+pub fn get_sound_state(key_ptr: *const u8, key_len: u32) -> f32 {
+    0.0
+}
+
+#[cfg(target_family = "wasm")]
+pub fn get_sound_state(key_ptr: *const u8, key_len: u32) -> f32 {
+    unsafe {
+        #[link(wasm_import_module = "@turbo_genesis/audio")]
+        extern "C" {
+            fn get_state(key_ptr: *const u8, key_len: u32) -> f32;
+        }
+        get_state(key_ptr, key_len)
+    }
+}
