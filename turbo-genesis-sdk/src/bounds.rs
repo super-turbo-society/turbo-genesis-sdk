@@ -7,9 +7,9 @@ use std::ops::Add;
 // Bounds
 //------------------------------------------------------------------------------
 
-/// Returns the current viewport bounds.
-/// This is typically used to get the canvas or screen boundaries.
-pub fn viewport() -> Bounds {
+/// Returns the world-space (camera-relative) bounds.
+/// This is typically used to position bounds relative to game objects.
+pub fn world() -> Bounds {
     let (w, h) = crate::canvas::resolution();
     let (x, y, z) = crate::canvas::camera::xyz();
     let w = (w as f32 * (1. / z)) as u32;
@@ -19,9 +19,9 @@ pub fn viewport() -> Bounds {
     Bounds::new(x, y, w, h)
 }
 
-/// Returns the fixed canvas bounds without any camera position or zoom adjustments.
-/// This is typically useful for GUI elements that are fixed in size and position relative to the game's canvas.
-pub fn canvas() -> Bounds {
+/// Returns the screen-space (fixed) bounds.
+/// This is typically useful for GUI elements that are unaffected by any camera position or zoom adjustments.
+pub fn screen() -> Bounds {
     let (w, h) = crate::canvas::resolution();
     Bounds::new(0, 0, w, h)
 }

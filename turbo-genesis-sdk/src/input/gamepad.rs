@@ -1,12 +1,11 @@
 use borsh::BorshDeserialize;
 use std::ops::Deref;
-use turbo_genesis_abi::TurboGamepad;
+use turbo_genesis_abi::{TurboButton, TurboGamepad};
 
-/// Wrapper around the ABI-defined `TurboGamepad` type with local extensions or trait impls.
+/// Represents the current state of a gamepad and provides access to its buttons.
 #[derive(Debug)]
 pub struct Gamepad(TurboGamepad);
 
-/// Enables transparent access to fields and methods on the inner `TurboGamepad`.
 impl Deref for Gamepad {
     type Target = TurboGamepad;
 

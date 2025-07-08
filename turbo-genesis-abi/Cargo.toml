@@ -1,6 +1,6 @@
 [package]
 name = "turbo-genesis-abi"
-version = "1.0.0-alpha.2"
+version = "1.0.0-alpha.3"
 edition = "2021"
 license = "MIT"
 authors = ["@jozanza (jozanza@turbo.computer)"]

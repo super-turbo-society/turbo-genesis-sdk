@@ -36,7 +36,7 @@ pub struct TextBox<'a> {
 impl<'a> TextBox<'a> {
     /// Create a new TextBox with default font, scale, alignment, and quad.
     pub fn new(text: &'a str) -> Self {
-        let bounds = bounds::canvas();
+        let bounds = bounds::screen();
         let (default_w, default_h) = bounds.wh();
         Self {
             text,
