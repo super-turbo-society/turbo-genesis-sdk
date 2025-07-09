@@ -191,10 +191,11 @@ pub fn focus_bounds(bounds: &Bounds) {
 /// `origin` is the (x, y) position to shake around.
 /// `amount` is the max offset in pixels in any direction.
 pub fn shake_around(origin: (i32, i32), amount: usize) {
+    use crate::random::*;
     let (ox, oy) = origin;
-    let dx = crate::random::between(0..=amount) * 2 - 1;
-    let dy = crate::random::between(0..=amount) * 2 - 1;
-    crate::camera::set_xy(ox + dx as i32, oy + dy as i32);
+    let dx = between(0..=amount) as i32 * if bool() { 1 } else { -1 };
+    let dy = between(0..=amount) as i32 * if bool() { 1 } else { -1 };
+    crate::camera::set_xy(ox + dx, oy + dy);
 }
 
 // Stores the last tick and the original camera center (before shake)
@@ -215,7 +216,8 @@ pub fn shake(amount: usize) {
             (x, y)
         }
     };
-    let dx = crate::random::between(0..=amount) * 2 - 1;
-    let dy = crate::random::between(0..=amount) * 2 - 1;
+    use crate::random::*;
+    let dx = between(0..=amount) as i32 * if bool() { 1 } else { -1 };
+    let dy = between(0..=amount) as i32 * if bool() { 1 } else { -1 };
     crate::camera::set_xy(x as i32 + dx as i32, y as i32 + dy as i32);
 }
