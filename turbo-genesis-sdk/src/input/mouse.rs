@@ -14,11 +14,11 @@ impl ScreenMouse {
         bounds.intersects_xy(self.xy())
     }
     /// Returns whether the mouse is currently intersecting a given screen-space bounding box and its left button was just pressed.
-    pub fn just_left_clicked_bounds(&self, bounds: Bounds) -> bool {
+    pub fn left_clicked_bounds(&self, bounds: Bounds) -> bool {
         self.left.just_pressed() && bounds.intersects_xy(self.xy())
     }
     /// Returns whether the mouse is currently intersecting a given screen-space bounding box and its right button was just pressed.
-    pub fn just_right_clicked_bounds(&self, bounds: Bounds) -> bool {
+    pub fn right_clicked_bounds(&self, bounds: Bounds) -> bool {
         self.right.just_pressed() && bounds.intersects_xy(self.xy())
     }
 }
@@ -41,11 +41,11 @@ impl WorldMouse {
         bounds.intersects_xy(self.xy())
     }
     /// Returns whether the mouse is currently intersecting a given world-space bounding box and its left button was just pressed.
-    pub fn just_left_clicked_bounds(&self, bounds: Bounds) -> bool {
+    pub fn left_clicked_bounds(&self, bounds: Bounds) -> bool {
         self.left.just_pressed() && bounds.intersects_xy(self.xy())
     }
     /// Returns whether the mouse is currently intersecting a given world-space bounding box and its right button was just pressed.
-    pub fn just_right_clicked_bounds(&self, bounds: Bounds) -> bool {
+    pub fn right_clicked_bounds(&self, bounds: Bounds) -> bool {
         self.right.just_pressed() && bounds.intersects_xy(self.xy())
     }
 }
