@@ -23,6 +23,8 @@ impl TurboMouse {
     pub fn main_events_cleared(&mut self) {
         self.left.main_events_cleared();
         self.right.main_events_cleared();
+        self.delta_x = 0;
+        self.delta_y = 0;
     }
     pub fn intersects<X: NumCast, Y: NumCast, W: NumCast, H: NumCast>(
         &self,

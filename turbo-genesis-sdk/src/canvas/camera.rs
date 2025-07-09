@@ -33,11 +33,6 @@ pub fn z() -> f32 {
     z
 }
 
-/// Returns the current zoom level (alias for z()).
-pub fn zoom() -> f32 {
-    z()
-}
-
 /// Sets the camera's position to (x, y, z).
 /// The x and y values are converted to f32; z is clamped to a minimum of 0.0.
 pub fn set_xyz<X: NumCast, Y: NumCast>(x: X, y: Y, z: f32) {
@@ -104,14 +99,8 @@ pub fn move_y<Y: NumCast>(delta_y: Y) {
     set_y(y() + delta_y);
 }
 
-/// Sets the camera's zoom (z value) to the given value.
-pub fn set_zoom(z: f32) {
-    let (x, y, _z) = xyz();
-    set_xyz(x, y, z);
-}
-
 /// Moves the camera's zoom by the specified delta.
-pub fn move_zoom(delta_z: f32) {
+pub fn move_z(delta_z: f32) {
     set_z(z() + delta_z);
 }
 
@@ -152,16 +141,12 @@ pub fn reset_z() {
     set_xyz(x, y, 1.0)
 }
 
-/// Resets the camera's zoom to the default value (alias for reset_z).
-pub fn reset_zoom() {
-    reset_z()
-}
-
 /// Centers the camera on a target rectangle defined by (x, y, w, h).
 ///
 /// # Parameters
 /// - `x`, `y`: The top-left coordinates of the target rectangle.
 /// - `w`, `h`: The width and height of the target rectangle.
+#[deprecated = "use camera::focus instead"]
 pub fn focus_rect<X: NumCast, Y: NumCast, W: NumCast, H: NumCast>(x: X, y: Y, w: W, h: H) {
     let x: f32 = NumCast::from(x).unwrap_or(0.0);
     let y: f32 = NumCast::from(y).unwrap_or(0.0);
@@ -175,6 +160,7 @@ pub fn focus_rect<X: NumCast, Y: NumCast, W: NumCast, H: NumCast>(x: X, y: Y, w:
 }
 
 /// Centers the camera on a target Bounds.
+#[deprecated = "use camera::focus instead"]
 pub fn focus_bounds(bounds: &Bounds) {
     let x = bounds.x as f32;
     let y = bounds.y as f32;
@@ -185,6 +171,11 @@ pub fn focus_bounds(bounds: &Bounds) {
     let target_y = y + h / 2.0;
     // Center the camera on the computed target center.
     set_xy(target_x, target_y);
+}
+
+/// Centers the camera on a target x and y position.
+pub fn focus((x, y): (i32, i32)) {
+    set_xy(x, y);
 }
 
 /// Applies screen-space jitter around a target position.
