@@ -186,3 +186,36 @@ pub fn focus_bounds(bounds: &Bounds) {
     // Center the camera on the computed target center.
     set_xy(target_x, target_y);
 }
+
+/// Applies screen-space jitter around a target origin.
+/// `origin` is the (x, y) position to shake around.
+/// `amount` is the max offset in pixels in any direction.
+pub fn shake_around(origin: (i32, i32), amount: usize) {
+    let (ox, oy) = origin;
+    let dx = crate::random::between(0..=amount) * 2 - 1;
+    let dy = crate::random::between(0..=amount) * 2 - 1;
+    crate::camera::set_xy(ox + dx as i32, oy + dy as i32);
+}
+
+// Stores the last tick and the original camera center (before shake)
+static mut LAST_SHAKE: (usize, f32, f32) = (0, 0., 0.);
+
+/// Applies a screen-space shake around the last known stable camera position.
+/// Automatically updates the origin if the last shake was more than 1 frame ago.
+pub fn shake(amount: usize) {
+    let now = crate::time::tick();
+    let (x, y) = unsafe {
+        let last_tick = LAST_SHAKE.0;
+        if now > 0 && now.saturating_sub(last_tick) <= 1 {
+            LAST_SHAKE.0 = now;
+            (LAST_SHAKE.1, LAST_SHAKE.2)
+        } else {
+            let (x, y) = crate::camera::xy();
+            LAST_SHAKE = (now, x, y);
+            (x, y)
+        }
+    };
+    let dx = crate::random::between(0..=amount) * 2 - 1;
+    let dy = crate::random::between(0..=amount) * 2 - 1;
+    crate::camera::set_xy(x as i32 + dx as i32, y as i32 + dy as i32);
+}
