@@ -195,39 +195,39 @@ pub struct Tween<T> {
 #[allow(unused)]
 impl<T> Tween<T>
 where
-    T: Copy + Default + PartialEq + Interpolate<T> + Add<Output = T>,
+    T: Copy + Default + PartialEq + Interpolate<T> + Sum,
 {
     /// Creates a new tween with zero duration.
-    pub fn new(start: T) -> Self {
+    pub const fn new(start: T) -> Self {
         Self {
             start,
             end: start,
             duration: 0,
             elapsed: 0,
-            easing: Easing::default(),
+            easing: Easing::Linear,
             start_tick: None,
         }
     }
 
     /// Sets duration and returns modified tween.
-    pub fn duration(&mut self, duration: usize) -> Self {
+    pub const fn duration(&mut self, duration: usize) -> Self {
         self.duration = duration;
         *self
     }
 
     /// Sets easing and returns modified tween.
-    pub fn ease(&mut self, easing: Easing) -> Self {
+    pub const fn ease(&mut self, easing: Easing) -> Self {
         self.easing = easing;
         *self
     }
 
     /// Mutably set duration.
-    pub fn set_duration(&mut self, duration: usize) {
+    pub const fn set_duration(&mut self, duration: usize) {
         self.duration = duration;
     }
 
     /// Mutably set easing function.
-    pub fn set_ease(&mut self, easing: Easing) {
+    pub const fn set_ease(&mut self, easing: Easing) {
         self.easing = easing;
     }
 
@@ -246,7 +246,7 @@ where
     /// Adds a delta to the end value and resets.
     pub fn add(&mut self, delta: T) {
         self.start = self.get();
-        self.end = self.end + delta;
+        self.end = self.end.sum(delta);
         self.elapsed = 0;
         self.start_tick = Some(turbo_genesis_ffi::sys::tick() as usize);
     }
@@ -304,6 +304,92 @@ macro_rules! impl_interpolate_for {
 }
 
 impl_interpolate_for!(f32, f64, i8, i16, i32, i64, isize, u8, u16, u32, u64, usize);
+
+// Replacement for Add since we can't implement that trait for tuples directly
+pub trait Sum {
+    fn sum(self, other: Self) -> Self;
+}
+
+/// Macro for implementing `Sum`
+macro_rules! impl_sum_prim {
+    ($($t:ty),* $(,)?) => {
+        $(
+            impl Sum for $t {
+                #[inline]
+                fn sum(self, other: Self) -> Self {
+                    self + other
+                }
+            }
+        )*
+    };
+}
+
+impl_sum_prim!(i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize, f32, f64, Bounds);
+
+// Blanket‐impl Interpolate for any 2‐tuple whose elements themselves implement Interpolate:
+impl<A: Interpolate<A>, B: Interpolate<B>> Interpolate<(A, B)> for (A, B) {
+    fn interpolate(t: f64, start: (A, B), end: (A, B)) -> (A, B) {
+        let x = A::interpolate(t, start.0, end.0);
+        let y = B::interpolate(t, start.1, end.1);
+        (x, y)
+    }
+}
+
+// Blanket‐impl Interpolate for any 3‐tuple whose elements themselves implement Interpolate:
+impl<A: Interpolate<A>, B: Interpolate<B>, C: Interpolate<C>> Interpolate<(A, B, C)> for (A, B, C) {
+    fn interpolate(t: f64, start: (A, B, C), end: (A, B, C)) -> (A, B, C) {
+        let x = A::interpolate(t, start.0, end.0);
+        let y = B::interpolate(t, start.1, end.1);
+        let z = C::interpolate(t, start.2, end.2);
+        (x, y, z)
+    }
+}
+
+// Blanket‐impl Interpolate for any 4‐tuple whose elements themselves implement Interpolate:
+impl<A: Interpolate<A>, B: Interpolate<B>, C: Interpolate<C>, D: Interpolate<D>>
+    Interpolate<(A, B, C, D)> for (A, B, C, D)
+{
+    fn interpolate(t: f64, start: (A, B, C, D), end: (A, B, C, D)) -> (A, B, C, D) {
+        let x = A::interpolate(t, start.0, end.0);
+        let y = B::interpolate(t, start.1, end.1);
+        let z = C::interpolate(t, start.2, end.2);
+        let w = D::interpolate(t, start.3, end.3);
+        (x, y, z, w)
+    }
+}
+
+// Blanket‐impl Sum for any 2‐tuple whose elements themselves implement Sum:
+impl<A: Sum, B: Sum> Sum for (A, B) {
+    #[inline]
+    fn sum(self, other: (A, B)) -> (A, B) {
+        (self.0.sum(other.0), self.1.sum(other.1))
+    }
+}
+
+// Blanket‐impl Sum for any 3‐tuple whose elements themselves implement Sum:
+impl<A: Sum, B: Sum, C: Sum> Sum for (A, B, C) {
+    #[inline]
+    fn sum(self, other: (A, B, C)) -> (A, B, C) {
+        (
+            self.0.sum(other.0),
+            self.1.sum(other.1),
+            self.2.sum(other.2),
+        )
+    }
+}
+
+// Blanket‐impl Sum for any 4‐tuple whose elements themselves implement Sum:
+impl<A: Sum, B: Sum, C: Sum, D: Sum> Sum for (A, B, C, D) {
+    #[inline]
+    fn sum(self, other: (A, B, C, D)) -> (A, B, C, D) {
+        (
+            self.0.sum(other.0),
+            self.1.sum(other.1),
+            self.2.sum(other.2),
+            self.3.sum(other.3),
+        )
+    }
+}
 
 /// Implements interpolation for `Bounds` by interpolating each field.
 impl Interpolate<Bounds> for Bounds {
