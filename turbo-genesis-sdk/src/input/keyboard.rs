@@ -349,7 +349,16 @@ pub struct Keyboard(TurboKeyboard);
 impl Keyboard {
     /// Returns a vector of all characters just pressed this frame.
     pub fn chars(&self) -> Vec<char> {
-        let shift = self.shift_left().pressed() || self.shift_right().pressed();
+        if self.control_any().pressed() {
+            return vec![];
+        }
+        if self.super_any().pressed() {
+            return vec![];
+        }
+        if self.alt_any().pressed() {
+            return vec![];
+        }
+        let shift = self.shift_any().pressed() || self.caps_lock().pressed();
         self.0
             .keys
             .iter()
@@ -393,53 +402,53 @@ impl Keyboard {
         self.0.get(&TurboKeyCode::Comma)
     }
 
-    /// Gets the `TurboButton` for digit0
-    pub fn digit0(&self) -> TurboButton {
+    /// Gets the `TurboButton` for digit_0
+    pub fn digit_0(&self) -> TurboButton {
         self.0.get(&TurboKeyCode::Digit0)
     }
 
-    /// Gets the `TurboButton` for digit1
-    pub fn digit1(&self) -> TurboButton {
+    /// Gets the `TurboButton` for digit_1
+    pub fn digit_1(&self) -> TurboButton {
         self.0.get(&TurboKeyCode::Digit1)
     }
 
-    /// Gets the `TurboButton` for digit2
-    pub fn digit2(&self) -> TurboButton {
+    /// Gets the `TurboButton` for digit_2
+    pub fn digit_2(&self) -> TurboButton {
         self.0.get(&TurboKeyCode::Digit2)
     }
 
-    /// Gets the `TurboButton` for digit3
-    pub fn digit3(&self) -> TurboButton {
+    /// Gets the `TurboButton` for digit_3
+    pub fn digit_3(&self) -> TurboButton {
         self.0.get(&TurboKeyCode::Digit3)
     }
 
-    /// Gets the `TurboButton` for digit4
-    pub fn digit4(&self) -> TurboButton {
+    /// Gets the `TurboButton` for digit_4
+    pub fn digit_4(&self) -> TurboButton {
         self.0.get(&TurboKeyCode::Digit4)
     }
 
-    /// Gets the `TurboButton` for digit5
-    pub fn digit5(&self) -> TurboButton {
+    /// Gets the `TurboButton` for digit_5
+    pub fn digit_5(&self) -> TurboButton {
         self.0.get(&TurboKeyCode::Digit5)
     }
 
-    /// Gets the `TurboButton` for digit6
-    pub fn digit6(&self) -> TurboButton {
+    /// Gets the `TurboButton` for digit_6
+    pub fn digit_6(&self) -> TurboButton {
         self.0.get(&TurboKeyCode::Digit6)
     }
 
-    /// Gets the `TurboButton` for digit7
-    pub fn digit7(&self) -> TurboButton {
+    /// Gets the `TurboButton` for digit_7
+    pub fn digit_7(&self) -> TurboButton {
         self.0.get(&TurboKeyCode::Digit7)
     }
 
-    /// Gets the `TurboButton` for digit8
-    pub fn digit8(&self) -> TurboButton {
+    /// Gets the `TurboButton` for digit_8
+    pub fn digit_8(&self) -> TurboButton {
         self.0.get(&TurboKeyCode::Digit8)
     }
 
-    /// Gets the `TurboButton` for digit9
-    pub fn digit9(&self) -> TurboButton {
+    /// Gets the `TurboButton` for digit_9
+    pub fn digit_9(&self) -> TurboButton {
         self.0.get(&TurboKeyCode::Digit9)
     }
 
@@ -628,6 +637,16 @@ impl Keyboard {
         self.0.get(&TurboKeyCode::AltRight)
     }
 
+    /// Gets the `TurboButton` for alt_left or alt_right
+    pub fn alt_any(&self) -> TurboButton {
+        let alt_left = self.alt_left();
+        if alt_left.pressed() {
+            alt_left
+        } else {
+            self.alt_right()
+        }
+    }
+
     /// Gets the `TurboButton` for backspace
     pub fn backspace(&self) -> TurboButton {
         self.0.get(&TurboKeyCode::Backspace)
@@ -653,6 +672,16 @@ impl Keyboard {
         self.0.get(&TurboKeyCode::ControlRight)
     }
 
+    /// Gets the `TurboButton` for control_left or control_right
+    pub fn control_any(&self) -> TurboButton {
+        let control_left = self.control_left();
+        if control_left.pressed() {
+            control_left
+        } else {
+            self.control_right()
+        }
+    }
+
     /// Gets the `TurboButton` for enter
     pub fn enter(&self) -> TurboButton {
         self.0.get(&TurboKeyCode::Enter)
@@ -668,6 +697,16 @@ impl Keyboard {
         self.0.get(&TurboKeyCode::SuperRight)
     }
 
+    /// Gets the `TurboButton` for super_left or super_right
+    pub fn super_any(&self) -> TurboButton {
+        let super_left = self.super_left();
+        if super_left.pressed() {
+            super_left
+        } else {
+            self.super_right()
+        }
+    }
+
     /// Gets the `TurboButton` for shift_left
     pub fn shift_left(&self) -> TurboButton {
         self.0.get(&TurboKeyCode::ShiftLeft)
@@ -676,6 +715,16 @@ impl Keyboard {
     /// Gets the `TurboButton` for shift_right
     pub fn shift_right(&self) -> TurboButton {
         self.0.get(&TurboKeyCode::ShiftRight)
+    }
+
+    /// Gets the `TurboButton` for shift_left or shift_right
+    pub fn shift_any(&self) -> TurboButton {
+        let shift_left = self.shift_left();
+        if shift_left.pressed() {
+            shift_left
+        } else {
+            self.shift_right()
+        }
     }
 
     /// Gets the `TurboButton` for space
@@ -788,53 +837,53 @@ impl Keyboard {
         self.0.get(&TurboKeyCode::NumLock)
     }
 
-    /// Gets the `TurboButton` for numpad0
-    pub fn numpad0(&self) -> TurboButton {
+    /// Gets the `TurboButton` for numpad_0
+    pub fn numpad_0(&self) -> TurboButton {
         self.0.get(&TurboKeyCode::Numpad0)
     }
 
-    /// Gets the `TurboButton` for numpad1
-    pub fn numpad1(&self) -> TurboButton {
+    /// Gets the `TurboButton` for numpad_1
+    pub fn numpad_1(&self) -> TurboButton {
         self.0.get(&TurboKeyCode::Numpad1)
     }
 
-    /// Gets the `TurboButton` for numpad2
-    pub fn numpad2(&self) -> TurboButton {
+    /// Gets the `TurboButton` for numpad_2
+    pub fn numpad_2(&self) -> TurboButton {
         self.0.get(&TurboKeyCode::Numpad2)
     }
 
-    /// Gets the `TurboButton` for numpad3
-    pub fn numpad3(&self) -> TurboButton {
+    /// Gets the `TurboButton` for numpad_3
+    pub fn numpad_3(&self) -> TurboButton {
         self.0.get(&TurboKeyCode::Numpad3)
     }
 
-    /// Gets the `TurboButton` for numpad4
-    pub fn numpad4(&self) -> TurboButton {
+    /// Gets the `TurboButton` for numpad_4
+    pub fn numpad_4(&self) -> TurboButton {
         self.0.get(&TurboKeyCode::Numpad4)
     }
 
-    /// Gets the `TurboButton` for numpad5
-    pub fn numpad5(&self) -> TurboButton {
+    /// Gets the `TurboButton` for numpad_5
+    pub fn numpad_5(&self) -> TurboButton {
         self.0.get(&TurboKeyCode::Numpad5)
     }
 
-    /// Gets the `TurboButton` for numpad6
-    pub fn numpad6(&self) -> TurboButton {
+    /// Gets the `TurboButton` for numpad_6
+    pub fn numpad_6(&self) -> TurboButton {
         self.0.get(&TurboKeyCode::Numpad6)
     }
 
-    /// Gets the `TurboButton` for numpad7
-    pub fn numpad7(&self) -> TurboButton {
+    /// Gets the `TurboButton` for numpad_7
+    pub fn numpad_7(&self) -> TurboButton {
         self.0.get(&TurboKeyCode::Numpad7)
     }
 
-    /// Gets the `TurboButton` for numpad8
-    pub fn numpad8(&self) -> TurboButton {
+    /// Gets the `TurboButton` for numpad_8
+    pub fn numpad_8(&self) -> TurboButton {
         self.0.get(&TurboKeyCode::Numpad8)
     }
 
-    /// Gets the `TurboButton` for numpad9
-    pub fn numpad9(&self) -> TurboButton {
+    /// Gets the `TurboButton` for numpad_9
+    pub fn numpad_9(&self) -> TurboButton {
         self.0.get(&TurboKeyCode::Numpad9)
     }
 
