@@ -480,25 +480,6 @@ impl<'a> TextBox<'a> {
                     let bottom_over = dy + dh as i32 - (y0 + box_h);
 
                     let glyph_w = dw;
-                    if ch == ' ' {
-                        crate::rect!(
-                            x = dx,
-                            y = dy,
-                            w = dw,
-                            h = dh,
-                            color = 0xff0000ff,
-                            opacity = 0.1
-                        );
-                    } else if ch == '\t' {
-                        crate::rect!(
-                            x = dx,
-                            y = dy,
-                            w = dw,
-                            h = dh,
-                            color = 0x00ff00ff,
-                            opacity = 0.1
-                        );
-                    }
                     let (dx, dyh, dw, dh, tx, ty) = {
                         let dh = dh - (bottom_over as u32);
                         let dw = dw - (right_over as u32);
