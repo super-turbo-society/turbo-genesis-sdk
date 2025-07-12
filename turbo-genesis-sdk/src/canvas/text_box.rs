@@ -30,7 +30,9 @@ pub struct TextBox<'a> {
     align: Align,
     start: usize,
     end: usize,
-    preserve_whitespace: bool,
+    preserve_spaces: bool,
+    preserve_tabs: bool,
+    preserve_newlines: bool,
 }
 
 impl<'a> TextBox<'a> {
@@ -46,19 +48,58 @@ impl<'a> TextBox<'a> {
             align: Align::Left,
             start: 0,
             end: text.len(),
-            preserve_whitespace: true,
+            preserve_spaces: true,
+            preserve_tabs: true,
+            preserve_newlines: true,
         }
     }
 
-    /// Whether or not to preserve whitespace when drawing text.
-    pub fn preserve_whitespace(mut self, preserve_whitespace: bool) -> Self {
-        self.preserve_whitespace = preserve_whitespace;
+    /// Whether or not to preserve spaces when drawing text.
+    pub fn preserve_spaces(mut self, preserve_spaces: bool) -> Self {
+        self.preserve_spaces = preserve_spaces;
         self
     }
 
-    /// Whether or not to preserve whitespace when drawing text.
-    pub fn set_preserve_whitespace(mut self, preserve_whitespace: bool) {
-        self.preserve_whitespace = preserve_whitespace;
+    /// Whether or not to preserve spaces when drawing text.
+    pub fn set_preserve_spaces(&mut self, preserve_spaces: bool) {
+        self.preserve_spaces = preserve_spaces;
+    }
+
+    /// Whether or not to preserve tabs when drawing text.
+    pub fn preserve_tabs(mut self, preserve_tabs: bool) -> Self {
+        self.preserve_tabs = preserve_tabs;
+        self
+    }
+
+    /// Whether or not to preserve tabs when drawing text.
+    pub fn set_preserve_tabs(&mut self, preserve_tabs: bool) {
+        self.preserve_tabs = preserve_tabs;
+    }
+
+    /// Whether or not to preserve newlines when drawing text.
+    pub fn preserve_newlines(mut self, preserve_newlines: bool) -> Self {
+        self.preserve_newlines = preserve_newlines;
+        self
+    }
+
+    /// Whether or not to preserve newlines when drawing text.
+    pub fn set_preserve_newlines(&mut self, preserve_newlines: bool) {
+        self.preserve_newlines = preserve_newlines;
+    }
+
+    /// Whether or not to preserve all whitespace when drawing text.
+    pub fn preserve_whitespace(mut self, preserve_whitespace: bool) -> Self {
+        self.preserve_spaces = preserve_whitespace;
+        self.preserve_tabs = preserve_whitespace;
+        self.preserve_newlines = preserve_whitespace;
+        self
+    }
+
+    /// Whether or not to preserve all whitespace when drawing text.
+    pub fn set_preserve_whitespace(&mut self, preserve_whitespace: bool) {
+        self.preserve_spaces = preserve_whitespace;
+        self.preserve_tabs = preserve_whitespace;
+        self.preserve_newlines = preserve_whitespace;
     }
 
     /// Ignore camera when drawing.
@@ -265,46 +306,103 @@ impl<'a> TextBox<'a> {
             .map(|(_, c)| c)
             .collect::<String>();
 
-        // Tokenize input while preserving whitespace and newlines
-        let tokens: Vec<String> = if self.preserve_whitespace {
+        // Simple tokenization - just split into words and whitespace
+        let tokens: Vec<String> = {
             let mut out = vec![];
-            let mut buf = String::new();
+            let mut word = String::new();
 
             for c in text.chars() {
                 match c {
-                    '\n' => {
-                        if !buf.is_empty() {
-                            out.push(buf.clone());
-                            buf.clear();
+                    ' ' | '\t' | '\n' => {
+                        if !word.is_empty() {
+                            out.push(word.clone());
+                            word.clear();
                         }
-                        out.push("\n".to_string());
-                    }
-                    ' ' | '\t' => {
-                        if !buf.is_empty() {
-                            out.push(buf.clone());
-                            buf.clear();
+                        if c == '\n' && !self.preserve_newlines {
+                            out.push(' '.to_string());
+                        } else {
+                            out.push(c.to_string());
                         }
-                        out.push(c.to_string()); // preserve as standalone space/tab token
                     }
-                    _ => buf.push(c),
+                    _ => word.push(c),
                 }
             }
-            if !buf.is_empty() {
-                out.push(buf);
+
+            if !word.is_empty() {
+                out.push(word);
             }
-            out
-        } else {
-            text.split_whitespace().map(|s| s.to_string()).collect()
+
+            // Clean up consecutive whitespace based on preservation settings
+            let mut cleaned = vec![];
+            let mut prev_was_space = false;
+            let mut prev_was_tab = false;
+
+            for token in out {
+                match token.as_str() {
+                    " " => {
+                        if self.preserve_spaces {
+                            cleaned.push(token);
+                            prev_was_space = true;
+                            prev_was_tab = false;
+                        } else {
+                            // Deduplicate spaces
+                            if !prev_was_space && !cleaned.is_empty() {
+                                cleaned.push(" ".to_string());
+                            }
+                            prev_was_space = true;
+                            prev_was_tab = false;
+                        }
+                    }
+                    "\t" => {
+                        if self.preserve_tabs {
+                            cleaned.push("\t".to_string());
+                            prev_was_space = false;
+                            prev_was_tab = true;
+                        } else {
+                            // Deduplicate tabs
+                            if !prev_was_tab && !cleaned.is_empty() {
+                                cleaned.push("\t".to_string());
+                            }
+                            prev_was_space = false;
+                            prev_was_tab = true;
+                        }
+                    }
+                    _ => {
+                        cleaned.push(token);
+                        prev_was_space = false;
+                        prev_was_tab = false;
+                    }
+                }
+            }
+
+            cleaned
         };
 
+        // Build lines
+        let mut is_line_start = false;
         for token in tokens {
             if token == "\n" {
                 lines.push(current.clone());
                 current.clear();
+                is_line_start = true;
                 continue;
             }
+            if is_line_start {
+                match token.as_str() {
+                    " " if !self.preserve_spaces => continue,
+                    "\t" if !self.preserve_tabs => continue,
+                    _ => {
+                        is_line_start = false;
+                    }
+                }
+            }
 
-            let candidate = format!("{}{}", current, token);
+            let candidate = if current.is_empty() {
+                token.clone()
+            } else {
+                format!("{}{}", current, token)
+            };
+
             let (w, _) = utils::text::measure(self.font, self.scale, &candidate);
 
             if w <= max_width {
@@ -363,7 +461,8 @@ impl<'a> TextBox<'a> {
                     break;
                 }
                 num_chars += 1;
-                let key = format!("font_{}_{}", self.font, ch);
+                // Use space char for tabs
+                let key = format!("font_{}_{}", self.font, if ch == '\t' { ' ' } else { ch });
                 if let Some(glyph) = utils::sprite::get_source_data(&key) {
                     let dw = (glyph.width as f32 * self.scale) as u32;
                     let dh = (glyph.height as f32 * self.scale) as u32;
@@ -381,6 +480,25 @@ impl<'a> TextBox<'a> {
                     let bottom_over = dy + dh as i32 - (y0 + box_h);
 
                     let glyph_w = dw;
+                    if ch == ' ' {
+                        crate::rect!(
+                            x = dx,
+                            y = dy,
+                            w = dw,
+                            h = dh,
+                            color = 0xff0000ff,
+                            opacity = 0.1
+                        );
+                    } else if ch == '\t' {
+                        crate::rect!(
+                            x = dx,
+                            y = dy,
+                            w = dw,
+                            h = dh,
+                            color = 0x00ff00ff,
+                            opacity = 0.1
+                        );
+                    }
                     let (dx, dyh, dw, dh, tx, ty) = {
                         let dh = dh - (bottom_over as u32);
                         let dw = dw - (right_over as u32);

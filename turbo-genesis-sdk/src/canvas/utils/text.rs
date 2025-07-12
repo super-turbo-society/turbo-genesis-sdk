@@ -43,7 +43,7 @@ pub fn measure(font: &str, scale: f32, text: &str) -> (f32, f32) {
             }
             current_width = 0.0;
         } else {
-            let key = format!("font_{}_{}", font, ch);
+            let key = format!("font_{}_{}", font, if ch == '\t' { ' ' } else { ch });
             if let Some(src) = sprite::get_source_data(&key) {
                 let w = src.width as f32 * scale;
                 let h = src.height as f32 * scale;
