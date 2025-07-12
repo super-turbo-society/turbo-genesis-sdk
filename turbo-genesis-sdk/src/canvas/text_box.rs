@@ -379,22 +379,11 @@ impl<'a> TextBox<'a> {
         };
 
         // Build lines
-        let mut is_line_start = false;
         for token in tokens {
             if token == "\n" {
                 lines.push(current.clone());
                 current.clear();
-                is_line_start = true;
                 continue;
-            }
-            if is_line_start {
-                match token.as_str() {
-                    " " if !self.preserve_spaces => continue,
-                    "\t" if !self.preserve_tabs => continue,
-                    _ => {
-                        is_line_start = false;
-                    }
-                }
             }
 
             let candidate = if current.is_empty() {
@@ -409,6 +398,32 @@ impl<'a> TextBox<'a> {
                 current = candidate;
             } else {
                 if !current.is_empty() {
+                    let mut x = match self.align {
+                        Align::Left => {
+                            if !self.preserve_spaces {
+                                current = current.trim_start_matches(' ').to_string();
+                            }
+                            if !self.preserve_tabs {
+                                current = current.trim_start_matches('\t').to_string();
+                            }
+                        }
+                        Align::Center => {
+                            if !self.preserve_spaces {
+                                current = current.trim_matches(' ').to_string();
+                            }
+                            if !self.preserve_tabs {
+                                current = current.trim_matches('\t').to_string();
+                            }
+                        }
+                        Align::Right => {
+                            if !self.preserve_spaces {
+                                current = current.trim_end_matches(' ').to_string();
+                            }
+                            if !self.preserve_tabs {
+                                current = current.trim_end_matches('\t').to_string();
+                            }
+                        }
+                    };
                     lines.push(current.clone());
                 }
                 current = token;
@@ -416,6 +431,32 @@ impl<'a> TextBox<'a> {
         }
 
         if !current.is_empty() {
+            let mut x = match self.align {
+                Align::Left => {
+                    if !self.preserve_spaces {
+                        current = current.trim_start_matches(' ').to_string();
+                    }
+                    if !self.preserve_tabs {
+                        current = current.trim_start_matches('\t').to_string();
+                    }
+                }
+                Align::Center => {
+                    if !self.preserve_spaces {
+                        current = current.trim_matches(' ').to_string();
+                    }
+                    if !self.preserve_tabs {
+                        current = current.trim_matches('\t').to_string();
+                    }
+                }
+                Align::Right => {
+                    if !self.preserve_spaces {
+                        current = current.trim_end_matches(' ').to_string();
+                    }
+                    if !self.preserve_tabs {
+                        current = current.trim_end_matches('\t').to_string();
+                    }
+                }
+            };
             lines.push(current);
         }
 
@@ -480,6 +521,25 @@ impl<'a> TextBox<'a> {
                     let bottom_over = dy + dh as i32 - (y0 + box_h);
 
                     let glyph_w = dw;
+                    // if ch == ' ' {
+                    //     crate::rect!(
+                    //         x = dx,
+                    //         y = dy,
+                    //         w = dw,
+                    //         h = dh,
+                    //         color = 0xff0000ff,
+                    //         opacity = 0.1
+                    //     );
+                    // } else if ch == '\t' {
+                    //     crate::rect!(
+                    //         x = dx,
+                    //         y = dy,
+                    //         w = dw,
+                    //         h = dh,
+                    //         color = 0x00ff00ff,
+                    //         opacity = 0.1
+                    //     );
+                    // }
                     let (dx, dyh, dw, dh, tx, ty) = {
                         let dh = dh - (bottom_over as u32);
                         let dw = dw - (right_over as u32);
