@@ -48,5 +48,5 @@ pub fn now() -> u64 {
 /// not be suitable for high-precision timing requirements.
 #[cfg(turbo_no_run)]
 pub fn now() -> u64 {
-    turbo_genesis_ffi::os::server::secs_since_unix_epoch() as u64
+    turbo_genesis_ffi::os::server::secs_since_unix_epoch() as u64 * 1000
 }
