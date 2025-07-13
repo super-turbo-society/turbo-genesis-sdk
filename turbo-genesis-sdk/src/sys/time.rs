@@ -16,6 +16,11 @@ pub fn tick() -> usize {
     turbo_genesis_ffi::sys::tick() as usize
 }
 
+#[cfg(turbo_no_run)]
+pub fn tick() -> usize {
+    0
+}
+
 /// Returns the current time in milliseconds since the Unix epoch.
 ///
 /// This is typically used for timestamps or measuring real-world elapsed time.

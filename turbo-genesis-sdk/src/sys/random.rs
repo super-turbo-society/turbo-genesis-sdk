@@ -87,6 +87,7 @@ pub fn u32() -> u32 {
 ///   implementation, but requests 8 random bytes from the OS server to
 ///   directly construct a `u64`. This avoids the need for two separate
 ///   calls and potential performance overhead.
+#[cfg(not(turbo_no_run))]
 pub fn u64() -> u64 {
     let lower = u32() as u64;
     let upper = u32() as u64;
