@@ -5,6 +5,7 @@ pub mod command;
 pub mod fs;
 
 /// Fills and returns a randomly generated value of any Copy type
+#[deprecated = "Use the random module instead. For example: random::u32()"]
 pub fn random_number<T: Default + Copy>() -> T {
     let len = std::mem::size_of::<T>();
     let buf: &mut [u8; 32] = &mut [0u8; 32];
@@ -15,11 +16,13 @@ pub fn random_number<T: Default + Copy>() -> T {
 }
 
 /// Returns the number of seconds since the Unix epoch
+#[deprecated = "Use the time module instead. For example: time::now()"]
 pub fn now() -> u32 {
     unsafe { turbo_genesis_ffi::os::server::secs_since_unix_epoch() }
 }
 
 /// Logs a message to the server console
+#[deprecated = "Use console::log or standard log! macro instead."]
 pub fn log(message: &str) {
     turbo_genesis_ffi::os::server::log(message.as_ptr(), message.len());
 }

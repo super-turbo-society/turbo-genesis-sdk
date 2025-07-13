@@ -2,8 +2,18 @@
 ///
 /// This is a direct FFI call that passes a UTF-8 encoded string to the host.
 /// On non-WASM platforms, this may no-op depending on the stub implementation.
+#[cfg(not(turbo_no_run))]
 pub fn log(text: &str) {
     let ptr = text.as_ptr();
     let len = text.len() as u32;
     turbo_genesis_ffi::sys::log(ptr, len)
+}
+
+/// Alternative implementation for logging in server mode.
+///
+/// This version routes log messages through the OS server interface instead
+/// of directly to the system console. Such logs be stored in command and channel logs.
+#[cfg(turbo_no_run)]
+pub fn log(message: &str) {
+    turbo_genesis_ffi::os::server::log(message.as_ptr(), message.len());
 }

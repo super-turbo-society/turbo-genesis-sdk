@@ -42,18 +42,71 @@ use std::ops::{Bound, Range, RangeBounds};
 ///
 /// This function is the direct interface to the system's entropy source.
 /// It is assumed to provide a uniformly distributed, full 32-bit `u32`.
+///
+/// ## Implementation Details
+/// - **Standard mode (`cfg(not(turbo_no_run))`):** Uses the system's RNG via
+///   `turbo_genesis_ffi::sys::rand()` which directly calls the platform's
+///   random number generator.
+/// - **Server mode (`cfg(turbo_no_run)`):** Uses an alternative implementation
+///   that bypasses the system RNG and instead calls
+///   `turbo_genesis_ffi::os::server::random_bytes()` to fill a buffer with
+///   cryptographically secure random bytes. This mode is likely used in
+///   environments where direct system RNG access is restricted or unavailable,
+///   such as sandboxed environments or when running in a server context.
+#[cfg(not(turbo_no_run))]
 pub fn u32() -> u32 {
     turbo_genesis_ffi::sys::rand()
+}
+
+/// Alternative implementation for environments where direct system RNG access
+/// is not available. This version uses the OS server's random byte generation
+/// service to create a `u32` by requesting 4 random bytes and converting them
+/// to a `u32` using unaligned memory access.
+#[cfg(turbo_no_run)]
+pub fn u32() -> u32 {
+    const LEN: usize = std::mem::size_of::<u32>();
+    let buf: &mut [u8; LEN] = &mut [0u8; LEN];
+    // Request random bytes from the OS server interface
+    turbo_genesis_ffi::os::server::random_bytes(buf.as_mut_ptr(), LEN);
+    let mut arr = [0u8; LEN];
+    arr[..LEN].copy_from_slice(&buf[..LEN]);
+    // Convert the byte array to u32 using unaligned read for safety
+    unsafe { std::ptr::read_unaligned(arr.as_ptr() as *const u32) }
 }
 
 /// Generates a random `u64` by concatenating two `u32()` calls.
 ///
 /// This function provides a full 64-bit random integer, suitable for
 /// high-quality random numbers and as a source for floating-point generation.
+///
+/// ## Implementation Details
+/// - **Standard mode (`cfg(not(turbo_no_run))`):** Calls `u32()` twice and
+///   combines the results by bit-shifting the upper 32 bits and OR-ing with
+///   the lower 32 bits.
+/// - **Server mode (`cfg(turbo_no_run)`):** Similar to the `u32()` standard
+///   implementation, but requests 8 random bytes from the OS server to
+///   directly construct a `u64`. This avoids the need for two separate
+///   calls and potential performance overhead.
 pub fn u64() -> u64 {
     let lower = u32() as u64;
     let upper = u32() as u64;
     (upper << 32) | lower
+}
+
+/// Alternative implementation for `u64()` in server environments.
+/// Directly requests 8 random bytes from the OS server and converts
+/// them to a `u64` using unaligned memory access, which is more efficient
+/// than calling the `u32()` function twice.
+#[cfg(turbo_no_run)]
+pub fn u64() -> u64 {
+    const LEN: usize = std::mem::size_of::<u64>();
+    let buf: &mut [u8; LEN] = &mut [0u8; LEN];
+    // Request 8 random bytes from the OS server interface
+    turbo_genesis_ffi::os::server::random_bytes(buf.as_mut_ptr(), LEN);
+    let mut arr = [0u8; LEN];
+    arr[..LEN].copy_from_slice(&buf[..LEN]);
+    // Convert the byte array to u64 using unaligned read for safety
+    unsafe { std::ptr::read_unaligned(arr.as_ptr() as *const u64) }
 }
 
 /// Returns a random `u8`.
