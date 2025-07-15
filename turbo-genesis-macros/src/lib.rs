@@ -556,3 +556,81 @@ fn process_program_channel(
 
     syn::parse2::<syn::File>(expanded).unwrap().items
 }
+
+fn process_program_module_items(
+    program_metadata: &mut TurboProgramMetadata,
+    items: &mut Vec<Item>,
+) -> Result<Vec<Item>, syn::Error> {
+    let mut new_items = vec![];
+    for item in items.drain(..) {
+        match &item {
+            Item::Mod(m) => {
+                if let Some((brace, items)) = &mut m.content.clone() {
+                    let mod_items = process_program_module_items(program_metadata, items)?;
+                    let mut m = m.clone();
+                    m.content = Some((brace.clone(), mod_items));
+                    let item = Item::Mod(m);
+                    new_items.push(item);
+                } else {
+                    new_items.push(item);
+                }
+            }
+            Item::Struct(ItemStruct { ident, attrs, .. })
+            | Item::Enum(ItemEnum { ident, attrs, .. }) => {
+                let mut handled = false;
+
+                for attr in attrs {
+                    // --------------------------------------------------------------------
+                    // #[command(name = "...")] — generate FFI + exec client binding
+                    // --------------------------------------------------------------------
+                    const COMMAND_ATTR_IDENT: &str = "command";
+                    if attr
+                        .path()
+                        .segments
+                        .last()
+                        .map_or(false, |seg| seg.ident == COMMAND_ATTR_IDENT)
+                    {
+                        // Parse command name
+                        let args = match attr.parse_args::<CommandArgs>() {
+                            Ok(args) => args,
+                            Err(err) => return Err(err),
+                        };
+                        let items = process_program_command(program_metadata, args, &item, ident);
+                        new_items.extend(items);
+                        handled = true;
+                        break;
+                    }
+
+                    // --------------------------------------------------------------------
+                    // #[channel(name = "...")] — generate FFI + subscribe method
+                    // --------------------------------------------------------------------
+                    const CHANNEL_ATTR_IDENT: &str = "channel";
+                    if attr
+                        .path()
+                        .segments
+                        .last()
+                        .map_or(false, |seg| seg.ident == CHANNEL_ATTR_IDENT)
+                    {
+                        // Parse channel name
+                        let args = match attr.parse_args::<ChannelArgs>() {
+                            Ok(args) => args,
+                            Err(err) => return Err(err),
+                        };
+                        let items = process_program_channel(program_metadata, args, &item, ident);
+                        new_items.extend(items);
+                        handled = true;
+                        break;
+                    }
+                }
+
+                // If not a #[command] or #[channel], emit as-is
+                if !handled {
+                    new_items.push(item);
+                }
+            }
+            // Non-struct/enum items (e.g. impls, consts) are passed through unchanged
+            _ => new_items.push(item),
+        }
+    }
+    Ok(new_items)
+}
