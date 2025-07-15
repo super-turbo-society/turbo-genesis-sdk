@@ -57,3 +57,17 @@ pub fn is_sound_playing(key_ptr: *const u8, key_len: u32) -> u32 {
         is_sound_playing(key_ptr, key_len)
     }
 }
+
+#[cfg(not(target_family = "wasm"))]
+pub fn seek_by(_key_ptr: *const u8, _key_len: u32, _delta: f64) {}
+
+#[cfg(target_family = "wasm")]
+pub fn seek_by(key_ptr: *const u8, key_len: u32, delta: f64) {
+    unsafe {
+        #[link(wasm_import_module = "@turbo_genesis/audio")]
+        extern "C" {
+            fn seek_by(key_ptr: *const u8, key_len: u32, delta: f64);
+        }
+        seek_by(key_ptr, key_len, delta);
+    }
+}

@@ -35,3 +35,11 @@ pub fn is_playing(key: &str) -> bool {
         ffi::audio::is_sound_playing(key_ptr, key_len) == 1
     }
 }
+
+pub fn seek_by(key: &str, delta: f64) {
+    unsafe {
+        let key_ptr = key.as_ptr();
+        let key_len = key.len() as u32;
+        ffi::audio::seek_by(key_ptr, key_len, delta);
+    }
+}
