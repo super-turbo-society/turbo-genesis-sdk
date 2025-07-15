@@ -40,7 +40,7 @@ pub fn now() -> u64 {
     turbo_genesis_ffi::sys::millis_since_unix_epoch()
 }
 
-/// Alternative implementation for getting Unix timestamp in server mode.
+/// Returns the current time in milliseconds since the Unix epoch.
 ///
 /// **Important**: This version only provides second-level precision, unlike
 /// the standard implementation which provides millisecond precision. This means
