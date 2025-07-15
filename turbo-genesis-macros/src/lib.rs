@@ -101,7 +101,7 @@ pub fn game(_attr: TokenStream, item: TokenStream) -> TokenStream {
             state.update();
 
             if let Ok(bytes) = borsh::to_vec(&state) {
-                let Err(err) = hot::save(&bytes) = {
+                if let Err(err) = hot::save(&bytes) {
                     log!("[turbo] hot save failed: Error code {err}");
                 }
             }
