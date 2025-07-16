@@ -1,11 +1,10 @@
-use std::path::{Path, PathBuf};
-
 use proc_macro::TokenStream;
-use proc_macro2::{Ident, Span};
+use proc_macro2::Ident;
 use quote::{format_ident, quote};
+use std::{fs, path::Path};
 use syn::{
     parse::{Parse, ParseStream},
-    parse_macro_input,
+    parse_file, parse_macro_input,
     spanned::Spanned,
     Item, ItemEnum, ItemMod, ItemStruct, LitStr,
 };
@@ -199,6 +198,30 @@ impl Parse for ChannelArgs {
     }
 }
 
+// #[proc_macro_attribute]
+// pub fn channel2(_attr: TokenStream, item: TokenStream) -> TokenStream {
+//     let item = parse_macro_input!(item as Item);
+//     // Initialize program metadata
+//     let mut program_metadata = TurboProgramMetadata {
+//         name: "".to_string(),
+//         program_id: "".to_string(),
+//         owner_id: "".to_string(),
+//         commands: vec![],
+//         channels: vec![],
+//     };
+//     // item.
+//     let items = match process_program_module_items(
+//         &mut program_metadata,
+//         "command2",
+//         "channel2",
+//         &mut vec![item],
+//     ) {
+//         Ok(items) => items,
+//         Err(err) => return err.to_compile_error().into(),
+//     };
+//     quote! { #(#items)* }.into()
+// }
+
 // =============================================================================
 // Program
 // =============================================================================
@@ -246,82 +269,15 @@ pub fn program(_attr: TokenStream, item: TokenStream) -> TokenStream {
         };
 
         // Iterate over each item in the module
-        let new_items = match process_program_module_items(&mut program_metadata, items) {
+        let new_items = match process_program_module_items(
+            &mut program_metadata,
+            "command",
+            "channel",
+            items,
+        ) {
             Ok(items) => items,
             Err(err) => return err.to_compile_error().into(),
         };
-
-        // let mut new_items = vec![];
-        // for item in items.drain(..) {
-        //     match &item {
-        //         Item::Mod(m) => {
-        //             // Only care about `#[program_submodule]`
-        //             let is_submodule = m
-        //                 .attrs
-        //                 .iter()
-        //                 .any(|attr| attr.path().is_ident("program_submodule"));
-
-        //             if let Some(iitems) = m.content {}
-        //         }
-        //         Item::Struct(ItemStruct { ident, attrs, .. })
-        //         | Item::Enum(ItemEnum { ident, attrs, .. }) => {
-        //             let mut handled = false;
-
-        //             for attr in attrs {
-        //                 // --------------------------------------------------------------------
-        //                 // #[command(name = "...")] — generate FFI + exec client binding
-        //                 // --------------------------------------------------------------------
-        //                 const COMMAND_ATTR_IDENT: &str = "command";
-        //                 if attr
-        //                     .path()
-        //                     .segments
-        //                     .last()
-        //                     .map_or(false, |seg| seg.ident == COMMAND_ATTR_IDENT)
-        //                 {
-        //                     // Parse command name
-        //                     let args = match attr.parse_args::<CommandArgs>() {
-        //                         Ok(args) => args,
-        //                         Err(err) => return err.to_compile_error().into(),
-        //                     };
-        //                     let items =
-        //                         process_program_command(&mut program_metadata, args, &item, ident);
-        //                     new_items.extend(items);
-        //                     handled = true;
-        //                     break;
-        //                 }
-
-        //                 // --------------------------------------------------------------------
-        //                 // #[channel(name = "...")] — generate FFI + subscribe method
-        //                 // --------------------------------------------------------------------
-        //                 const CHANNEL_ATTR_IDENT: &str = "channel";
-        //                 if attr
-        //                     .path()
-        //                     .segments
-        //                     .last()
-        //                     .map_or(false, |seg| seg.ident == CHANNEL_ATTR_IDENT)
-        //                 {
-        //                     // Parse channel name
-        //                     let args = match attr.parse_args::<ChannelArgs>() {
-        //                         Ok(args) => args,
-        //                         Err(err) => return err.to_compile_error().into(),
-        //                     };
-        //                     let items =
-        //                         process_program_channel(&mut program_metadata, args, &item, ident);
-        //                     new_items.extend(items);
-        //                     handled = true;
-        //                     break;
-        //                 }
-        //             }
-
-        //             // If not a #[command] or #[channel], emit as-is
-        //             if !handled {
-        //                 new_items.push(item);
-        //             }
-        //         }
-        //         // Non-struct/enum items (e.g. impls, consts) are passed through unchanged
-        //         _ => new_items.push(item),
-        //     }
-        // }
 
         // Replace module body with rewritten contents
         *items = new_items;
@@ -559,19 +515,58 @@ fn process_program_channel(
 
 fn process_program_module_items(
     program_metadata: &mut TurboProgramMetadata,
+    command_attr: &str,
+    channel_attr: &str,
     items: &mut Vec<Item>,
 ) -> Result<Vec<Item>, syn::Error> {
     let mut new_items = vec![];
     for item in items.drain(..) {
         match &item {
             Item::Mod(m) => {
+                let span = m.mod_token.span.unwrap();
+                let module_path = span.local_file().expect("Could not get module file path");
                 if let Some((brace, items)) = &mut m.content.clone() {
-                    let mod_items = process_program_module_items(program_metadata, items)?;
+                    let mut items = items
+                        .iter()
+                        .cloned()
+                        .map(|item| match item {
+                            // Support include! macro
+                            Item::Macro(ref item_macro) => {
+                                let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+                                let project_dir = Path::new(&manifest_dir);
+                                let module_dir = project_dir.join(module_path.clone());
+                                let parent_dir = module_dir.parent().unwrap();
+                                let Some(ident) = item_macro.mac.path.get_ident() else {
+                                    return vec![item];
+                                };
+                                if ident.to_string() != "include" {
+                                    return vec![item];
+                                }
+                                let body = item_macro
+                                    .mac
+                                    .parse_body::<LitStr>()
+                                    .expect("Could not parse macro body");
+                                let module_path = parent_dir.join(body.value());
+                                let source = fs::read_to_string(&module_path).unwrap();
+                                let syntax = parse_file(&source).unwrap();
+                                return syntax.items;
+                            }
+                            _ => vec![item],
+                        })
+                        .flatten()
+                        .collect::<Vec<_>>();
+                    let mod_items = process_program_module_items(
+                        program_metadata,
+                        command_attr,
+                        channel_attr,
+                        &mut items,
+                    )?;
                     let mut m = m.clone();
                     m.content = Some((brace.clone(), mod_items));
                     let item = Item::Mod(m);
                     new_items.push(item);
                 } else {
+                    // non-inline modules in proc macro input are unstable 😭
                     new_items.push(item);
                 }
             }
@@ -583,12 +578,11 @@ fn process_program_module_items(
                     // --------------------------------------------------------------------
                     // #[command(name = "...")] — generate FFI + exec client binding
                     // --------------------------------------------------------------------
-                    const COMMAND_ATTR_IDENT: &str = "command";
                     if attr
                         .path()
                         .segments
                         .last()
-                        .map_or(false, |seg| seg.ident == COMMAND_ATTR_IDENT)
+                        .map_or(false, |seg| seg.ident == command_attr)
                     {
                         // Parse command name
                         let args = match attr.parse_args::<CommandArgs>() {
@@ -604,12 +598,11 @@ fn process_program_module_items(
                     // --------------------------------------------------------------------
                     // #[channel(name = "...")] — generate FFI + subscribe method
                     // --------------------------------------------------------------------
-                    const CHANNEL_ATTR_IDENT: &str = "channel";
                     if attr
                         .path()
                         .segments
                         .last()
-                        .map_or(false, |seg| seg.ident == CHANNEL_ATTR_IDENT)
+                        .map_or(false, |seg| seg.ident == channel_attr)
                     {
                         // Parse channel name
                         let args = match attr.parse_args::<ChannelArgs>() {
@@ -633,4 +626,79 @@ fn process_program_module_items(
         }
     }
     Ok(new_items)
+}
+
+/// Combine name and type information
+/// Creates a human-readable unique identifier
+#[allow(unused)]
+fn get_semantic_id(item: &Item) -> String {
+    match item {
+        Item::Fn(item_fn) => {
+            format!(
+                "fn_{}_{}",
+                item_fn.sig.ident,
+                item_fn.sig.ident.span().unwrap().start().line()
+            )
+        }
+        Item::Struct(item_struct) => {
+            format!(
+                "struct_{}_{}",
+                item_struct.ident,
+                item_struct.ident.span().unwrap().start().line()
+            )
+        }
+        Item::Enum(item_enum) => {
+            format!(
+                "enum_{}_{}",
+                item_enum.ident,
+                item_enum.ident.span().unwrap().start().line()
+            )
+        }
+        Item::Mod(item_mod) => {
+            format!(
+                "mod_{}_{}",
+                item_mod.ident,
+                item_mod.ident.span().unwrap().start().line()
+            )
+        }
+        Item::Const(item_const) => {
+            format!(
+                "const_{}_{}",
+                item_const.ident,
+                item_const.ident.span().unwrap().start().line()
+            )
+        }
+        Item::Static(item_static) => {
+            format!(
+                "static_{}_{}",
+                item_static.ident,
+                item_static.ident.span().unwrap().start().line()
+            )
+        }
+        Item::Type(item_type) => {
+            format!(
+                "type_{}_{}",
+                item_type.ident,
+                item_type.ident.span().unwrap().start().line()
+            )
+        }
+        Item::Trait(item_trait) => {
+            format!(
+                "trait_{}_{}",
+                item_trait.ident,
+                item_trait.ident.span().unwrap().start().line()
+            )
+        }
+        Item::Impl(item_impl) => {
+            let type_name = quote! { #item_impl.self_ty }.to_string();
+            format!(
+                "impl_{}_{}",
+                type_name.replace(' ', "_"),
+                item_impl.self_ty.span().unwrap().start().line()
+            )
+        }
+        _ => {
+            format!("unknown_{}", item.span().unwrap().start().line())
+        }
+    }
 }
