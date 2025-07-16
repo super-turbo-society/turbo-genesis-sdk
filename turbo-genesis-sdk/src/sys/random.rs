@@ -1,42 +1,43 @@
-use num_traits::{FromPrimitive, NumCast, One, ToPrimitive, Zero};
+//! Provides random number generation utilities.
+//!
+//! This module leverages an external system RNG (`turbo_genesis_ffi::sys::rand()`)
+//! as its primary source of entropy. While the underlying system RNG is assumed
+//! to provide high-quality, uniformly distributed 32-bit integers,
+//! certain operations (especially those involving modulo for ranges, or type
+//! conversions with limited precision) may introduce minor statistical biases
+//! or reduce the number of truly distinct results.
+//!
+//! **Key Limitations/Considerations:**
+//! - **`usize` Range Generation (`range`, `within_range`):** When generating a random `usize`
+//!   within a very large range (specifically, a `span` greater than `u32::MAX`),
+//!   using the modulo operator (`%`) with a `u32` random source can lead to a slight
+//!   statistical bias towards lower numbers in the target range. For most practical
+//!   applications, this bias is negligible. For perfectly unbiased results
+//!   across `usize::MAX`, more complex methods (e.g., rejection sampling with a `u64` source)
+//!   would be required.
+//! - **Floating-Point Precision (`f64`, `f32`):** While `f64` offers
+//!   significant precision, casting the very large range of `u64` into the finite
+//!   set of `f64` representable values means that not every theoretical floating-point
+//!   number can be generated. The distribution is uniform across the *representable*
+//!   `f64` values, but tiny gaps exist. When casting to `f32`, this effect is more pronounced.
+//!
+//! Despite these points, the provided functions offer a robust and highly
+//! usable random number generation suite for common use cases.
+//!
+//! **Assumptions:**
+//! - `turbo_genesis_ffi::sys::rand()` provides truly uniform, cryptographically
+//!   secure (or sufficiently high-quality for general purposes), full 32-bit `u32`.
+//! - **Game Dev Specific Footguns Addressed/Considerations:**
+//!     - **Lack of Explicit Seeding/Reproducibility:** This module currently relies on the system's RNG which may not be deterministically seeded. For game state reproducibility (debugging, save/load, multiplayer sync), an external seeding mechanism or an internal, seedable PRNG (seeded once by `sys::rand()`) is recommended.
+//!     - **Performance of `sys::rand()`:** If `sys::rand()` is cryptographically secure, it might be slower than needed for high-frequency game randomness (e.g., particles). For performance-critical loops, consider a faster, non-cryptographic PRNG seeded by `sys::rand()`.
+//!     - **Modulo Bias for Integer Ranges in `between`:** For integer types, `between` now uses modulo arithmetic on `u64` or `i64`. This means for ranges whose span is not a power of 2, a slight statistical bias towards lower numbers can occur. For most game development needs, this bias is negligible. If perfectly unbiased integers are critical, a different, more complex generation method would be required.
+//!
+
+use num_traits::{Float, FromPrimitive, NumCast, One, PrimInt, ToPrimitive, Zero};
 use std::cmp::PartialOrd;
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 use std::ops::{Add, Rem, Sub};
 use std::ops::{Bound, Range, RangeBounds};
-
-/// Provides random number generation utilities.
-///
-/// This module leverages an external system RNG (`turbo_genesis_ffi::sys::rand()`)
-/// as its primary source of entropy. While the underlying system RNG is assumed
-/// to provide high-quality, uniformly distributed 32-bit integers,
-/// certain operations (especially those involving modulo for ranges, or type
-/// conversions with limited precision) may introduce minor statistical biases
-/// or reduce the number of truly distinct results.
-///
-/// **Key Limitations/Considerations:**
-/// - **`usize` Range Generation (`range`, `within_range`):** When generating a random `usize`
-///   within a very large range (specifically, a `span` greater than `u32::MAX`),
-///   using the modulo operator (`%`) with a `u32` random source can lead to a slight
-///   statistical bias towards lower numbers in the target range. For most practical
-///   applications, this bias is negligible. For perfectly unbiased results
-///   across `usize::MAX`, more complex methods (e.g., rejection sampling with a `u64` source)
-///   would be required.
-/// - **Floating-Point Precision (`f64`, `f32`):** While `f64` offers
-///   significant precision, casting the very large range of `u64` into the finite
-///   set of `f64` representable values means that not every theoretical floating-point
-///   number can be generated. The distribution is uniform across the *representable*
-///   `f64` values, but tiny gaps exist. When casting to `f32`, this effect is more pronounced.
-///
-/// Despite these points, the provided functions offer a robust and highly
-/// usable random number generation suite for common use cases.
-///
-/// **Assumptions:**
-/// - `turbo_genesis_ffi::sys::rand()` provides truly uniform, cryptographically
-///   secure (or sufficiently high-quality for general purposes), full 32-bit `u32`.
-/// - **Game Dev Specific Footguns Addressed/Considerations:**
-///     - **Lack of Explicit Seeding/Reproducibility:** This module currently relies on the system's RNG which may not be deterministically seeded. For game state reproducibility (debugging, save/load, multiplayer sync), an external seeding mechanism or an internal, seedable PRNG (seeded once by `sys::rand()`) is recommended.
-///     - **Performance of `sys::rand()`:** If `sys::rand()` is cryptographically secure, it might be slower than needed for high-frequency game randomness (e.g., particles). For performance-critical loops, consider a faster, non-cryptographic PRNG seeded by `sys::rand()`.
-///     - **Modulo Bias for Integer Ranges in `between`:** For integer types, `between` now uses modulo arithmetic on `u64` or `i64`. This means for ranges whose span is not a power of 2, a slight statistical bias towards lower numbers can occur. For most game development needs, this bias is negligible. If perfectly unbiased integers are critical, a different, more complex generation method would be required.
 
 /// Returns a random `u32` from the underlying system RNG.
 ///
@@ -229,146 +230,103 @@ pub fn within_range(bounds: impl RangeBounds<usize>) -> usize {
     range(start..end)
 }
 
-/// Returns a random number of type `T` between two values (inclusive lower bound, inclusive upper bound).
+/// Core trait for generating a uniformly‐distributed random value in a closed range.
 ///
-/// This function intelligently handles different numeric types to provide the best
-/// possible uniform distribution:
+/// Types implementing `Between` provide a zero‐bias integer path (via
+/// rejection sampling) or a high‐precision float path (via linear interpolation).
+pub trait Between {
+    /// Returns a random value `x` such that `lower ≤ x ≤ upper`.
+    ///
+    /// # Integer types
+    /// Uses unbiased rejection sampling on a 64-bit source to guarantee
+    /// every integer in `[lower, upper]` has exactly equal probability.
+    /// Panics if `lower > upper`.
+    ///
+    /// # Floating‐point types
+    /// Performs `lower + rand * (upper − lower)` with `rand ∈ [0,1]` from `f64()`,
+    /// then casts back to `T`. Panics if casting fails.
+    fn between(lower: Self, upper: Self) -> Self;
+}
+
+/// Implements `Between` for integer primitives using unbiased rejection sampling.
 ///
-/// ### Behavior for Full-Domain Integer Ranges (`0..u64::MAX` or `i64::MIN..i64::MAX`):
-/// For these specific maximum ranges, the function directly uses `rand::u64()` or `rand::i64()`.
-/// This prevents span calculation overflows and ensures a perfectly uniform distribution
-/// across the entire domain of the integer type.
+/// * Draws a full-width `u64`, rejects any sample ≥ the largest multiple of `span`,
+///   then reduces via `% span`. Guarantees zero modulo bias.
+/// * Handles the full-domain case (`0..=u64::MAX` or `i64::MIN..=i64::MAX`)
+///   by returning a direct `u64()` or `i64()` call.
+/// * Panics if `lower > upper`.
+macro_rules! impl_int_between {
+    ($($t:ty),*) => {
+        $(
+            impl Between for $t {
+                fn between(lower: Self, upper: Self) -> Self {
+                    let l = lower.to_u64().unwrap();
+                    let u = upper.to_u64().unwrap();
+                    assert!(l <= u, "between: lower > upper for {}", stringify!($t));
+                    if l == u {
+                        return lower;
+                    }
+                    if l == 0 && u == u64::MAX {
+                        return NumCast::from(u64()).unwrap();
+                    }
+                    let span = u - l + 1;
+                    let thresh = u64::MAX - (u64::MAX % span);
+                    loop {
+                        let r = u64();
+                        if r < thresh {
+                            let val = l + (r % span);
+                            return NumCast::from(val).unwrap();
+                        }
+                    }
+                }
+            }
+        )*
+    };
+}
+
+impl_int_between!(i8, i16, i32, i64, u8, u16, u32, u64);
+
+/// Implements `Between` for floating‐point primitives via linear interpolation.
 ///
-/// ### Behavior for Other Integer Ranges:
-/// It converts `lower` and `upper` to `u64` (or `i64` if `T` is signed). It then
-/// calculates the span and uses `u64()` (or `i64()`) with modulo arithmetic to
-/// generate the random integer within the range.
-/// **Note:** This method introduces a **modulo bias** for ranges whose span is not
-/// a power of 2. For most game development needs, this bias is negligible and is
-/// preferred over floating-point truncation issues for small integers.
+/// * Draws a uniform `f64` in [0,1] from `f64()`.
+/// * Returns `lower + rand * (upper − lower)`, cast back to `T`.
+/// * Panics if casting fails, which should not happen for `f32` or `f64`.
+macro_rules! impl_float_between {
+    ($($t:ty),*) => {
+        $(
+            impl Between for $t {
+                fn between(lower: Self, upper: Self) -> Self {
+                    let r  = f64();
+                    let lf = lower.to_f64().unwrap();
+                    let uf = upper.to_f64().unwrap();
+                    NumCast::from(lf + r * (uf - lf)).unwrap()
+                }
+            }
+        )*
+    };
+}
+
+impl_float_between!(f32, f64);
+
+/// Returns a random value of type `T` between `l` and `u` (inclusive).
 ///
-/// ### Behavior for Floating-Point Types:
-/// Falls back to `f64`-based arithmetic, leveraging `f64()` to generate the random value.
-/// This method is highly precise for floating-point numbers.
+/// Dispatches to the appropriate `Between` impl:
+/// - **Integers (`PrimInt`)**: unbiased rejection sampling (zero bias)
+/// - **Floats (`Float`)**: `lower + rand * (upper − lower)`
 ///
 /// # Panics
-/// - Panics if `lower` is greater than `upper`.
-/// - Panics if casting the final result back to `T` fails. This indicates a type mismatch
-///   or an unexpected overflow if `T` is smaller than the generated `i64`/`u64`
-///   and the value somehow exceeds `T::MAX`/`T::MIN` after range constraints.
-///   In practice, this means, custom numeric types implementing `NumCast` or
-///   types that are larger than 64-bits and fall back to `f64` due to size/precision (`i128`, `u128`, etc)
+/// - If `l > u` for integer types.
+/// - If a final cast back to `T` fails (should not happen for standard primitives).
 ///
 /// # Examples
+/// ```ignore
+/// let a: u8  = random::between(10, 20);     // integers via rejection sampling
+/// let b: i32 = random::between(-5, 5);
+/// let c: f32 = random::between(0.0, 1.0);   // floats via interpolation
+/// let d: f64 = random::between(1.5, 3.5);
 /// ```
-/// use turbo::*;
-///
-/// let x: u8 = random::between(1, 10);      // Works correctly for small integers
-/// let y: i32 = random::between(-50, 50);   // Works correctly for integers
-/// let z: f32 = random::between(0.0, 1.0);  // Works correctly for floats
-/// let w: f64 = random::between(10.5, 20.5); // Works correctly for floats
-/// let full_u64: u64 = random::between(0, u64::MAX); // Handled precisely
-/// let full_i64: i64 = random::between(i64::MIN, i64::MAX); // Handled precisely
-/// ```
-pub fn between<T>(lower: T, upper: T) -> T
-where
-    T: NumCast + Copy + PartialOrd + Default + Debug,
-    T: Add<Output = T> + Sub<Output = T> + Rem<Output = T> + One + Zero,
-    T: ToPrimitive + FromPrimitive,
-{
-    // Attempt to convert to i64 first.
-    let lower_as_i64_opt = lower.to_i64();
-    let upper_as_i64_opt = upper.to_i64();
-
-    // Check if it's an i64-compatible integer range
-    if let (Some(l_i64), Some(u_i64)) = (lower_as_i64_opt, upper_as_i64_opt) {
-        // Handle full-domain i64 specifically to avoid span overflow for standard arithmetic
-        if l_i64 == i64::MIN && u_i64 == i64::MAX {
-            return T::from_i64(i64()).unwrap_or_else(|| {
-                // This scenario means T is smaller than i64 (e.g., i8) but the bounds
-                // were explicitly i64::MIN to i64::MAX. This might happen if NumCast
-                // allows it. If the random i64 doesn't fit T, clamp it.
-                crate::log!("Could not cast full-domain i64 result back to target integer type T. Clamping to bounds.");
-                if i64::MIN < l_i64 { lower } else { upper }
-            });
-        }
-
-        // Standard signed integer range handling
-        if l_i64 > u_i64 {
-            crate::log!("between: lower bound ({:?}) cannot be greater than upper bound ({:?}) for integer types", lower, upper);
-            panic!();
-        }
-        if l_i64 == u_i64 {
-            return lower; // Single value range
-        }
-
-        // Calculate span using raw arithmetic. For non-full-domain i64/u64 types,
-        // this will not overflow if NumCast correctly converted.
-        let span_i64 = u_i64 - l_i64 + 1; // Panics on overflow in debug, wraps in release (unlikely here)
-
-        let random_offset_i64 = i64() % span_i64;
-
-        let result_i64 = l_i64 + random_offset_i64; // Panics on overflow in debug, wraps in release (unlikely here)
-
-        return T::from_i64(result_i64).unwrap_or_else(|| {
-            crate::log!("Could not cast generated i64 result back to target integer type T. Clamping to bounds.");
-            if result_i64 < l_i64 { lower } else { upper }
-        });
-    }
-
-    // Attempt to convert to u64 if i64 conversion failed (e.g., T is u64 itself, or a custom type)
-    let lower_as_u64_opt = lower.to_u64();
-    let upper_as_u64_opt = upper.to_u64();
-
-    // Check if it's a u64-compatible integer range
-    if let (Some(l_u64), Some(u_u64)) = (lower_as_u64_opt, upper_as_u64_opt) {
-        // Handle full-domain u64 specifically to avoid span overflow for standard arithmetic
-        if l_u64 == 0 && u_u64 == u64::MAX {
-            return T::from_u64(u64()).unwrap_or_else(|| {
-                crate::log!("Could not cast full-domain u64 result back to target integer type T. Clamping to bounds.");
-                if 0 < l_u64 { lower } else { upper }
-            });
-        }
-
-        // Standard unsigned integer range handling
-        if l_u64 > u_u64 {
-            crate::log!("between: lower bound ({:?}) cannot be greater than upper bound ({:?}) for unsigned integer types", lower, upper);
-            panic!();
-        }
-        if l_u64 == u_u64 {
-            return lower; // Single value range
-        }
-
-        // Calculate span using raw arithmetic.
-        let span_u64 = u_u64 - l_u64 + 1; // Panics on overflow in debug, wraps in release (unlikely here)
-
-        let random_offset_u64 = u64() % span_u64;
-
-        let result_u64 = l_u64 + random_offset_u64; // Panics on overflow in debug, wraps in release (unlikely here)
-
-        return T::from_u64(result_u64).unwrap_or_else(|| {
-            crate::log!("Could not cast generated u64 result back to target unsigned integer type T. Clamping to bounds.");
-            if result_u64 < l_u64 { lower } else { upper }
-        });
-    }
-
-    // Fallback to floating-point arithmetic for types not handled by integer paths
-    // (e.g., f32, f64, or custom NumCast types that don't fit into i64/u64)
-    let normalized_random = f64();
-    let lower_f64 = lower.to_f64().unwrap_or_default();
-    let upper_f64 = upper.to_f64().unwrap_or_default();
-
-    let result_f64 = lower_f64 + normalized_random * (upper_f64 - lower_f64);
-
-    NumCast::from(result_f64).unwrap_or_else(|| {
-        crate::log!("Could not cast f64 result back to target type T. Using fallback...");
-        // This fallback heuristic tries to return the closest boundary in case of failed cast.
-        if (result_f64 - lower_f64).abs() < (result_f64 - upper_f64).abs() {
-            lower
-        } else {
-            upper
-        }
-    })
+pub fn between<T: Between + Display>(l: T, u: T) -> T {
+    T::between(l, u)
 }
 
 /// Returns `true` or `false` with equal probability (50/50 chance).
