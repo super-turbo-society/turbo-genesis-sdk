@@ -125,11 +125,9 @@ pub trait ChannelHandler {
         Self::Recv::try_from_slice(&data)
     }
     fn send(user_id: &str, data: Self::Send) -> Result<(), std::io::Error> {
-        let data = borsh::to_vec(&data)?;
         send(user_id, &data)
     }
     fn broadcast(data: Self::Send) -> Result<(), std::io::Error> {
-        let data = borsh::to_vec(&data)?;
         broadcast(&data)
     }
 }
