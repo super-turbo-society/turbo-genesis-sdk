@@ -1,12 +1,14 @@
 use proc_macro::TokenStream;
 use proc_macro2::Ident;
-use quote::{format_ident, quote};
-use std::{fs, path::Path};
+use proc_macro_error::{abort_call_site, proc_macro_error};
+use quote::{format_ident, quote, quote_spanned, ToTokens};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 use syn::{
     parse::{Parse, ParseStream},
-    parse_file, parse_macro_input,
-    spanned::Spanned,
-    Item, ItemEnum, ItemMod, ItemStruct, LitStr,
+    parse_file, parse_macro_input, Item, ItemEnum, ItemMod, ItemStruct, LitStr,
 };
 use turbo_genesis_abi::{
     TurboProgramChannelMetadata, TurboProgramCommandMetadata, TurboProgramMetadata,
@@ -226,6 +228,7 @@ impl Parse for ChannelArgs {
 // Program
 // =============================================================================
 
+#[proc_macro_error]
 #[proc_macro_attribute]
 pub fn program(_attr: TokenStream, item: TokenStream) -> TokenStream {
     use base64::{engine::general_purpose::URL_SAFE_NO_PAD as b64_url_safe, Engine};
@@ -239,11 +242,20 @@ pub fn program(_attr: TokenStream, item: TokenStream) -> TokenStream {
     // Load and parse the user's UUID from Cargo.toml (under metadata.turbo.user)
     // This acts as a unique owner identity for namespacing the program ID
     // --------------------------------------------------------------------------
-    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
-    let project_dir = Path::new(&manifest_dir);
+    let project_dir = get_project_path();
     let cargo_toml_path = project_dir.join("Cargo.toml");
-    let cargo_toml = std::fs::read_to_string(&cargo_toml_path).unwrap();
-    let parsed: toml_edit::DocumentMut = cargo_toml.parse().unwrap();
+    let cargo_toml = match std::fs::read_to_string(&cargo_toml_path) {
+        Ok(file) => file,
+        Err(err) => {
+            panic!("Could not read Cargo.toml: {err:?}");
+        }
+    };
+    let parsed: toml_edit::DocumentMut = match cargo_toml.parse() {
+        Ok(doc) => doc,
+        Err(err) => {
+            panic!("Cargo.toml contains invalid syntx: {err:?}");
+        }
+    };
     let user_id = parsed["package"]["metadata"]["turbo"]["user"]
         .as_str()
         .expect("Missing [package.metadata.turbo] user entry");
@@ -276,7 +288,11 @@ pub fn program(_attr: TokenStream, item: TokenStream) -> TokenStream {
             items,
         ) {
             Ok(items) => items,
-            Err(err) => return err.to_compile_error().into(),
+            Err(err) => {
+                return err.into_compile_error().into();
+                // abort_call_site!("Could not parse expanded code: {}", err);
+                // return err.to_compile_error().into()
+            }
         };
 
         // Replace module body with rewritten contents
@@ -320,14 +336,14 @@ pub fn program(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     use turbo::serde_json::json;
                     let bytes = turbo::os::server::command::read_input();
                     if bytes.is_empty() {
-                        return turbo::os::server::log!("null");
+                        return turbo::log!("null");
                     }
                     let data = match T::try_from_slice(&bytes) {
                         Ok(data) => data,
-                        Err(err) => return turbo::os::server::log!("{:#?}", err),
+                        Err(err) => return turbo::log!("{:#?}", err),
                     };
                     let json = json!(data);
-                    turbo::os::server::log!("{}", json)
+                    turbo::log!("{}", json)
                 }
             }
         };
@@ -408,7 +424,9 @@ fn process_program_command(
         }
     };
 
-    syn::parse2::<syn::File>(expanded).unwrap().items
+    syn::parse2::<syn::File>(expanded)
+        .expect("Could not parse expanded program TokenStream")
+        .items
 }
 
 fn process_program_channel(
@@ -416,7 +434,7 @@ fn process_program_channel(
     args: ChannelArgs,
     item: &Item,
     ident: &Ident,
-) -> Vec<Item> {
+) -> Result<Vec<Item>, syn::Error> {
     let program_id = program_metadata.program_id.as_str();
     let program_name = program_metadata.name.as_str();
     let name = args.name;
@@ -472,25 +490,40 @@ fn process_program_channel(
             };
             let handler = &mut #ident::new();
             let settings = &mut ChannelSettings::default();
-            handler.on_open(settings);
+            if let Err(err) = handler.on_open(settings) {
+                turbo::log!("Error in on_open: {err:?}");
+                return;
+            }
             let timeout = settings.interval.unwrap_or(u32::MAX).max(16);
             loop {
                 match recv_with_timeout(timeout) {
                     Ok(ChannelMessage::Connect(user_id, _)) => {
-                        handler.on_connect(&user_id);
+                        if let Err(err) = handler.on_connect(&user_id) {
+                            turbo::log!("Error in on_connect (user {user_id}): {err:?}");
+                        }
                     },
                     Ok(ChannelMessage::Disconnect(user_id, _)) => {
-                        handler.on_disconnect(&user_id);
+                        if let Err(err) = handler.on_disconnect(&user_id) {
+                            turbo::log!("Error in on_disconnect (user {user_id}): {err:?}");
+                        }
                     },
                     Ok(ChannelMessage::Data(user_id, data)) => match #ident::parse(&data) {
-                        Ok(data) => handler.on_data(&user_id, data),
-                        Err(err) => turbo::os::server::log!("Error parsing data from user {user_id}: {err:?}"),
+                        Ok(data) => {
+                            if let Err(err) = handler.on_data(&user_id, data) {
+                                turbo::log!("Error in on_data (user {user_id}): {err:?}");
+                            }
+                        },
+                        Err(err) => turbo::log!("Error parsing data from user {user_id}: {err:?}"),
                     },
                     Err(ChannelError::Timeout) => {
-                        handler.on_interval()
+                        if let Err(err) = handler.on_interval() {
+                            turbo::log!("Error in on_interval: {err:?}");
+                        }
                     },
                     Err(_) => {
-                        handler.on_close();
+                        if let Err(err) = handler.on_close() {
+                            turbo::log!("Error in on_close: {err:?}");
+                        }
                         return;
                     },
                 }
@@ -510,7 +543,8 @@ fn process_program_channel(
         }
     };
 
-    syn::parse2::<syn::File>(expanded).unwrap().items
+    let file = syn::parse2::<syn::File>(expanded)?;
+    Ok(file.items)
 }
 
 fn process_program_module_items(
@@ -532,10 +566,11 @@ fn process_program_module_items(
                         .map(|item| match item {
                             // Support include! macro
                             Item::Macro(ref item_macro) => {
-                                let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
-                                let project_dir = Path::new(&manifest_dir);
+                                let project_dir = get_project_path();
                                 let module_dir = project_dir.join(module_path.clone());
-                                let parent_dir = module_dir.parent().unwrap();
+                                let Some(parent_dir) = module_dir.parent() else {
+                                    return vec![item];
+                                };
                                 let Some(ident) = item_macro.mac.path.get_ident() else {
                                     return vec![item];
                                 };
@@ -547,8 +582,10 @@ fn process_program_module_items(
                                     .parse_body::<LitStr>()
                                     .expect("Could not parse macro body");
                                 let module_path = parent_dir.join(body.value());
-                                let source = fs::read_to_string(&module_path).unwrap();
-                                let syntax = parse_file(&source).unwrap();
+                                let source = fs::read_to_string(&module_path)
+                                    .expect("Could not read include! macro file contents");
+                                let syntax = parse_file(&source)
+                                    .expect("Could not parse include! macro file contents");
                                 return syntax.items;
                             }
                             _ => vec![item],
@@ -609,7 +646,7 @@ fn process_program_module_items(
                             Ok(args) => args,
                             Err(err) => return Err(err),
                         };
-                        let items = process_program_channel(program_metadata, args, &item, ident);
+                        let items = process_program_channel(program_metadata, args, &item, ident)?;
                         new_items.extend(items);
                         handled = true;
                         break;
@@ -628,77 +665,11 @@ fn process_program_module_items(
     Ok(new_items)
 }
 
-/// Combine name and type information
-/// Creates a human-readable unique identifier
-#[allow(unused)]
-fn get_semantic_id(item: &Item) -> String {
-    match item {
-        Item::Fn(item_fn) => {
-            format!(
-                "fn_{}_{}",
-                item_fn.sig.ident,
-                item_fn.sig.ident.span().unwrap().start().line()
-            )
-        }
-        Item::Struct(item_struct) => {
-            format!(
-                "struct_{}_{}",
-                item_struct.ident,
-                item_struct.ident.span().unwrap().start().line()
-            )
-        }
-        Item::Enum(item_enum) => {
-            format!(
-                "enum_{}_{}",
-                item_enum.ident,
-                item_enum.ident.span().unwrap().start().line()
-            )
-        }
-        Item::Mod(item_mod) => {
-            format!(
-                "mod_{}_{}",
-                item_mod.ident,
-                item_mod.ident.span().unwrap().start().line()
-            )
-        }
-        Item::Const(item_const) => {
-            format!(
-                "const_{}_{}",
-                item_const.ident,
-                item_const.ident.span().unwrap().start().line()
-            )
-        }
-        Item::Static(item_static) => {
-            format!(
-                "static_{}_{}",
-                item_static.ident,
-                item_static.ident.span().unwrap().start().line()
-            )
-        }
-        Item::Type(item_type) => {
-            format!(
-                "type_{}_{}",
-                item_type.ident,
-                item_type.ident.span().unwrap().start().line()
-            )
-        }
-        Item::Trait(item_trait) => {
-            format!(
-                "trait_{}_{}",
-                item_trait.ident,
-                item_trait.ident.span().unwrap().start().line()
-            )
-        }
-        Item::Impl(item_impl) => {
-            let type_name = quote! { #item_impl.self_ty }.to_string();
-            format!(
-                "impl_{}_{}",
-                type_name.replace(' ', "_"),
-                item_impl.self_ty.span().unwrap().start().line()
-            )
-        }
-        _ => {
-            format!("unknown_{}", item.span().unwrap().start().line())
-        }
-    }
+fn get_project_path() -> PathBuf {
+    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap_or_default();
+    assert!(
+        !manifest_dir.is_empty(),
+        "CARGO_MANIFEST_DIR unavailable. Could not determine project directory."
+    );
+    Path::new(&manifest_dir).to_path_buf()
 }
