@@ -340,7 +340,7 @@ pub fn program(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     }
                     let data = match T::try_from_slice(&bytes) {
                         Ok(data) => data,
-                        Err(err) => return turbo::log!("{:#?}", err),
+                        Err(err) => return turbo::log!("{}", json!({ "error": err.to_string(), "input": bytes })),
                     };
                     let json = json!(data);
                     turbo::log!("{}", json)
