@@ -65,12 +65,7 @@ pub struct ChannelConnection<Tx, Rx> {
 impl<Tx: BorshSerialize, Rx: BorshDeserialize> ChannelConnection<Tx, Rx> {
     /// Sends a Borsh-serializable message over the channel.
     pub fn send(&self, msg: &Tx) -> io::Result<()> {
-        let data = borsh::to_vec(msg).map_err(|_| {
-            io::Error::new(
-                io::ErrorKind::InvalidData,
-                "Failed to serialize send payload",
-            )
-        })?;
+        let data = borsh::to_vec(msg)?;
 
         let err = &mut [0; 4096];
         let mut err_len = 0;

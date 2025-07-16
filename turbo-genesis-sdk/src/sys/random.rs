@@ -230,10 +230,10 @@ pub fn within_range(bounds: impl RangeBounds<usize>) -> usize {
     range(start..end)
 }
 
-/// Core trait for generating a uniformly‐distributed random value in a closed range.
+/// Core trait for generating a uniformly-distributed random value in a closed range.
 ///
-/// Types implementing `Between` provide a zero‐bias integer path (via
-/// rejection sampling) or a high‐precision float path (via linear interpolation).
+/// Types implementing `Between` provide a zero-bias integer path (via
+/// rejection sampling) or a high-precision float path (via linear interpolation).
 pub trait Between {
     /// Returns a random value `x` such that `lower ≤ x ≤ upper`.
     ///
@@ -242,40 +242,57 @@ pub trait Between {
     /// every integer in `[lower, upper]` has exactly equal probability.
     /// Panics if `lower > upper`.
     ///
-    /// # Floating‐point types
+    /// # Floating-point types
     /// Performs `lower + rand * (upper − lower)` with `rand ∈ [0,1]` from `f64()`,
     /// then casts back to `T`. Panics if casting fails.
     fn between(lower: Self, upper: Self) -> Self;
 }
 
-/// Implements `Between` for integer primitives using unbiased rejection sampling.
+/// Implements `Between` for signed integer primitives using unbiased rejection sampling.
 ///
-/// * Draws a full-width `u64`, rejects any sample ≥ the largest multiple of `span`,
+/// * Draws a full-width `i64`, rejects any sample ≥ the largest multiple of `span`,
 ///   then reduces via `% span`. Guarantees zero modulo bias.
-/// * Handles the full-domain case (`0..=u64::MAX` or `i64::MIN..=i64::MAX`)
-///   by returning a direct `u64()` or `i64()` call.
+/// * Handles the full-domain case (`i64::MIN..=i64::MAX`)
+///   by returning a direct `i64()` call.
 /// * Panics if `lower > upper`.
 macro_rules! impl_int_between {
     ($($t:ty),*) => {
         $(
             impl Between for $t {
                 fn between(lower: Self, upper: Self) -> Self {
-                    let l = lower.to_u64().unwrap();
-                    let u = upper.to_u64().unwrap();
-                    assert!(l <= u, "between: lower > upper for {}", stringify!($t));
-                    if l == u {
+                    let l_i = lower.to_i64().unwrap_or_else(|| {
+                        crate::log!("between<{t}>: failed to cast lower `{lower}` to i64", t = stringify!($t));
+                        panic!("between<{t}>: invalid lower bound", t = stringify!($t));
+                    });
+                    let u_i = upper.to_i64().unwrap_or_else(|| {
+                        crate::log!("between<{t}>: failed to cast upper `{upper}` to i64", t = stringify!($t));
+                        panic!("between<{t}>: invalid upper bound", t = stringify!($t));
+                    });
+                    assert!(l_i <= u_i, "between: lower > upper");
+                    if l_i == u_i {
                         return lower;
                     }
-                    if l == 0 && u == u64::MAX {
-                        return NumCast::from(u64()).unwrap();
+                    if l_i == i64::MIN && u_i == i64::MAX {
+                        return <$t>::from_i64(i64()).unwrap_or_else(|| {
+                            crate::log!(
+                                "between<{t}>: failed to cast full-domain i64() back to {t}",
+                                t = stringify!($t)
+                            );
+                            panic!("between<{t}>: full-domain cast error", t = stringify!($t));
+                        });
                     }
-                    let span = u - l + 1;
+                    // compute span <= 2^64–1
+                    let span = (u_i as i128 - l_i as i128 + 1) as u64;
                     let thresh = u64::MAX - (u64::MAX % span);
                     loop {
                         let r = u64();
                         if r < thresh {
-                            let val = l + (r % span);
-                            return NumCast::from(val).unwrap();
+                            let offset = (r % span) as i128;
+                            let result = l_i as i128 + offset;
+                            return <$t>::from_i64(result as i64).unwrap_or_else(|| {
+                                crate::log!("between<{t}>: failed to cast result `{result}` back to {t}", t = stringify!($t));
+                                panic!("between<{t}>: result cast error", t = stringify!($t));
+                            });
                         }
                     }
                 }
@@ -284,9 +301,60 @@ macro_rules! impl_int_between {
     };
 }
 
-impl_int_between!(i8, i16, i32, i64, u8, u16, u32, u64);
+impl_int_between!(i8, i16, i32, i64);
 
-/// Implements `Between` for floating‐point primitives via linear interpolation.
+/// Implements `Between` for unsigned integer primitives using unbiased rejection sampling.
+///
+/// * Draws a full-width `u64`, rejects any sample ≥ the largest multiple of `span`,
+///   then reduces via `% span`. Guarantees zero modulo bias.
+/// * Handles the full-domain case (`u64::MIN..=u64::MAX`)
+///   by returning a direct `u64()` call.
+/// * Panics if `lower > upper`.
+macro_rules! impl_uint_between {
+    ($($t:ty),*) => {
+        $(
+            impl Between for $t {
+                fn between(lower: Self, upper: Self) -> Self {
+                    crate::log!("between<{t}>({lower}, {upper}) -> {t}", t = stringify!($t));
+                    let l = lower.to_u64().unwrap_or_else(|| {
+                        crate::log!("between<{t}>: failed to cast lower bound `{lower}` to u64", t = stringify!($t));
+                        panic!("between<{t}>: invalid lower bound cast", t = stringify!($t));
+                    });
+                    let u = upper.to_u64().unwrap_or_else(|| {
+                        crate::log!("between<{t}>: failed to cast upper bound `{upper}` to u64", t = stringify!($t));
+                        panic!("between<{t}>: invalid upper bound cast", t = stringify!($t));
+                    });
+                    assert!(l <= u, "between: lower > upper");
+                    if l == u {
+                        return lower;
+                    }
+                    if l == u64::MIN && u == u64::MAX {
+                        return NumCast::from(u64()).unwrap_or_else(|| {
+                            crate::log!("between<{t}>: failed to cast full-domain u64() back to {t}", t = stringify!($t));
+                            panic!("between<{t}>: full-domain cast error", t = stringify!($t));
+                        });
+                    }
+                    let span = u - l + 1;
+                    let thresh = u64::MAX - (u64::MAX % span);
+                    loop {
+                        let r = u64();
+                        if r < thresh {
+                            let val = l + (r % span);
+                            return NumCast::from(val).unwrap_or_else(|| {
+                                crate::log!("between<{t}>: failed to cast result `{val}` back to {t}", t = stringify!($t));
+                                panic!("between<{t}>: result cast error", t = stringify!($t));
+                            });
+                        }
+                    }
+                }
+            }
+        )*
+    };
+}
+
+impl_uint_between!(u8, u16, u32, u64);
+
+/// Implements `Between` for floating-point primitives via linear interpolation.
 ///
 /// * Draws a uniform `f64` in [0,1] from `f64()`.
 /// * Returns `lower + rand * (upper − lower)`, cast back to `T`.
@@ -296,10 +364,21 @@ macro_rules! impl_float_between {
         $(
             impl Between for $t {
                 fn between(lower: Self, upper: Self) -> Self {
+                    crate::log!("between<{t}>({lower}, {upper}) -> {t}", t = stringify!($t));
                     let r  = f64();
-                    let lf = lower.to_f64().unwrap();
-                    let uf = upper.to_f64().unwrap();
-                    NumCast::from(lf + r * (uf - lf)).unwrap()
+                    let lf = lower.to_f64().unwrap_or_else(|| {
+                        crate::log!("between<{t}>: failed to cast lower bound `{lower}` to f64", t = stringify!($t));
+                        panic!("between<{t}>: lower bound cast error", t = stringify!($t));
+                    });
+                    let uf = upper.to_f64().unwrap_or_else(|| {
+                        crate::log!("between<{t}>: failed to cast upper bound `{upper}` to f64", t = stringify!($t));
+                        panic!("between<{t}>: upper bound cast error", t = stringify!($t));
+                    });
+                    let v = lf + r * (uf - lf);
+                    NumCast::from(v).unwrap_or_else(|| {
+                        crate::log!("between<{t}>: failed to cast interpolated `{v}` back to {t}", t = stringify!($t));
+                        panic!("between<{t}>: interpolation cast error", t = stringify!($t));
+                    })
                 }
             }
         )*

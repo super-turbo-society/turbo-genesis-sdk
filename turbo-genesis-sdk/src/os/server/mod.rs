@@ -21,12 +21,6 @@ pub fn now() -> u32 {
     unsafe { turbo_genesis_ffi::os::server::secs_since_unix_epoch() }
 }
 
-/// Logs a message to the server console
-#[deprecated = "Use console::log or standard log! macro instead."]
-pub fn log(message: &str) {
-    turbo_genesis_ffi::os::server::log(message.as_ptr(), message.len());
-}
-
 /// Emits a custom event with type and payload
 pub fn emit(event_type: &str, data: &[u8]) {
     turbo_genesis_ffi::os::server::emit_event(
@@ -50,19 +44,6 @@ macro_rules! __os_server_alert__ {
 
 #[doc(inline)]
 pub use __os_server_alert__ as alert;
-
-/// Macro to log a formatted string to the console
-#[doc(hidden)]
-#[macro_export]
-macro_rules! __os_server_log__ {
-    ($($arg:tt)*) => {{
-        let message = format!($($arg)*);
-        $crate::os::server::log(&message);
-    }};
-}
-
-#[doc(inline)]
-pub use __os_server_log__ as log;
 
 /// Macro to easily return a custom error with a formatted message
 #[doc(hidden)]
