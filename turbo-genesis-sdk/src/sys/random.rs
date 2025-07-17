@@ -364,7 +364,6 @@ macro_rules! impl_float_between {
         $(
             impl Between for $t {
                 fn between(lower: Self, upper: Self) -> Self {
-                    crate::log!("between<{t}>({lower}, {upper}) -> {t}", t = stringify!($t));
                     let r  = f64();
                     let lf = lower.to_f64().unwrap_or_else(|| {
                         crate::log!("between<{t}>: failed to cast lower bound `{lower}` to f64", t = stringify!($t));

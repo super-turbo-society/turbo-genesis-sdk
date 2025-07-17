@@ -1,14 +1,15 @@
 use proc_macro::TokenStream;
 use proc_macro2::Ident;
-use proc_macro_error::{abort_call_site, proc_macro_error};
-use quote::{format_ident, quote, quote_spanned, ToTokens};
+use quote::{format_ident, quote};
 use std::{
     fs,
     path::{Path, PathBuf},
 };
 use syn::{
     parse::{Parse, ParseStream},
-    parse_file, parse_macro_input, Item, ItemEnum, ItemMod, ItemStruct, LitStr,
+    parse_file, parse_macro_input,
+    token::Brace,
+    Item, ItemEnum, ItemMod, ItemStruct, LitStr,
 };
 use turbo_genesis_abi::{
     TurboProgramChannelMetadata, TurboProgramCommandMetadata, TurboProgramMetadata,
@@ -228,7 +229,6 @@ impl Parse for ChannelArgs {
 // Program
 // =============================================================================
 
-#[proc_macro_error]
 #[proc_macro_attribute]
 pub fn program(_attr: TokenStream, item: TokenStream) -> TokenStream {
     use base64::{engine::general_purpose::URL_SAFE_NO_PAD as b64_url_safe, Engine};
@@ -270,90 +270,80 @@ pub fn program(_attr: TokenStream, item: TokenStream) -> TokenStream {
     // -----------------------------------------------------------------------
     // Process the module content if it is inline (not out-of-line `mod xyz;`)
     // -----------------------------------------------------------------------
-    if let Some((_, items)) = &mut module.content {
-        // Initialize program metadata
-        let mut program_metadata = TurboProgramMetadata {
-            name: program_name.clone(),
-            program_id: program_id.clone(),
-            owner_id: user_id.to_string(),
-            commands: vec![],
-            channels: vec![],
-        };
-
-        // Iterate over each item in the module
-        let new_items = match process_program_module_items(
-            &mut program_metadata,
-            "command",
-            "channel",
-            items,
-        ) {
+    // Initialize program metadata
+    let mut program_metadata = TurboProgramMetadata {
+        name: program_name.clone(),
+        program_id: program_id.clone(),
+        owner_id: user_id.to_string(),
+        commands: vec![],
+        channels: vec![],
+    };
+    let next_module = module.clone();
+    let mut items =
+        match process_program_module_items(&mut program_metadata, "command", "channel", module) {
             Ok(items) => items,
-            Err(err) => {
-                return err.into_compile_error().into();
-                // abort_call_site!("Could not parse expanded code: {}", err);
-                // return err.to_compile_error().into()
-            }
+            Err(err) => return err.into_compile_error().into(),
         };
 
-        // Replace module body with rewritten contents
-        *items = new_items;
+    // ----------------------------------------------------------------
+    // Inject program-related metadata, constants, modules, and helpers
+    // ----------------------------------------------------------------
+    const PROGRAM_METADATA_LINK_SECTION: &str = "turbo_os_program_metadata";
+    let program_metadata_string = serde_json::to_string(&program_metadata)
+        .expect("Could not serialize TurboProgramMetadata ");
+    let program_metadata_string = format!("{program_metadata_string}\n");
+    let program_metadata_bytes = program_metadata_string
+        .as_bytes()
+        .iter()
+        .map(|b| quote! { #b });
+    let program_metadata_len = program_metadata_bytes.len();
+    let program_metadata_ident = format_ident!("turbo_os_program_metadata_{}", program_name);
 
-        // ----------------------------------------------------------------
-        // Inject program-related metadata, constants, modules, and helpers
-        // ----------------------------------------------------------------
-        const PROGRAM_METADATA_LINK_SECTION: &str = "turbo_os_program_metadata";
-        let program_metadata_string = serde_json::to_string(&program_metadata)
-            .expect("Could not serialize TurboProgramMetadata ");
-        let program_metadata_string = format!("{program_metadata_string}\n");
-        let program_metadata_bytes = program_metadata_string
-            .as_bytes()
-            .iter()
-            .map(|b| quote! { #b });
-        let program_metadata_len = program_metadata_bytes.len();
-        let program_metadata_ident = format_ident!("turbo_os_program_metadata_{}", program_name);
+    let mod_inject = quote! {
+        #[used]
+        #[doc(hidden)]
+        #[allow(non_upper_case_globals)]
+        #[link_section = #PROGRAM_METADATA_LINK_SECTION]
+        pub static #program_metadata_ident: [u8; #program_metadata_len] = [#(#program_metadata_bytes),*];
 
-        let mod_inject = quote! {
-            #[used]
-            #[doc(hidden)]
-            #[allow(non_upper_case_globals)]
-            #[link_section = #PROGRAM_METADATA_LINK_SECTION]
-            pub static #program_metadata_ident: [u8; #program_metadata_len] = [#(#program_metadata_bytes),*];
+        pub const PROGRAM_NAME: &str = #program_name;
+        pub const PROGRAM_OWNER: &str = #user_id;
+        pub const PROGRAM_ID: &str = #program_id;
 
-            pub const PROGRAM_NAME: &str = #program_name;
-            pub const PROGRAM_OWNER: &str = #user_id;
-            pub const PROGRAM_ID: &str = #program_id;
+        pub fn watch<T: turbo::borsh::BorshDeserialize>(key: impl AsRef<std::path::Path>) -> Option<T> {
+            let path = std::path::Path::new(#program_id).join(key.as_ref());
+            turbo::os::client::fs::watch(path).parse()
+        }
 
-            pub fn watch<T: turbo::borsh::BorshDeserialize>(key: impl AsRef<std::path::Path>) -> Option<T> {
-                let path = std::path::Path::new(#program_id).join(key.as_ref());
-                turbo::os::client::fs::watch(path).parse()
-            }
-
-            #[cfg(turbo_no_run)]
-            mod program_utils {
-                // Logs the incoming input (parsed via Borsh) as pretty JSON
-                pub fn log_input_as_json<T: turbo::borsh::BorshDeserialize + turbo::serde::Serialize>() {
-                    use turbo::borsh::BorshDeserialize;
-                    use turbo::serde_json::json;
-                    let bytes = turbo::os::server::command::read_input();
-                    if bytes.is_empty() {
-                        return turbo::log!("null");
-                    }
-                    let data = match T::try_from_slice(&bytes) {
-                        Ok(data) => data,
-                        Err(err) => return turbo::log!("{}", json!({ "error": err.to_string(), "input": bytes })),
-                    };
-                    let json = json!(data);
-                    turbo::log!("{}", json)
+        #[cfg(turbo_no_run)]
+        mod program_utils {
+            // Logs the incoming input (parsed via Borsh) as pretty JSON
+            pub fn log_input_as_json<T: turbo::borsh::BorshDeserialize + turbo::serde::Serialize>() {
+                use turbo::borsh::BorshDeserialize;
+                use turbo::serde_json::json;
+                let bytes = turbo::os::server::command::read_input();
+                if bytes.is_empty() {
+                    return turbo::log!("null");
                 }
+                let data = match T::try_from_slice(&bytes) {
+                    Ok(data) => data,
+                    Err(err) => return turbo::log!("{}", json!({ "error": err.to_string(), "input": bytes })),
+                };
+                let json = json!(data);
+                turbo::log!("{}", json)
             }
-        };
+        }
+    };
 
-        // Inject mod-level constants and helpers at the top of the module
-        let parsed_items = syn::parse2::<syn::File>(mod_inject)
-            .expect("failed to parse mod_inject block")
-            .items;
-        items.splice(0..0, parsed_items);
-    }
+    // Inject mod-level constants and helpers at the top of the module
+    let parsed_items = syn::parse2::<syn::File>(mod_inject)
+        .expect("failed to parse mod_inject block")
+        .items;
+    items.splice(0..0, parsed_items);
+    // }
+
+    let mut module = next_module;
+    module.content = module.content.map(|(brace, _prev_items)| (brace, items));
 
     // Return the modified module
     quote! { #module }.into()
@@ -551,64 +541,75 @@ fn process_program_module_items(
     program_metadata: &mut TurboProgramMetadata,
     command_attr: &str,
     channel_attr: &str,
-    items: &mut Vec<Item>,
+    module: ItemMod,
+    // items: &mut Vec<Item>,
 ) -> Result<Vec<Item>, syn::Error> {
+    let Some((_, items)) = module.content else {
+        // non-inline modules in proc macro input are unstable 😭
+        return Ok(vec![Item::Mod(module.clone())]);
+    };
     let mut new_items = vec![];
-    for item in items.drain(..) {
-        match &item {
-            Item::Mod(m) => {
-                let span = m.mod_token.span.unwrap();
-                let module_path = span.local_file().expect("Could not get module file path");
-                if let Some((brace, items)) = &mut m.content.clone() {
-                    let mut items = items
-                        .iter()
-                        .cloned()
-                        .map(|item| match item {
-                            // Support include! macro
-                            Item::Macro(ref item_macro) => {
-                                let project_dir = get_project_path();
-                                let module_dir = project_dir.join(module_path.clone());
-                                let Some(parent_dir) = module_dir.parent() else {
-                                    return vec![item];
-                                };
-                                let Some(ident) = item_macro.mac.path.get_ident() else {
-                                    return vec![item];
-                                };
-                                if ident.to_string() != "include" {
-                                    return vec![item];
-                                }
-                                let body = item_macro
-                                    .mac
-                                    .parse_body::<LitStr>()
-                                    .expect("Could not parse macro body");
-                                let module_path = parent_dir.join(body.value());
-                                let source = fs::read_to_string(&module_path)
-                                    .expect("Could not read include! macro file contents");
-                                let syntax = parse_file(&source)
-                                    .expect("Could not parse include! macro file contents");
-                                return syntax.items;
-                            }
-                            _ => vec![item],
-                        })
-                        .flatten()
-                        .collect::<Vec<_>>();
-                    let mod_items = process_program_module_items(
-                        program_metadata,
-                        command_attr,
-                        channel_attr,
-                        &mut items,
-                    )?;
-                    let mut m = m.clone();
-                    m.content = Some((brace.clone(), mod_items));
-                    let item = Item::Mod(m);
-                    new_items.push(item);
-                } else {
-                    // non-inline modules in proc macro input are unstable 😭
-                    new_items.push(item);
+    // Support include! macro
+    let items = items
+        .into_iter()
+        .map(|item| match item {
+            Item::Macro(ref item_macro) => {
+                let span = module.mod_token.span.unwrap();
+                // span.local_file().expect("LOOOOOOL");
+                let Some(module_path) = span.local_file() else {
+                    eprintln!("Could not get module file path");
+                    return vec![item];
+                };
+                let project_dir = get_project_path();
+                let module_dir = project_dir.join(module_path.clone());
+                let Some(parent_dir) = module_dir.parent() else {
+                    return vec![item];
+                };
+                let Some(ident) = item_macro.mac.path.get_ident() else {
+                    return vec![item];
+                };
+                if ident.to_string() != "include" {
+                    return vec![item];
                 }
+                let body = item_macro
+                    .mac
+                    .parse_body::<LitStr>()
+                    .expect("Could not parse macro body");
+                let module_path = parent_dir.join(body.value());
+                let source = fs::read_to_string(&module_path)
+                    .expect("Could not read include! macro file contents");
+                let syntax =
+                    parse_file(&source).expect("Could not parse include! macro file contents");
+                syntax.items
             }
-            Item::Struct(ItemStruct { ident, attrs, .. })
-            | Item::Enum(ItemEnum { ident, attrs, .. }) => {
+            item => vec![item],
+        })
+        .flatten()
+        .collect::<Vec<Item>>();
+    for item in items.clone() {
+        match item {
+            Item::Mod(ref m) => {
+                let mod_items = process_program_module_items(
+                    program_metadata,
+                    command_attr,
+                    channel_attr,
+                    m.clone(),
+                )?;
+                let mut m = m.clone();
+                m.content = m.content.map(|(brace, _prev_items)| (brace, mod_items));
+                let item = Item::Mod(m);
+                new_items.push(item);
+            }
+            Item::Struct(ItemStruct {
+                ref ident,
+                ref attrs,
+                ..
+            })
+            | Item::Enum(ItemEnum {
+                ref ident,
+                ref attrs,
+                ..
+            }) => {
                 let mut handled = false;
 
                 for attr in attrs {
