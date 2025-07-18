@@ -1,3 +1,5 @@
+//! This module provides the implementation for the `TurboKeyboard` struct, which manages the state of keyboard keys and their events.
+
 use crate::TurboButton;
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::collections::BTreeMap;
@@ -8,19 +10,35 @@ use std::collections::BTreeMap;
 pub struct TurboKeyboard {
     pub keys: BTreeMap<TurboKeyCode, TurboButton>,
 }
+
 impl TurboKeyboard {
+    /// Clears the main events for all keys managed by this keyboard.
+    ///
+    /// This method should be called at the end of an event processing cycle to reset
+    /// the state of each key, preparing them for the next cycle.
     pub fn main_events_cleared(&mut self) {
         for key in self.keys.values_mut() {
             key.main_events_cleared();
         }
     }
+
+    /// Retrieves the state of a key given its `TurboKeyCode`.
+    ///
+    /// # Arguments
+    ///
+    /// * `keycode` - A reference to the `TurboKeyCode` representing the key to query.
+    ///
+    /// # Returns
+    ///
+    /// Returns the `TurboButton` state associated with the given keycode.
+    /// If the keycode is not present, returns `TurboButton::Released` by default.
     pub fn get(&self, keycode: &TurboKeyCode) -> TurboButton {
         *self.keys.get(keycode).unwrap_or(&TurboButton::Released)
     }
 }
 
 /// Based on winit KeyCode which is based on the w3c UI Events spec.
-/// See [`KeyboardEvent.code`]: https://w3c.github.io/uievents-code/#code-value-tables
+/// See [`KeyboardEvent.code`](https://w3c.github.io/uievents-code/#code-value-tables)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, BorshDeserialize, BorshSerialize)]
 pub enum TurboKeyCode {
     Backquote,
