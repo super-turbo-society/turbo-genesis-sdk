@@ -299,15 +299,15 @@ where
     }
 
     /// Sets the total `duration` of the tween and returns the modified tween.
-    pub const fn duration(mut self, duration: usize) -> Self {
+    pub const fn duration(&mut self, duration: usize) -> Self {
         self.duration = duration;
-        self
+        *self
     }
 
     /// Sets the `easing` function and returns the modified tween.
-    pub const fn ease(mut self, easing: Easing) -> Self {
+    pub const fn ease(&mut self, easing: Easing) -> Self {
         self.easing = easing;
-        self
+        *self
     }
 
     /// Mutably updates the `duration` of the tween in-place.
