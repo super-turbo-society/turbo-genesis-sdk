@@ -1,30 +1,117 @@
+//! Turbo Genesis Macros
+//!
+//! This module implements the core procedural macros used by Turbo Genesis:
+//!
+//! - `#[serialize]`: Automatically derive Borsh and Serde traits.
+//! - `#[game]`: Generate entry points for hot-reload and release game loops.
+//! - `#[command]`: Embed command metadata, derive serialization, and export FFI bindings.
+//! - `#[channel]`: Embed channel metadata, derive serialization, and export subscription bindings.
+//! - `#[document]`: Derive serialization and implement `HasProgramId` for document types.
+//!
+//! Utilities within include:
+//! - Argument parsers (`CommandArgs`, `ChannelArgs`).
+//! - Helpers to inline modules and compute project metadata from `Cargo.toml`.
+
 use proc_macro::TokenStream;
 use proc_macro2::Ident;
 use quote::{format_ident, quote};
 use std::{
-    fs,
+    collections::BTreeSet,
     path::{Path, PathBuf},
 };
 use syn::{
     parse::{Parse, ParseStream},
-    parse_file, parse_macro_input,
-    token::Brace,
-    Item, ItemEnum, ItemMod, ItemStruct, LitStr,
+    parse_macro_input,
+    spanned::Spanned,
+    Error, Item, ItemEnum, ItemStruct, LitStr,
 };
 use turbo_genesis_abi::{
     TurboProgramChannelMetadata, TurboProgramCommandMetadata, TurboProgramMetadata,
 };
 
 // =============================================================================
-// Serialize
+// Helpers
 // =============================================================================
 
+/// Retrieves the project’s root directory from the `CARGO_MANIFEST_DIR` env var.
+///
+/// Panics if the environment variable is empty or not set.
+fn get_project_path() -> PathBuf {
+    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap_or_default();
+    assert!(
+        !manifest_dir.is_empty(),
+        "CARGO_MANIFEST_DIR unavailable. Could not determine project directory."
+    );
+    Path::new(&manifest_dir).to_path_buf()
+}
+
+/// Reads the user’s UUID from `[package.metadata.turbo].user` in Cargo.toml
+/// and combines it with `program_name` to produce a unique, stable `program_id`.
+///
+/// # Steps
+/// 1. Load and parse `Cargo.toml`.  
+/// 2. Extract the `user` field under `[package.metadata.turbo]`.  
+/// 3. Compute SHA-256 hash over the UUID bytes and `program_name`.  
+/// 4. Base64-url-encode the hash to produce `program_id`.
+fn create_program_metadata(program_name: &str) -> TurboProgramMetadata {
+    use base64::{engine::general_purpose::URL_SAFE_NO_PAD as b64_url_safe, Engine};
+    use sha2::{Digest, Sha256};
+
+    // Locate and read Cargo.toml
+    let project_dir = get_project_path();
+    let cargo_toml_path = project_dir.join("Cargo.toml");
+    let cargo_toml = std::fs::read_to_string(&cargo_toml_path)
+        .unwrap_or_else(|e| panic!("Could not read Cargo.toml: {e:?}"));
+
+    // Parse TOML and extract user UUID
+    let parsed: toml_edit::DocumentMut = cargo_toml
+        .parse()
+        .unwrap_or_else(|e| panic!("Invalid Cargo.toml syntax: {e:?}"));
+    let user_id = parsed["package"]["metadata"]["turbo"]["user"]
+        .as_str()
+        .expect("Missing [package.metadata.turbo].user entry");
+
+    // Hash UUID + program name
+    let uuid = uuid::Uuid::parse_str(user_id).expect("Invalid UUID format");
+    let mut hasher = Sha256::new();
+    hasher.update(uuid.as_bytes());
+    hasher.update(program_name.as_bytes());
+    let program_id = b64_url_safe.encode(hasher.finalize());
+
+    TurboProgramMetadata {
+        name: program_name.to_string(),
+        program_id,
+        owner_id: user_id.to_string(),
+        commands: BTreeSet::new(),
+        channels: BTreeSet::new(),
+    }
+}
+
+// =============================================================================
+// Serialize Macro
+// =============================================================================
+
+/// Derive Borsh and Serde serialization for structs and enums.
+///
+/// Expands to:
+/// - `#[derive(Debug, Clone, BorshDeserialize, BorshSerialize, Deserialize, Serialize)]`
+/// - Configures `#[borsh(crate = "turbo::borsh")]` and `#[serde(crate = "turbo::serde")]`.
+///
+/// # Usage
+/// ```ignore
+/// #[turbo::serialize]
+/// struct MyType { /* fields */ }
+/// ```
 #[proc_macro_attribute]
 pub fn serialize(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    // Parse the input token stream as a syn Item (struct, enum, etc.)
     let input = parse_macro_input!(item as Item);
+
+    // Only allow structs and enums
     match &input {
         Item::Struct(_) | Item::Enum(_) => (),
         _ => {
+            // Emit a compile error if used on an unsupported item
             return quote! {
                 compile_error!("#[turbo::serialize] only supports structs and enums.");
             }
@@ -32,6 +119,7 @@ pub fn serialize(_attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     };
 
+    // Expand to derive the necessary traits and set crate paths
     let expanded = quote! {
         #[derive(
             Debug,
@@ -50,21 +138,26 @@ pub fn serialize(_attr: TokenStream, item: TokenStream) -> TokenStream {
 }
 
 // =============================================================================
-// Game
+// Game Macro
 // =============================================================================
 
+/// Procedural macro for defining a Turbo game entry point.
+///
+/// Injects a `run()` function that:
+/// - On hot-reload, deserializes previous state or creates new state.
+/// - Calls `state.update()` and `turbo::camera::update()`.
+/// - Persists state via Borsh back into host.
+///
+/// # Usage
+/// ```ignore
+/// #[turbo::game]
+/// struct GameState { /* ... */ }
+/// ```
 #[proc_macro_attribute]
 pub fn game(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(item as Item);
-
-    // clone the ident early to avoid borrowing issues
-    let (ident, has_no_fields, is_unit_struct) = match &input {
-        Item::Struct(s) => (
-            s.ident.clone(),
-            s.fields.is_empty(),
-            matches!(s.fields, syn::Fields::Unit),
-        ),
-        Item::Enum(e) => (e.ident.clone(), false, false),
+    let item = parse_macro_input!(item as Item);
+    let ident = match &item {
+        Item::Struct(ItemStruct { ident, .. }) | Item::Enum(ItemEnum { ident, .. }) => ident,
         _ => {
             return quote! {
                 compile_error!("#[turbo::game] only supports structs and enums.");
@@ -73,35 +166,23 @@ pub fn game(_attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     };
 
-    let init = if has_no_fields {
-        if is_unit_struct {
-            quote! { #ident }
-        } else {
-            quote! { #ident {} }
-        }
-    } else {
-        quote! { #ident::new() }
-    };
-
-    let expanded = quote! {
+    quote! {
         #[turbo::serialize]
-        #input
+        #item
 
         #[no_mangle]
         #[cfg(all(turbo_hot_reload, not(turbo_no_run)))]
         pub unsafe extern "C" fn run() {
             use turbo::borsh::*;
-
             let mut state = match hot::load() {
-                Ok(bytes) => <#ident>::try_from_slice(&bytes).unwrap_or_else(|_| #init),
+                Ok(bytes) => <#ident>::try_from_slice(&bytes).unwrap_or_else(|_| #ident::new()),
                 Err(err) => {
                     log!("[turbo] Hot reload deserialization failed: {err:?}");
-                    #init
+                    #ident::new()
                 },
             };
-
             state.update();
-
+            turbo::camera::update();
             if let Ok(bytes) = borsh::to_vec(&state) {
                 if let Err(err) = hot::save(&bytes) {
                     log!("[turbo] hot save failed: Error code {err}");
@@ -113,210 +194,15 @@ pub fn game(_attr: TokenStream, item: TokenStream) -> TokenStream {
         #[cfg(all(not(turbo_hot_reload), not(turbo_no_run)))]
         pub unsafe extern "C" fn run() {
             static mut GAME_STATE: Option<#ident> = None;
-
-            let mut state = GAME_STATE.take().unwrap_or_else(|| #init);
-
+            let mut state = GAME_STATE.take().unwrap_or_else(|| #ident::new());
             state.update();
-
+            turbo::camera::update();
             GAME_STATE = Some(state);
         }
-    };
 
-    TokenStream::from(expanded)
-}
-
-// =============================================================================
-// Command
-// =============================================================================
-
-#[proc_macro_attribute]
-pub fn command(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    item // Marker only
-}
-
-#[derive(Debug)]
-struct CommandArgs {
-    pub name: String,
-}
-impl Parse for CommandArgs {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        let mut name = None;
-
-        while !input.is_empty() {
-            let ident: syn::Ident = input.parse()?;
-            let _: syn::Token![=] = input.parse()?;
-            let value: LitStr = input.parse()?;
-
-            match ident.to_string().as_str() {
-                "name" => name = Some(value.value()),
-                _ => return Err(syn::Error::new_spanned(ident, "unexpected attribute key")),
-            }
-
-            if input.peek(syn::Token![,]) {
-                let _: syn::Token![,] = input.parse()?;
-            }
-        }
-
-        let name = name.ok_or_else(|| input.error("missing `name`"))?;
-
-        Ok(Self { name })
-    }
-}
-
-// =============================================================================
-// Channel
-// =============================================================================
-
-#[proc_macro_attribute]
-pub fn channel(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    item // Marker only
-}
-
-#[derive(Debug)]
-struct ChannelArgs {
-    pub name: String,
-}
-impl Parse for ChannelArgs {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        let mut name = None;
-
-        while !input.is_empty() {
-            let ident: syn::Ident = input.parse()?;
-            let _: syn::Token![=] = input.parse()?;
-            let value: LitStr = input.parse()?;
-
-            match ident.to_string().as_str() {
-                "name" => name = Some(value.value()),
-                _ => return Err(syn::Error::new_spanned(ident, "unexpected attribute key")),
-            }
-
-            if input.peek(syn::Token![,]) {
-                let _: syn::Token![,] = input.parse()?;
-            }
-        }
-
-        let name = name.ok_or_else(|| input.error("missing `name`"))?;
-
-        Ok(Self { name })
-    }
-}
-
-// #[proc_macro_attribute]
-// pub fn channel2(_attr: TokenStream, item: TokenStream) -> TokenStream {
-//     let item = parse_macro_input!(item as Item);
-//     // Initialize program metadata
-//     let mut program_metadata = TurboProgramMetadata {
-//         name: "".to_string(),
-//         program_id: "".to_string(),
-//         owner_id: "".to_string(),
-//         commands: vec![],
-//         channels: vec![],
-//     };
-//     // item.
-//     let items = match process_program_module_items(
-//         &mut program_metadata,
-//         "command2",
-//         "channel2",
-//         &mut vec![item],
-//     ) {
-//         Ok(items) => items,
-//         Err(err) => return err.to_compile_error().into(),
-//     };
-//     quote! { #(#items)* }.into()
-// }
-
-// =============================================================================
-// Program
-// =============================================================================
-
-#[proc_macro_attribute]
-pub fn program(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    use base64::{engine::general_purpose::URL_SAFE_NO_PAD as b64_url_safe, Engine};
-    use sha2::{Digest, Sha256};
-
-    // Parse the module this macro is attached to
-    let mut module = parse_macro_input!(item as ItemMod);
-    let program_name = module.ident.to_string();
-
-    // --------------------------------------------------------------------------
-    // Load and parse the user's UUID from Cargo.toml (under metadata.turbo.user)
-    // This acts as a unique owner identity for namespacing the program ID
-    // --------------------------------------------------------------------------
-    let project_dir = get_project_path();
-    let cargo_toml_path = project_dir.join("Cargo.toml");
-    let cargo_toml = match std::fs::read_to_string(&cargo_toml_path) {
-        Ok(file) => file,
-        Err(err) => {
-            panic!("Could not read Cargo.toml: {err:?}");
-        }
-    };
-    let parsed: toml_edit::DocumentMut = match cargo_toml.parse() {
-        Ok(doc) => doc,
-        Err(err) => {
-            panic!("Cargo.toml contains invalid syntx: {err:?}");
-        }
-    };
-    let user_id = parsed["package"]["metadata"]["turbo"]["user"]
-        .as_str()
-        .expect("Missing [package.metadata.turbo] user entry");
-
-    // Hash UUID and program name together to create a stable, unique PROGRAM_ID
-    let uuid = uuid::Uuid::parse_str(user_id).expect("Invalid UUID format");
-    let mut hasher = Sha256::new();
-    hasher.update(uuid.as_bytes());
-    hasher.update(program_name.as_bytes());
-    let program_id = b64_url_safe.encode(hasher.finalize());
-
-    // -----------------------------------------------------------------------
-    // Process the module content if it is inline (not out-of-line `mod xyz;`)
-    // -----------------------------------------------------------------------
-    // Initialize program metadata
-    let mut program_metadata = TurboProgramMetadata {
-        name: program_name.clone(),
-        program_id: program_id.clone(),
-        owner_id: user_id.to_string(),
-        commands: vec![],
-        channels: vec![],
-    };
-    let next_module = module.clone();
-    let mut items =
-        match process_program_module_items(&mut program_metadata, "command", "channel", module) {
-            Ok(items) => items,
-            Err(err) => return err.into_compile_error().into(),
-        };
-
-    // ----------------------------------------------------------------
-    // Inject program-related metadata, constants, modules, and helpers
-    // ----------------------------------------------------------------
-    const PROGRAM_METADATA_LINK_SECTION: &str = "turbo_os_program_metadata";
-    let program_metadata_string = serde_json::to_string(&program_metadata)
-        .expect("Could not serialize TurboProgramMetadata ");
-    let program_metadata_string = format!("{program_metadata_string}\n");
-    let program_metadata_bytes = program_metadata_string
-        .as_bytes()
-        .iter()
-        .map(|b| quote! { #b });
-    let program_metadata_len = program_metadata_bytes.len();
-    let program_metadata_ident = format_ident!("turbo_os_program_metadata_{}", program_name);
-
-    let mod_inject = quote! {
-        #[used]
         #[doc(hidden)]
-        #[allow(non_upper_case_globals)]
-        #[link_section = #PROGRAM_METADATA_LINK_SECTION]
-        pub static #program_metadata_ident: [u8; #program_metadata_len] = [#(#program_metadata_bytes),*];
-
-        pub const PROGRAM_NAME: &str = #program_name;
-        pub const PROGRAM_OWNER: &str = #user_id;
-        pub const PROGRAM_ID: &str = #program_id;
-
-        pub fn watch<T: turbo::borsh::BorshDeserialize>(key: impl AsRef<std::path::Path>) -> Option<T> {
-            let path = std::path::Path::new(#program_id).join(key.as_ref());
-            turbo::os::client::fs::watch(path).parse()
-        }
-
         #[cfg(turbo_no_run)]
-        mod program_utils {
+        pub(crate) mod __turbo_os_program_utils {
             // Logs the incoming input (parsed via Borsh) as pretty JSON
             pub fn log_input_as_json<T: turbo::borsh::BorshDeserialize + turbo::serde::Serialize>() {
                 use turbo::borsh::BorshDeserialize;
@@ -333,66 +219,170 @@ pub fn program(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 turbo::log!("{}", json)
             }
         }
-    };
-
-    // Inject mod-level constants and helpers at the top of the module
-    let parsed_items = syn::parse2::<syn::File>(mod_inject)
-        .expect("failed to parse mod_inject block")
-        .items;
-    items.splice(0..0, parsed_items);
-    // }
-
-    let mut module = next_module;
-    module.content = module.content.map(|(brace, _prev_items)| (brace, items));
-
-    // Return the modified module
-    quote! { #module }.into()
+    }.into()
 }
 
+// =============================================================================
+// Command Macro
+// =============================================================================
+
+/// Parsed arguments for `#[command(program = "...", name = "...")]`.
+#[derive(Debug, Clone, Default)]
+struct CommandArgs {
+    /// A program name
+    pub program: String,
+    /// A command name
+    pub name: String,
+}
+impl Parse for CommandArgs {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let mut args = Self::default();
+        while !input.is_empty() {
+            let ident: syn::Ident = input.parse()?;
+            let _: syn::Token![=] = input.parse()?;
+            let value: LitStr = input.parse()?;
+            match ident.to_string().as_str() {
+                "program" => args.program = value.value(),
+                "name" => args.name = value.value(),
+                _ => return Err(syn::Error::new_spanned(ident, "unexpected attribute key")),
+            }
+            if input.peek(syn::Token![,]) {
+                let _: syn::Token![,] = input.parse()?;
+            }
+        }
+        if args.program.is_empty() {
+            return Err(input.error("missing `program`"));
+        }
+        if args.name.is_empty() {
+            return Err(input.error("missing `name`"));
+        }
+        Ok(args)
+    }
+}
+
+/// Attribute macro `#[command]` for generating FFI bindings and client helpers
+/// on a struct or enum that implements `CommandHandler`.
+///
+/// # Parameters
+/// - `attr`: TokenStream of attribute arguments (e.g. `program = "foo", name = "bar"`).
+/// - `item`: TokenStream of the annotated item (must be a `struct` or `enum`).
+///
+/// # Behavior
+/// 1. Parses `item` into a `syn::Item`.
+/// 2. Parses `attr` into our `CommandArgs` helper (extracting `program` and `name`).
+/// 3. If `item` is a `struct` or `enum`, obtains its identifier (`ident`), builds/upgrades
+///    the program metadata via `create_program_metadata(&args.program)`, and calls
+///    `process_program_command(...)` to emit the expanded FFI binding and metadata embedding.
+/// 4. If used on any other item, emits a compile error pointing at the original span,
+///    instructing that `#[command]` only applies to types implementing `CommandHandler`.
+#[proc_macro_attribute]
+pub fn command(attr: TokenStream, item: TokenStream) -> TokenStream {
+    // Step 1: Parse the annotated item (must be struct or enum)
+    let item = parse_macro_input!(item as Item);
+
+    // Step 2: Parse the attribute arguments into our helper struct
+    let args = parse_macro_input!(attr as CommandArgs);
+
+    // Step 3: Dispatch on item type
+    match &item {
+        Item::Struct(ItemStruct { ident, .. }) | Item::Enum(ItemEnum { ident, .. }) => {
+            // Build or update the program metadata from the `program` argument
+            let mut program_metadata = create_program_metadata(&args.program);
+            // Generate and return the expanded code (FFI exports, exec helper, metadata)
+            process_program_command(&mut program_metadata, args.clone(), &item, ident)
+        }
+        // Unsupported item: error at original location
+        _ => Error::new(
+            item.span(),
+            "`#[command]` may only be used on a struct or enum that implements `CommandHandler`",
+        )
+        .to_compile_error()
+        .into(),
+    }
+}
+
+/// Generates the expanded code for a `#[command]`-annotated struct or enum.
+///
+/// This function embeds metadata, derives serialization, and creates both
+/// client-side execution helpers and server-side FFI exports.
+///
+/// # Parameters
+/// - `program_metadata`: Mutable reference to the program’s metadata record.  
+///   This will be updated with the new command’s name.
+/// - `args`: The parsed `program` and `name` arguments from the attribute.  
+/// - `item`: The original `syn::Item` (struct or enum) to which the macro is applied.
+/// - `ident`: The identifier of the struct or enum being processed.
+///
+/// # Returns
+/// A `TokenStream` containing:
+/// 1. A `static` byte array in the `.turbo_programs` section with updated metadata.  
+/// 2. The original type, annotated with `#[turbo::serialize]`.  
+/// 3. An inherent `impl` block on the type, adding:
+///    - `PROGRAM_ID` and `PROGRAM_OWNER` constants.  
+///    - An `exec(self) -> String` method for client-side invocation.  
+/// 4. Under `#[cfg(turbo_no_run)]`, two `extern "C"` functions:
+///    - The command handler entrypoint (returns commit/cancel codes).  
+///    - A de-input hook for logging JSON on the server.
 fn process_program_command(
     program_metadata: &mut TurboProgramMetadata,
     args: CommandArgs,
     item: &Item,
     ident: &Ident,
-) -> Vec<Item> {
+) -> TokenStream {
+    // Extract basic identifiers and names
     let program_id = program_metadata.program_id.as_str();
     let program_name = program_metadata.name.as_str();
+    let owner_id = program_metadata.owner_id.as_str();
     let name = args.name;
 
-    // Update command metadata
+    // 1) Register this command in the program’s metadata
     program_metadata
         .commands
-        .push(TurboProgramCommandMetadata { name: name.clone() });
+        .insert(TurboProgramCommandMetadata { name: name.clone() });
 
-    // Construct export identifiers and metadata symbols
+    // 2) Build the symbols used for linking and exports
     let handler_export = format!("turbo_program:command_handler/{}/{}", program_id, name);
     let handler_extern = format_ident!("command_handler_{}_{}", program_name, name);
     let de_input_export = format!("turbo_program:de_command_input/{}/{}", program_id, name);
     let de_input_extern = format_ident!("de_command_input_{}_{}", program_name, name);
 
-    // Command registration metadata embedded .turbo_programs
-    let metadata_string = format!("{program_name}/commands/{name},");
+    // 3) Serialize the updated metadata to JSON and embed it
+    let metadata_string = serde_json::to_string(program_metadata).unwrap() + "\n";
     let metadata_bytes = metadata_string.as_bytes().iter().map(|b| quote! { #b });
     let metadata_len = metadata_bytes.len();
-    let metadata_ident = format_ident!("command_metadata_{}_{}", program_name, name);
+    let metadata_ident = format_ident!(
+        "turbo_os_program_metadata_command_{}_{}",
+        program_name,
+        name
+    );
 
-    // Expand command wrapper
-    let expanded = quote! {
+    // 4) Emit the final expanded code
+    quote! {
+        // a) Embed the JSON metadata as a static byte array
         #[used]
         #[doc(hidden)]
         #[allow(non_upper_case_globals)]
-        #[link_section = "turbo_programs"]
+        #[link_section = "turbo_os_program_metadata"]
         pub static #metadata_ident: [u8; #metadata_len] = [#(#metadata_bytes),*];
 
+        // b) Derive serialization on the user’s type
         #[turbo::serialize]
         #item
 
+        // c) Implement client-side helpers on the type
         impl #ident {
+            /// The program’s unique ID constant.
+            pub const PROGRAM_ID: &'static str = #program_id;
+            /// The program’s owner UUID string.
+            pub const PROGRAM_OWNER: &'static str = #owner_id;
+
+            /// Execute this command on the client, returning the host’s response.
             pub fn exec(self) -> String {
                 turbo::os::client::command::exec(#program_id, #name, self)
             }
         }
 
+        // d) Server-side FFI entrypoint for the command handler
         #[cfg(turbo_no_run)]
         #[unsafe(export_name = #handler_export)]
         pub unsafe extern "C" fn #handler_extern() -> usize {
@@ -407,270 +397,326 @@ fn process_program_command(
             }
         }
 
+        // e) Server-side de-input hook for logging raw JSON
         #[cfg(turbo_no_run)]
         #[unsafe(export_name = #de_input_export)]
         pub unsafe extern "C" fn #de_input_extern() {
-            program_utils::log_input_as_json::<#ident>()
+            crate::__turbo_os_program_utils::log_input_as_json::<#ident>()
         }
-    };
-
-    syn::parse2::<syn::File>(expanded)
-        .expect("Could not parse expanded program TokenStream")
-        .items
+    }
+    .into()
 }
 
+// =============================================================================
+// Channel Macro
+// =============================================================================
+
+/// Parsed arguments for `#[channel(program = "...", name = "...")]`.
+#[derive(Debug, Clone, Default)]
+struct ChannelArgs {
+    /// A program name
+    pub program: String,
+    /// A channel name
+    pub name: String,
+}
+impl Parse for ChannelArgs {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let mut args = Self::default();
+        while !input.is_empty() {
+            let ident: syn::Ident = input.parse()?;
+            let _: syn::Token![=] = input.parse()?;
+            let value: LitStr = input.parse()?;
+            match ident.to_string().as_str() {
+                "program" => args.program = value.value(),
+                "name" => args.name = value.value(),
+                _ => return Err(syn::Error::new_spanned(ident, "unexpected attribute key")),
+            }
+            if input.peek(syn::Token![,]) {
+                let _: syn::Token![,] = input.parse()?;
+            }
+        }
+        if args.program.is_empty() {
+            return Err(input.error("missing `program`"));
+        }
+        if args.name.is_empty() {
+            return Err(input.error("missing `name`"));
+        }
+        Ok(args)
+    }
+}
+
+/// Attribute macro `#[channel]` for generating client and server bindings
+/// on a struct or enum that implements `ChannelHandler`.
+///
+/// # Parameters
+/// - `attr`: The attribute arguments as a TokenStream (e.g. `program = "foo", name = "bar"`).
+/// - `item`: The annotated item’s TokenStream (must be a `struct` or `enum`).
+///
+/// # Behavior
+/// 1. Parses the annotated item into a `syn::Item`.
+/// 2. Parses `attr` into our `ChannelArgs` (extracting `program` and `name`).
+/// 3. Matches on `item`:
+///    - If it’s a `struct` or `enum`, extracts its identifier (`ident`).
+///    - Calls `create_program_metadata(&args.program)` to build or update metadata.
+///    - Invokes `process_program_channel(...)` to generate the FFI bindings and
+///      subscription helper, returning that expanded TokenStream directly.
+/// 4. If used on any other item, emits a compile error pointing at the original span,
+///    instructing that `#[channel]` only applies to types implementing `ChannelHandler`.
+#[proc_macro_attribute]
+pub fn channel(attr: TokenStream, item: TokenStream) -> TokenStream {
+    // Step 1: Parse the annotated item (struct or enum)
+    let item = parse_macro_input!(item as Item);
+
+    // Step 2: Parse the attribute arguments into our helper struct
+    let args = parse_macro_input!(attr as ChannelArgs);
+
+    // Step 3: Ensure we only operate on structs or enums
+    match &item {
+        Item::Struct(ItemStruct { ident, .. }) | Item::Enum(ItemEnum { ident, .. }) => {
+            // Build or update the program metadata from the `program` argument
+            let mut program_metadata = create_program_metadata(&args.program);
+            // Generate the expanded code (FFI exports, subscription API, metadata embedding)
+            let expanded =
+                process_program_channel(&mut program_metadata, args.clone(), &item, ident);
+            // Return the generated code
+            return expanded;
+        }
+        // Anything else is unsupported: emit a clear compile-time error
+        _ => Error::new(
+            item.span(),
+            "`#[channel]` may only be used on a struct or enum that implements `ChannelHandler`",
+        )
+        .to_compile_error()
+        .into(),
+    }
+}
+
+/// Generates the expanded code for a `#[channel]`-annotated struct or enum.
+///
+/// Embeds metadata, derives serialization, and produces both client subscription
+/// helpers and server-side FFI exports.
+///
+/// # Parameters
+/// - `program_metadata`: Mutable reference to the program’s metadata record.  
+///   This will be updated with the new channel’s name.
+/// - `args`: The parsed `program` and `name` arguments from the attribute.  
+/// - `item`: The original `syn::Item` (struct or enum) to which the macro is applied.
+/// - `ident`: The identifier of the struct or enum being processed.
+///
+/// # Returns
+/// A `TokenStream` containing:
+/// 1. A `static` byte array with channel metadata.  
+/// 2. The original type, annotated with `#[turbo::serialize]`.  
+/// 3. An inherent `impl` block adding:
+///    - A `subscribe(channel_id) -> Option<Connection>` method for clients.  
+/// 4. Under `#[cfg(turbo_no_run)]`, `extern "C"` functions for server-side:
+///    - The channel handler (open/connect/data/timeout/close loop).  
+///    - De-send and de-receive hooks for logging.
 fn process_program_channel(
     program_metadata: &mut TurboProgramMetadata,
     args: ChannelArgs,
     item: &Item,
     ident: &Ident,
-) -> Result<Vec<Item>, syn::Error> {
+) -> TokenStream {
+    // Extract identifiers
     let program_id = program_metadata.program_id.as_str();
     let program_name = program_metadata.name.as_str();
     let name = args.name;
 
-    // Update channel metadata
+    // 1) Register this channel in the program’s metadata
     program_metadata
         .channels
-        .push(TurboProgramChannelMetadata { name: name.clone() });
+        .insert(TurboProgramChannelMetadata { name: name.clone() });
 
-    // Build all export symbols and metadata identifiers
+    // 2) Build linking symbols for subscribe and handlers
     let handler_export = format!("turbo_program:channel_handler/{}/{}", program_id, name);
     let handler_extern = format_ident!("channel_handler_{}_{}", program_name, name);
     let de_send_export = format!("turbo_program:de_channel_send/{}/{}", program_id, name);
     let de_send_extern = format_ident!("de_channel_send_{}_{}", program_name, name);
     let de_recv_export = format!("turbo_program:de_channel_recv/{}/{}", program_id, name);
     let de_recv_extern = format_ident!("de_channel_recv_{}_{}", program_name, name);
-    let metadata_string = format!("{program_name}/channels/{name},");
+
+    // 3) Serialize and embed updated channel metadata
+    let metadata_string = serde_json::to_string(program_metadata).unwrap() + "\n";
     let metadata_bytes = metadata_string.as_bytes().iter().map(|b| quote! { #b });
     let metadata_len = metadata_bytes.len();
-    let metadata_ident = format_ident!("channel_metadata_{}_{}", program_name, name);
+    let metadata_ident = format_ident!(
+        "turbo_os_program_metadata_channel_{}_{}",
+        program_name,
+        name
+    );
 
-    // Expand channel binding
-    let expanded = quote! {
+    // 4) Emit final expanded code
+    quote! {
+        // a) Embed channel metadata
         #[used]
         #[doc(hidden)]
         #[allow(non_upper_case_globals)]
-        #[link_section = "turbo_programs"]
+        #[link_section = "turbo_os_program_metadata"]
         pub static #metadata_ident: [u8; #metadata_len] = [#(#metadata_bytes),*];
 
+        // b) Derive serialization on the type
         #[turbo::serialize]
         #item
 
+        // c) Client subscription helper
         impl #ident {
-            pub fn subscribe(channel_id: &str) -> Option<turbo::os::client::channel::ChannelConnection<
+            /// Subscribe to this channel ID, returning a connection if available.
+            pub fn subscribe(
+                channel_id: &str
+            ) -> Option<turbo::os::client::channel::ChannelConnection<
                 <Self as turbo::os::server::channel::ChannelHandler>::Recv,
                 <Self as turbo::os::server::channel::ChannelHandler>::Send,
             >> {
-                turbo::os::client::channel::Channel::<
-                    <Self as turbo::os::server::channel::ChannelHandler>::Recv,
-                    <Self as turbo::os::server::channel::ChannelHandler>::Send,
-                >::subscribe(PROGRAM_ID, #name, channel_id)
+                turbo::os::client::channel::Channel::subscribe(#program_id, #name, channel_id)
             }
         }
 
+        // d) Server-side channel handler loop
         #[cfg(turbo_no_run)]
         #[unsafe(export_name = #handler_export)]
         pub unsafe extern "C" fn #handler_extern() {
-            use turbo::os::server::channel::{
-                ChannelSettings,
-                ChannelMessage,
-                ChannelError,
-                recv_with_timeout,
-            };
+            use turbo::os::server::channel::{ChannelSettings, ChannelMessage, ChannelError, recv_with_timeout};
             let handler = &mut #ident::new();
             let settings = &mut ChannelSettings::default();
+
+            // on_open hook
             if let Err(err) = handler.on_open(settings) {
                 turbo::log!("Error in on_open: {err:?}");
                 return;
             }
+
+            // Main receive loop with timeout
             let timeout = settings.interval.unwrap_or(u32::MAX).max(16);
             loop {
                 match recv_with_timeout(timeout) {
                     Ok(ChannelMessage::Connect(user_id, _)) => {
-                        if let Err(err) = handler.on_connect(&user_id) {
-                            turbo::log!("Error in on_connect (user {user_id}): {err:?}");
-                        }
-                    },
+                        let _ = handler.on_connect(&user_id).map_err(|e| turbo::log!("on_connect err: {e:?}"));
+                    }
                     Ok(ChannelMessage::Disconnect(user_id, _)) => {
-                        if let Err(err) = handler.on_disconnect(&user_id) {
-                            turbo::log!("Error in on_disconnect (user {user_id}): {err:?}");
-                        }
-                    },
+                        let _ = handler.on_disconnect(&user_id).map_err(|e| turbo::log!("on_disconnect err: {e:?}"));
+                    }
                     Ok(ChannelMessage::Data(user_id, data)) => match #ident::parse(&data) {
                         Ok(data) => {
-                            if let Err(err) = handler.on_data(&user_id, data) {
-                                turbo::log!("Error in on_data (user {user_id}): {err:?}");
-                            }
-                        },
-                        Err(err) => turbo::log!("Error parsing data from user {user_id}: {err:?}"),
-                    },
+                            let _ = handler.on_data(&user_id, data).map_err(|e| turbo::log!("on_data err: {e:?}")); 
+                        }
+                        Err(err) => turbo::log!("Error parsing data: {err:?}"),
+                    }
                     Err(ChannelError::Timeout) => {
-                        if let Err(err) = handler.on_interval() {
-                            turbo::log!("Error in on_interval: {err:?}");
-                        }
-                    },
+                        let _ = handler.on_interval().map_err(|e| turbo::log!("on_interval err: {e:?}"));  
+                    }
                     Err(_) => {
-                        if let Err(err) = handler.on_close() {
-                            turbo::log!("Error in on_close: {err:?}");
-                        }
+                        let _ = handler.on_close().map_err(|e| turbo::log!("on_close err: {e:?}"));  
                         return;
-                    },
+                    }
                 }
             }
         }
 
+        // e) De-send hook: log input as JSON for outgoing messages
         #[cfg(turbo_no_run)]
         #[unsafe(export_name = #de_send_export)]
         pub unsafe extern "C" fn #de_send_extern() {
-            program_utils::log_input_as_json::<<#ident as turbo::os::server::channel::ChannelHandler>::Send>()
+            crate::__turbo_os_program_utils::log_input_as_json::<<#ident as turbo::os::server::channel::ChannelHandler>::Send>()
         }
 
+        // f) De-receive hook: log input as JSON for incoming messages
         #[cfg(turbo_no_run)]
         #[unsafe(export_name = #de_recv_export)]
         pub unsafe extern "C" fn #de_recv_extern() {
-            program_utils::log_input_as_json::<<#ident as turbo::os::server::channel::ChannelHandler>::Recv>()
+            crate::__turbo_os_program_utils::log_input_as_json::<<#ident as turbo::os::server::channel::ChannelHandler>::Recv>()
         }
-    };
-
-    let file = syn::parse2::<syn::File>(expanded)?;
-    Ok(file.items)
+    }.into()
 }
 
-fn process_program_module_items(
-    program_metadata: &mut TurboProgramMetadata,
-    command_attr: &str,
-    channel_attr: &str,
-    module: ItemMod,
-    // items: &mut Vec<Item>,
-) -> Result<Vec<Item>, syn::Error> {
-    let Some((_, items)) = module.content else {
-        // non-inline modules in proc macro input are unstable 😭
-        return Ok(vec![Item::Mod(module.clone())]);
-    };
-    let mut new_items = vec![];
-    // Support include! macro
-    let items = items
-        .into_iter()
-        .map(|item| match item {
-            Item::Macro(ref item_macro) => {
-                let span = module.mod_token.span.unwrap();
-                // span.local_file().expect("LOOOOOOL");
-                let Some(module_path) = span.local_file() else {
-                    eprintln!("Could not get module file path");
-                    return vec![item];
-                };
-                let project_dir = get_project_path();
-                let module_dir = project_dir.join(module_path.clone());
-                let Some(parent_dir) = module_dir.parent() else {
-                    return vec![item];
-                };
-                let Some(ident) = item_macro.mac.path.get_ident() else {
-                    return vec![item];
-                };
-                if ident.to_string() != "include" {
-                    return vec![item];
-                }
-                let body = item_macro
-                    .mac
-                    .parse_body::<LitStr>()
-                    .expect("Could not parse macro body");
-                let module_path = parent_dir.join(body.value());
-                let source = fs::read_to_string(&module_path)
-                    .expect("Could not read include! macro file contents");
-                let syntax =
-                    parse_file(&source).expect("Could not parse include! macro file contents");
-                syntax.items
-            }
-            item => vec![item],
-        })
-        .flatten()
-        .collect::<Vec<Item>>();
-    for item in items.clone() {
-        match item {
-            Item::Mod(ref m) => {
-                let mod_items = process_program_module_items(
-                    program_metadata,
-                    command_attr,
-                    channel_attr,
-                    m.clone(),
-                )?;
-                let mut m = m.clone();
-                m.content = m.content.map(|(brace, _prev_items)| (brace, mod_items));
-                let item = Item::Mod(m);
-                new_items.push(item);
-            }
-            Item::Struct(ItemStruct {
-                ref ident,
-                ref attrs,
-                ..
-            })
-            | Item::Enum(ItemEnum {
-                ref ident,
-                ref attrs,
-                ..
-            }) => {
-                let mut handled = false;
+// =============================================================================
+// Document Macro
+// =============================================================================
 
-                for attr in attrs {
-                    // --------------------------------------------------------------------
-                    // #[command(name = "...")] — generate FFI + exec client binding
-                    // --------------------------------------------------------------------
-                    if attr
-                        .path()
-                        .segments
-                        .last()
-                        .map_or(false, |seg| seg.ident == command_attr)
-                    {
-                        // Parse command name
-                        let args = match attr.parse_args::<CommandArgs>() {
-                            Ok(args) => args,
-                            Err(err) => return Err(err),
-                        };
-                        let items = process_program_command(program_metadata, args, &item, ident);
-                        new_items.extend(items);
-                        handled = true;
-                        break;
-                    }
-
-                    // --------------------------------------------------------------------
-                    // #[channel(name = "...")] — generate FFI + subscribe method
-                    // --------------------------------------------------------------------
-                    if attr
-                        .path()
-                        .segments
-                        .last()
-                        .map_or(false, |seg| seg.ident == channel_attr)
-                    {
-                        // Parse channel name
-                        let args = match attr.parse_args::<ChannelArgs>() {
-                            Ok(args) => args,
-                            Err(err) => return Err(err),
-                        };
-                        let items = process_program_channel(program_metadata, args, &item, ident)?;
-                        new_items.extend(items);
-                        handled = true;
-                        break;
-                    }
-                }
-
-                // If not a #[command] or #[channel], emit as-is
-                if !handled {
-                    new_items.push(item);
-                }
+/// Parsed arguments for `#[document(program = "...")]`.
+#[derive(Debug, Clone, Default)]
+struct DocumentArgs {
+    /// A program name
+    pub program: String,
+}
+impl Parse for DocumentArgs {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let mut args = Self::default();
+        while !input.is_empty() {
+            let ident: syn::Ident = input.parse()?;
+            let _: syn::Token![=] = input.parse()?;
+            let value: LitStr = input.parse()?;
+            match ident.to_string().as_str() {
+                "program" => args.program = value.value(),
+                _ => return Err(syn::Error::new_spanned(ident, "unexpected attribute key")),
             }
-            // Non-struct/enum items (e.g. impls, consts) are passed through unchanged
-            _ => new_items.push(item),
+            if input.peek(syn::Token![,]) {
+                let _: syn::Token![,] = input.parse()?;
+            }
         }
+        if args.program.is_empty() {
+            return Err(input.error("missing `program`"));
+        }
+        Ok(args)
     }
-    Ok(new_items)
 }
 
-fn get_project_path() -> PathBuf {
-    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap_or_default();
-    assert!(
-        !manifest_dir.is_empty(),
-        "CARGO_MANIFEST_DIR unavailable. Could not determine project directory."
-    );
-    Path::new(&manifest_dir).to_path_buf()
+/// Attribute macro `#[document]` for embedding program metadata and deriving serialization
+/// on a struct or enum representing a document type.
+///
+/// # Parameters
+/// - `attr`: TokenStream of attribute arguments (e.g. `program = "my_prog"`).
+/// - `item`: TokenStream of the annotated item (must be a `struct` or `enum`).
+///
+/// # Behavior
+/// 1. Parses `item` into a `syn::Item`.
+/// 2. Parses `attr` into `DocumentArgs`, extracting the `program` identifier.
+/// 3. If `item` is a `struct` or `enum`:
+///    - Calls `create_program_metadata(&args.program)` to compute the stable `program_id`.
+///    - Emits:
+///      - `#[turbo::serialize]` on the original type to derive Borsh/Serde traits.
+///      - An `impl HasProgramId` for the type, setting `PROGRAM_ID` to the computed ID.
+/// 4. If used on any other item, produces a compile error at the original span.
+///
+/// # Example
+/// ```ignore
+/// #[document(program = "counter")]
+/// struct Counter { /* fields */ }
+/// ```
+#[proc_macro_attribute]
+pub fn document(attr: TokenStream, item: TokenStream) -> TokenStream {
+    // Step 1: Parse the annotated item (struct or enum)
+    let item = parse_macro_input!(item as Item);
+
+    // Step 2: Parse the attribute arguments into our helper struct
+    let args = parse_macro_input!(attr as DocumentArgs);
+
+    // Step 3: Ensure only structs or enums are supported
+    match &item {
+        Item::Struct(ItemStruct { ident, .. }) | Item::Enum(ItemEnum { ident, .. }) => {
+            // Compute or update the program metadata (hashing UUID + program name)
+            let program_metadata = create_program_metadata(&args.program);
+            // Extract the base64-encoded program ID string
+            let program_id = program_metadata.program_id;
+            // Generate the expanded code:
+            //  - Derive Borsh/Serde serialization via #[turbo::serialize]
+            //  - Implement HasProgramId with the computed PROGRAM_ID constant
+            quote! {
+                #[turbo::serialize]
+                #item
+
+                impl turbo::os::HasProgramId for #ident {
+                    const PROGRAM_ID: &'static str = #program_id;
+                }
+            }
+            .into()
+        }
+        // Unsupported item types produce a clear compile-time error
+        _ => Error::new(
+            item.span(),
+            "`#[document]` may only be used on a struct or enum representing a document type",
+        )
+        .to_compile_error()
+        .into(),
+    }
 }
