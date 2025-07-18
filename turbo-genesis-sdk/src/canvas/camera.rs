@@ -41,11 +41,11 @@ pub fn set_xyz<X: NumCast, Y: NumCast>(x: X, y: Y, z: f32) {
     let y: f32 = NumCast::from(y).unwrap_or(0.0);
     let z = f32::max(z, 0.0);
     turbo_genesis_ffi::canvas::set_camera(x, y, z);
+    update_shake_origin();
 }
 
 /// Sets the camera's x and y coordinates while retaining the current z (zoom) value.
 pub fn set_xy<X: NumCast, Y: NumCast>(x: X, y: Y) {
-    reset_camera_tween();
     let (_x, _y, z) = xyz();
     let x: f32 = NumCast::from(x).unwrap_or(0.0);
     let y: f32 = NumCast::from(y).unwrap_or(0.0);
@@ -54,7 +54,6 @@ pub fn set_xy<X: NumCast, Y: NumCast>(x: X, y: Y) {
 
 /// Sets the camera's x coordinate, leaving y and z unchanged.
 pub fn set_x<X: NumCast>(x: X) {
-    reset_camera_tween();
     let (_, y, z) = xyz();
     let x: f32 = NumCast::from(x).unwrap_or(0.0);
     set_xyz(x, y, z);
@@ -62,7 +61,6 @@ pub fn set_x<X: NumCast>(x: X) {
 
 /// Sets the camera's y coordinate, leaving x and z unchanged.
 pub fn set_y<Y: NumCast>(y: Y) {
-    reset_camera_tween();
     let (x, _y, z) = xyz();
     let y: f32 = NumCast::from(y).unwrap_or(0.0);
     set_xyz(x, y, z);
@@ -70,7 +68,6 @@ pub fn set_y<Y: NumCast>(y: Y) {
 
 /// Sets the camera's z coordinate (zoom), leaving x and y unchanged.
 pub fn set_z(z: f32) {
-    reset_camera_tween();
     let (x, y, _z) = xyz();
     set_xyz(x, y, z);
 }
@@ -78,7 +75,6 @@ pub fn set_z(z: f32) {
 /// Moves the camera by the specified deltas in x, y, and z.
 /// The current camera position is retrieved, the deltas are added, and then the new position is set.
 pub fn move_xyz<X: NumCast, Y: NumCast>(delta_x: X, delta_y: Y, delta_z: f32) {
-    reset_camera_tween();
     let (x, y, z) = xyz();
     let delta_x: f32 = NumCast::from(delta_x).unwrap_or(0.0);
     let delta_y: f32 = NumCast::from(delta_y).unwrap_or(0.0);
@@ -87,7 +83,6 @@ pub fn move_xyz<X: NumCast, Y: NumCast>(delta_x: X, delta_y: Y, delta_z: f32) {
 
 /// Moves the camera in the x and y directions by the specified deltas.
 pub fn move_xy<X: NumCast, Y: NumCast>(delta_x: X, delta_y: Y) {
-    reset_camera_tween();
     let (x, y) = xy();
     let delta_x: f32 = NumCast::from(delta_x).unwrap_or(0.0);
     let delta_y: f32 = NumCast::from(delta_y).unwrap_or(0.0);
@@ -96,28 +91,24 @@ pub fn move_xy<X: NumCast, Y: NumCast>(delta_x: X, delta_y: Y) {
 
 /// Moves the camera in the x direction by the specified delta.
 pub fn move_x<X: NumCast>(delta_x: X) {
-    reset_camera_tween();
     let delta_x: f32 = NumCast::from(delta_x).unwrap_or(0.0);
     set_x(x() + delta_x);
 }
 
 /// Moves the camera in the y direction by the specified delta.
 pub fn move_y<Y: NumCast>(delta_y: Y) {
-    reset_camera_tween();
     let delta_y: f32 = NumCast::from(delta_y).unwrap_or(0.0);
     set_y(y() + delta_y);
 }
 
 /// Moves the camera's zoom by the specified delta.
 pub fn move_z(delta_z: f32) {
-    reset_camera_tween();
     set_z(z() + delta_z);
 }
 
 /// Resets the camera's x and y position to the center of the viewport.
 /// The screen size is obtained from the parent module.
 pub fn reset() {
-    reset_camera_tween();
     let (w, h) = crate::canvas::resolution();
     let x = (w / 2) as f32;
     let y = (h / 2) as f32;
@@ -126,21 +117,18 @@ pub fn reset() {
 
 /// Resets the camera's x coordinate to the horizontal center of the screen.
 pub fn reset_x() {
-    reset_camera_tween();
     let x = (crate::canvas::resolution().0 / 2) as f32;
     set_x(x)
 }
 
 /// Resets the camera's y coordinate to the vertical center of the screen.
 pub fn reset_y() {
-    reset_camera_tween();
     let y = (crate::canvas::resolution().1 / 2) as f32;
     set_y(y)
 }
 
 /// Resets both the camera's x and y coordinates to the center of the screen.
 pub fn reset_xy() {
-    reset_camera_tween();
     let (w, h) = crate::canvas::resolution();
     let x = (w / 2) as f32;
     let y = (h / 2) as f32;
@@ -149,7 +137,6 @@ pub fn reset_xy() {
 
 /// Resets the camera's z coordinate (zoom) to 1.0 while keeping x and y centered.
 pub fn reset_z() {
-    reset_camera_tween();
     let (w, h) = crate::canvas::resolution();
     let x = (w / 2) as f32;
     let y = (h / 2) as f32;
@@ -193,71 +180,143 @@ pub fn focus((x, y): (i32, i32)) {
     set_xy(x, y);
 }
 
-// Stores the last tick and the original camera center (before shake)
-static mut LAST_SHAKE: (usize, f32, f32) = (0, 0., 0.);
+/// Stores the last tick and the original camera center (before shake)
+#[derive(Clone, Copy)]
+struct ShakeEffect {
+    origin: (f32, f32),
+    amount: usize,
+}
+
+static mut SHAKE_EFFECT: Option<ShakeEffect> = None;
 
 /// Applies a screen-space shake around the last known stable camera position.
 /// Automatically updates the origin if the last shake was more than 1 frame ago.
-pub fn shake(amount: usize) {
-    let now = crate::time::tick();
-    let (x, y) = unsafe {
-        let last_tick = LAST_SHAKE.0;
-        if now > 0 && now.saturating_sub(last_tick) <= 1 {
-            LAST_SHAKE.0 = now;
-            (LAST_SHAKE.1, LAST_SHAKE.2)
-        } else {
-            let (x, y) = crate::camera::xy();
-            LAST_SHAKE = (now, x, y);
-            (x, y)
+pub fn shake<N: NumCast>(amount: N) {
+    let amount = NumCast::from(amount).unwrap_or_default();
+    unsafe {
+        SHAKE_EFFECT = match SHAKE_EFFECT.take() {
+            // Revert to shake origin
+            Some(shake) if amount == 0 => {
+                let (x, y) = shake.origin;
+                turbo_genesis_ffi::canvas::set_camera(x, y, z());
+                None
+            }
+            // Update shake amount
+            Some(shake) => Some(ShakeEffect { amount, ..shake }),
+            // There is no shake to unset (no-op)
+            None if amount == 0 => None,
+            // Create a shake effect and set the origin
+            None => Some(ShakeEffect {
+                origin: xy(),
+                amount,
+            }),
         }
-    };
-    use crate::random::*;
-    let amount = amount.min(i32::MAX as usize) as i32;
-    let dx = between(-amount, amount);
-    let dy = between(-amount, amount);
-    crate::camera::set_xy(x as i32 + dx as i32, y as i32 + dy as i32);
-}
-
-const DEFAULT_CAMERA_TWEEN_VALUE: (i32, i32) = (i32::MAX, i32::MAX);
-static mut CAMERA_TWEEN: Tween<(i32, i32)> = Tween::new(DEFAULT_CAMERA_TWEEN_VALUE);
-
-fn reset_camera_tween() {
-    unsafe { CAMERA_TWEEN = Tween::new(DEFAULT_CAMERA_TWEEN_VALUE) };
-}
-
-/// Eases the camera toward `target` over `duration` ticks using `easing`.
-pub fn pan(target: (i32, i32), duration: usize, easing: Easing) -> bool {
-    if duration == 0 {
-        set_xy(target.0, target.1);
-        return true;
     }
-    // Get current camera position
-    let curr = xy();
-    let curr = (curr.0.round() as i32, curr.1.round() as i32);
+}
 
-    // Get the interpolated position
-    let (new_pos, done) = unsafe {
-        // Initialize on first tick / manual reset
-        if time::tick() == 0 {
-            CAMERA_TWEEN = Tween::new(curr);
-            CAMERA_TWEEN.duration(0);
-        }
-        // Hot reloaded
-        else if CAMERA_TWEEN.get() == DEFAULT_CAMERA_TWEEN_VALUE {
-            CAMERA_TWEEN = Tween::new(curr);
-            CAMERA_TWEEN.duration(0);
-        }
-        // Update tween
-        else {
-            CAMERA_TWEEN.duration(duration);
-            CAMERA_TWEEN.ease(easing);
-            CAMERA_TWEEN.set(target);
-        }
-        (CAMERA_TWEEN.get(), CAMERA_TWEEN.done())
-    };
+pub fn shake_amount() -> usize {
+    unsafe { SHAKE_EFFECT.map_or(0, |shake| shake.amount) }
+}
 
-    let (x, y) = new_pos;
-    turbo_genesis_ffi::canvas::set_camera(x as f32, y as f32, z());
+pub fn is_shaking() -> bool {
+    unsafe { SHAKE_EFFECT.map_or(0, |shake| shake.amount) > 0 }
+}
 
-    done
+pub fn reset_shake() {
+    shake(0)
+}
+
+static mut CAMERA_TWEEN: Option<Tween<(f32, f32, f32)>> = None;
+
+/// Resets the CAMERA_TWEEN so camera movement is no longer tweened
+fn reset_camera_tween() {
+    unsafe {
+        CAMERA_TWEEN = None;
+    }
+}
+
+fn update_shake_origin() {
+    unsafe {
+        if let Some(shake) = SHAKE_EFFECT.as_mut() {
+            shake.origin = xy();
+        }
+    }
+}
+
+/// Eases the camera toward `target` over `duration` ticks using `easing`. Returns `true` when transition is done.
+pub fn pan_xyz<X: NumCast, Y: NumCast>(
+    target: (X, Y, f32),
+    duration: usize,
+    easing: Easing,
+) -> bool {
+    unsafe {
+        // Get current camera position
+        let curr = xyz();
+        match CAMERA_TWEEN.as_mut() {
+            None => {
+                // Hot reload or initial frame
+                if duration == 0 {
+                    let x: f32 = NumCast::from(target.0).unwrap_or(curr.0);
+                    let y: f32 = NumCast::from(target.1).unwrap_or(curr.1);
+                    let z = target.2;
+                    CAMERA_TWEEN = Some(Tween::new((x, y, z)).duration(0));
+                    turbo_genesis_ffi::canvas::set_camera(x, y, z);
+                    return true;
+                }
+                CAMERA_TWEEN = Some(Tween::new(curr).duration(0));
+                return false;
+            }
+            Some(tween) => {
+                // Initialize on first tick after manual reset
+                if time::tick() == 0 {
+                    *tween = Tween::new(curr).duration(0);
+                    return false;
+                }
+                // Update Tween
+                let x: f32 = NumCast::from(target.0).unwrap_or(curr.0);
+                let y: f32 = NumCast::from(target.1).unwrap_or(curr.1);
+                let z = target.2;
+                tween.duration(duration);
+                tween.ease(easing);
+                tween.set((x, y, z));
+                let (x, y, z) = tween.get();
+                turbo_genesis_ffi::canvas::set_camera(x, y, z);
+                return tween.done();
+            }
+        }
+    }
+}
+
+pub fn pan_xy<X: NumCast, Y: NumCast>(target: (X, Y), duration: usize, easing: Easing) -> bool {
+    pan_xyz((target.0, target.1, z()), duration, easing)
+}
+
+pub fn pan_x<X: NumCast>(target: X, duration: usize, easing: Easing) -> bool {
+    pan_xyz((target, y(), z()), duration, easing)
+}
+
+pub fn pan_y<Y: NumCast>(target: Y, duration: usize, easing: Easing) -> bool {
+    pan_xyz((x(), target, z()), duration, easing)
+}
+
+pub fn update() {
+    unsafe {
+        if let Some(tween) = CAMERA_TWEEN.as_mut() {
+            let (mut x, mut y, z) = tween.get();
+            crate::text!("{:?}", (x, y); x = 128 , fixed = true);
+            if let Some(shake) = SHAKE_EFFECT.as_mut() {
+                shake.origin = (x, y);
+                let amount = shake.amount as f32;
+                x += crate::random::between(-amount, amount);
+                y += crate::random::between(-amount, amount);
+            }
+            turbo_genesis_ffi::canvas::set_camera(x, y, z);
+        } else if let Some(shake) = SHAKE_EFFECT.as_mut() {
+            let (x, y) = shake.origin;
+            let amount = shake.amount as f32;
+            let x = x + crate::random::between(-amount, amount);
+            let y = y + crate::random::between(-amount, amount);
+            turbo_genesis_ffi::canvas::set_camera(x, y, z());
+        }
+    }
 }

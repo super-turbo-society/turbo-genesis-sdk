@@ -1,6 +1,12 @@
+//! Pointer input handling.
+//!
+//! This module provides abstractions for working with pointer input (such as mouse or touch events)
+//! in both screen-space (pixel coordinates) and world-space (camera-relative coordinates).
+//! It defines types and functions to query the current pointer state, position, and interactions
+//! with bounding boxes, supporting both screen and world coordinate systems.
+
 use crate::{bounds::Bounds, canvas};
 use borsh::BorshDeserialize;
-use num_traits::NumCast;
 use std::ops::Deref;
 use turbo_genesis_abi::{TurboMouse, TurboPointer};
 

@@ -1,5 +1,11 @@
+//! Keyboard input handling.
+//!
+//! This module provides types and utilities for working with keyboard input,
+//! including key codes, keyboard state, and character translation.
+//! It wraps the ABI/FFI layer and exposes ergonomic Rust APIs for querying
+//! key/button states and mapping keys to characters.
+
 use borsh::BorshDeserialize;
-use std::ops::Deref;
 use turbo_genesis_abi::{TurboButton, TurboKeyboard};
 
 pub use turbo_genesis_abi::TurboKeyCode;

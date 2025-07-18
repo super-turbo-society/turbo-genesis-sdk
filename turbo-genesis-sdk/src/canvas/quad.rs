@@ -53,6 +53,7 @@ impl Default for Quad {
 
 impl Quad {
     /// Creates new rectangle properties with default values.
+    #[allow(unused)]
     pub fn new() -> Self {
         Self::default()
     }

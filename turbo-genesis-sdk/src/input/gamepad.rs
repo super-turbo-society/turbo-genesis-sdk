@@ -1,6 +1,12 @@
+//! Gamepad input handling.
+//!
+//! Provides functionality to fetch and represent the current state of a gamepad
+//! using the TurboGenesis ABI and FFI layer. This module allows access to gamepad
+//! button states for an SNES-like controller layout in a type-safe manner.
+
 use borsh::BorshDeserialize;
 use std::ops::Deref;
-use turbo_genesis_abi::{TurboButton, TurboGamepad};
+use turbo_genesis_abi::TurboGamepad;
 
 /// Represents the current state of a gamepad and provides access to its buttons.
 #[derive(Debug)]

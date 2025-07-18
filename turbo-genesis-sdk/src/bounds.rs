@@ -1,11 +1,34 @@
+//! # Bounds Module
+//!
+//! This module provides the `Bounds` struct and a comprehensive set of methods for manipulating
+//! rectangular regions in 2D space. The `Bounds` type is designed for use in UI layout, graphics,
+//! and geometry calculations, supporting both integer and fractional operations.
+//!
+//! ## Features
+//! - Construction of bounds with flexible types and defaulting
+//! - Querying position, size, and edges
+//! - Adjusting and scaling dimensions
+//! - Translating and anchoring within containers
+//! - Splitting and subdividing into rows, columns, and grids
+//! - Insetting and expanding for padding/margins
+//! - Stacking and aligning multiple bounds
+//! - Intersection, union, and containment checks
+//! - Utility methods for mapping and transformation
+//!
+//! All methods are designed to be ergonomic and safe, with saturating arithmetic to prevent
+//! negative sizes, and support for generic numeric types via the `NumCast` trait.
+//!
+//! ## Example
+//! ```rust
+//! let parent = Bounds::new(0, 0, 200, 100);
+//! let child = parent.inset(10).anchor_center(&parent);
+//! assert!(parent.contains(&child));
+//! ```
+
 use borsh::{BorshDeserialize, BorshSerialize};
 use num_traits::NumCast;
 use serde::{Deserialize, Serialize};
 use std::ops::Add;
-
-//------------------------------------------------------------------------------
-// Bounds
-//------------------------------------------------------------------------------
 
 /// Returns the world-space (camera-relative) bounds.
 /// This is typically used to position bounds relative to game objects.
@@ -41,11 +64,13 @@ pub fn new<W: NumCast, H: NumCast>(w: W, h: H) -> Bounds {
     Debug, Clone, Copy, Default, PartialEq, BorshDeserialize, BorshSerialize, Serialize, Deserialize,
 )]
 pub struct Bounds {
-    // Top-left corner coordinates.
+    /// Top-left corner x coordinate
     pub(crate) x: i32,
+    /// Top-left corner y coordinate
     pub(crate) y: i32,
-    // Width and height of the rectangle.
+    /// Bounds width.
     pub(crate) w: u32,
+    /// Bounds height.
     pub(crate) h: u32,
 }
 

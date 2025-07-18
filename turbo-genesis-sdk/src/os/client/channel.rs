@@ -1,3 +1,8 @@
+//! This module provides the `ChannelConnection` implementation for sending and receiving
+//! Borsh-serializable messages over a Turbo Genesis OS client channel. It defines methods
+//! for serializing outgoing messages, deserializing incoming messages, and handling
+//! communication errors using FFI bindings.
+
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::io;
 
@@ -5,14 +10,19 @@ use std::io;
 /// transmit (`Tx`) and receive (`Rx`) types. These types must match on both sides of the channel.
 #[derive(Debug)]
 pub struct Channel<Tx, Rx> {
-    program_id: String,
-    channel_kind: String,
-    channel_id: String,
-    _phantom: std::marker::PhantomData<(Tx, Rx)>,
+    program_id: String,   // The program identifier for the channel
+    channel_kind: String, // The kind/type of the channel
+    channel_id: String,   // The unique channel identifier
+    _phantom: std::marker::PhantomData<(Tx, Rx)>, // Marker for generic types
 }
 
 impl<Tx, Rx> Channel<Tx, Rx> {
     /// Creates a new typed channel handle. This does not establish a connection yet.
+    ///
+    /// # Arguments
+    /// * `program_id` - The program identifier as a string slice.
+    /// * `channel_kind` - The kind/type of the channel as a string slice.
+    /// * `channel_id` - The unique channel identifier as a string slice.
     pub fn new(program_id: &str, channel_kind: &str, channel_id: &str) -> Self {
         Self {
             program_id: program_id.to_string(),
@@ -23,6 +33,10 @@ impl<Tx, Rx> Channel<Tx, Rx> {
     }
 
     /// Attempts to connect to the channel. Returns `None` if not ready.
+    ///
+    /// # Returns
+    /// * `Some(ChannelConnection<Tx, Rx>)` if connection is successful.
+    /// * `None` if connection fails.
     pub fn connection(&self) -> Option<ChannelConnection<Tx, Rx>> {
         let status = turbo_genesis_ffi::os::client::channel_connect(
             self.program_id.as_ptr(),
@@ -44,6 +58,15 @@ impl<Tx, Rx> Channel<Tx, Rx> {
     }
 
     /// Creates and connects a channel in one step. Returns `None` if not ready.
+    ///
+    /// # Arguments
+    /// * `program_id` - The program identifier as a string slice.
+    /// * `channel_kind` - The kind/type of the channel as a string slice.
+    /// * `channel_id` - The unique channel identifier as a string slice.
+    ///
+    /// # Returns
+    /// * `Some(ChannelConnection<Tx, Rx>)` if connection is successful.
+    /// * `None` if connection fails.
     pub fn subscribe(
         program_id: &str,
         channel_kind: &str,
@@ -56,18 +79,25 @@ impl<Tx, Rx> Channel<Tx, Rx> {
 /// Represents an active channel connection that can send and receive messages.
 #[derive(Debug)]
 pub struct ChannelConnection<Tx, Rx> {
-    program_id: String,
-    channel_kind: String,
-    channel_id: String,
-    _phantom: std::marker::PhantomData<(Tx, Rx)>,
+    program_id: String,   // The program identifier for the channel
+    channel_kind: String, // The kind/type of the channel
+    channel_id: String,   // The unique channel identifier
+    _phantom: std::marker::PhantomData<(Tx, Rx)>, // Marker for generic types
 }
 
 impl<Tx: BorshSerialize, Rx: BorshDeserialize> ChannelConnection<Tx, Rx> {
     /// Sends a Borsh-serializable message over the channel.
+    ///
+    /// # Arguments
+    /// * `msg` - Reference to the message to send, which must implement `BorshSerialize`.
+    ///
+    /// # Returns
+    /// * `Ok(())` if the message was sent successfully.
+    /// * `Err(io::Error)` if sending failed.
     pub fn send(&self, msg: &Tx) -> io::Result<()> {
         let data = borsh::to_vec(msg)?;
 
-        let err = &mut [0; 4096];
+        let err = &mut [0; 4096]; // Buffer for error messages
         let mut err_len = 0;
 
         let status = turbo_genesis_ffi::os::client::channel_send(
@@ -94,17 +124,18 @@ impl<Tx: BorshSerialize, Rx: BorshDeserialize> ChannelConnection<Tx, Rx> {
     }
 
     /// Attempts to receive a Borsh-deserializable message from the channel.
-    /// Returns:
-    /// - `Ok(msg)` on successful message
-    /// - `Err(_)` if connection failed or no messages
+    ///
+    /// # Returns
+    /// * `Ok(Rx)` if a message was received and deserialized successfully.
+    /// * `Err(io::Error)` if connection failed, no messages, or deserialization failed.
     #[inline]
     pub fn recv(&self) -> io::Result<Rx> {
         const STATUS_PENDING: u32 = 1;
         const STATUS_FAILED: u32 = 2;
 
-        let data = &mut [0; 4096];
+        let data = &mut [0; 4096]; // Buffer for received data
         let mut data_len = 0;
-        let err = &mut [0; 1024];
+        let err = &mut [0; 1024]; // Buffer for error messages
         let mut err_len = 0;
 
         let status = turbo_genesis_ffi::os::client::channel_recv(

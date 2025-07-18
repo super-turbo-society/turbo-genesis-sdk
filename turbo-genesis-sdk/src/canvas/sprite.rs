@@ -1,5 +1,4 @@
 use super::{flags, utils};
-use crate::bounds::Bounds;
 use num_traits::NumCast;
 
 #[derive(Debug, Clone, Copy)]
@@ -803,14 +802,14 @@ impl<'a> Sprite<'a> {
         };
 
         // Calculate source width (sw) based on horizontal flip.
-        let mut sw = if self.props.flip_x {
+        let sw = if self.props.flip_x {
             sprite_data.width as i32 * -1 // Negative width indicates a horizontal flip.
         } else {
             sprite_data.width as i32
         };
 
         // Calculate source height (sh) based on vertical flip.
-        let mut sh = if self.props.flip_y {
+        let sh = if self.props.flip_y {
             sprite_data.height as i32 * -1 // Negative height indicates a vertical flip.
         } else {
             sprite_data.height as i32

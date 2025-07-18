@@ -33,10 +33,8 @@
 //!     - **Modulo Bias for Integer Ranges in `between`:** For integer types, `between` now uses modulo arithmetic on `u64` or `i64`. This means for ranges whose span is not a power of 2, a slight statistical bias towards lower numbers can occur. For most game development needs, this bias is negligible. If perfectly unbiased integers are critical, a different, more complex generation method would be required.
 //!
 
-use num_traits::{Float, FromPrimitive, NumCast, One, PrimInt, ToPrimitive, Zero};
-use std::cmp::PartialOrd;
-use std::fmt::{Debug, Display};
-use std::ops::{Add, Rem, Sub};
+use num_traits::{FromPrimitive, NumCast, ToPrimitive};
+use std::fmt::Display;
 use std::ops::{Bound, Range, RangeBounds};
 
 /// Returns a random `u32` from the underlying system RNG.

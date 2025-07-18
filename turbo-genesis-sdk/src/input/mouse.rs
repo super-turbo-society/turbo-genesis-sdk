@@ -1,6 +1,12 @@
+//! Mouse input handling.
+//!
+//! This module provides wrappers and utilities for working with mouse input in both
+//! screen-space (fixed-pixel) and world-space (camera-relative) coordinates. It enables
+//! querying mouse position, button states, and intersection with bounding boxes, as well as
+//! transforming mouse coordinates according to the current camera view.
+
 use crate::{bounds::Bounds, canvas};
 use borsh::BorshDeserialize;
-use num_traits::NumCast;
 use std::ops::Deref;
 use turbo_genesis_abi::TurboMouse;
 

@@ -1,8 +1,7 @@
 use super::{flags, quad, utils};
-use crate::bounds::{self, Bounds};
+use crate::bounds;
 use num_traits::NumCast;
 use quad::Quad;
-use std::f32::consts::PI;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Align {
@@ -398,7 +397,7 @@ impl<'a> TextBox<'a> {
                 current = candidate;
             } else {
                 if !current.is_empty() {
-                    let mut x = match self.align {
+                    match self.align {
                         Align::Left => {
                             if !self.preserve_spaces {
                                 current = current.trim_start_matches(' ').to_string();
@@ -431,7 +430,7 @@ impl<'a> TextBox<'a> {
         }
 
         if !current.is_empty() {
-            let mut x = match self.align {
+            match self.align {
                 Align::Left => {
                     if !self.preserve_spaces {
                         current = current.trim_start_matches(' ').to_string();
@@ -517,30 +516,10 @@ impl<'a> TextBox<'a> {
                     // compute how many pixels the glyph extends beyond each edge
                     let left_over = x0 - dx;
                     let right_over = dx + dw as i32 - (x0 + box_w);
-                    let top_over = y0 - dy;
+                    // let top_over = y0 - dy;
                     let bottom_over = dy + dh as i32 - (y0 + box_h);
-
                     let glyph_w = dw;
-                    // if ch == ' ' {
-                    //     crate::rect!(
-                    //         x = dx,
-                    //         y = dy,
-                    //         w = dw,
-                    //         h = dh,
-                    //         color = 0xff0000ff,
-                    //         opacity = 0.1
-                    //     );
-                    // } else if ch == '\t' {
-                    //     crate::rect!(
-                    //         x = dx,
-                    //         y = dy,
-                    //         w = dw,
-                    //         h = dh,
-                    //         color = 0x00ff00ff,
-                    //         opacity = 0.1
-                    //     );
-                    // }
-                    let (dx, dyh, dw, dh, tx, ty) = {
+                    let (dx, _dyh, dw, dh, tx, ty) = {
                         let dh = dh - (bottom_over as u32);
                         let dw = dw - (right_over as u32);
                         (dx + left_over, dy, dw - left_over as u32, dh, -left_over, 0)

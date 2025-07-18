@@ -1,3 +1,20 @@
+//! Time Utilities Module
+//!
+//! Provides both game‐loop tick counting and real‐world timing for Turbo Genesis.
+//!
+//! - `tick() -> usize`  
+//!   Returns the number of game ticks since startup.  
+//!   - In standard mode (`cfg(not(turbo_no_run))`), reads a monotonic 60 Hz counter via FFI.  
+//!   - In server mode (`cfg(turbo_no_run)`), returns 0 (tick counting not available).
+//!
+//! - `now() -> u64`  
+//!   Returns the current time in milliseconds since the Unix epoch.  
+//!   - In standard mode, uses a high-resolution FFI timer (`millis_since_unix_epoch()`).  
+//!   - In server mode, falls back to second-precision epoch time via the OS server API, then multiplies by 1000.
+//!
+//! These functions enable consistent in-game timing and real-world timestamps,
+//! adapting their implementations based on the `turbo_no_run` configuration.
+
 /// Returns the number of game ticks that have occurred since startup.
 ///
 /// Internally uses a monotonic counter provided by the runtime.

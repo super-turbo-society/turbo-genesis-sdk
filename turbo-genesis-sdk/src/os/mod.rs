@@ -1,52 +1,24 @@
-use super::*;
-use base64::{
-    engine::general_purpose::{STANDARD as b64, URL_SAFE_NO_PAD as b64_url_safe},
-    Engine,
-};
-use borsh::BorshDeserialize;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::{
-    any::{Any, TypeId},
-    collections::{BTreeSet, HashMap},
-    path::{Path, PathBuf},
-};
+//! Turbo OS Module
+//!
+//! This module brings together the key macros and submodules for Turbo OS,
+//! and provides the `HasProgramId` trait for types that define a program ID.
 
+use super::*;
+
+/// Re-export of Turbo OS procedural macros for channel, command, document, and program.
+pub use turbo_genesis_macros::{channel, command, document};
+
+/// Client-side FFI bindings and convenience wrappers.
 pub mod client;
+
+/// Server-side FFI bindings and utilities.
 pub mod server;
 
-#[derive(Debug, Clone)]
-pub struct QueryResult<T> {
-    pub loading: bool,
-    pub data: Option<T>,
-    pub error: Option<String>,
-}
-
-impl<T> QueryResult<T> {
-    pub fn new() -> Self {
-        Self {
-            loading: false,
-            data: None,
-            error: None,
-        }
-    }
-}
-impl QueryResult<client::fs::ProgramFile> {
-    pub fn contents<T: BorshDeserialize /* <- ideally, Borsh + Json */>(&self) -> Option<T> {
-        let Some(data) = &self.data else {
-            return None;
-        };
-        T::try_from_slice(&data.contents).ok()
-    }
-}
-
-fn from_base64<'a, D: Deserializer<'a>>(deserializer: D) -> Result<Vec<u8>, D::Error> {
-    use serde::de::Error;
-    <String as Deserialize>::deserialize(deserializer).and_then(|string| {
-        b64.decode(&string)
-            .map_err(|err| Error::custom(err.to_string()))
-    })
-}
-
-fn as_base64<T: AsRef<[u8]>, S: Serializer>(v: &T, serializer: S) -> Result<S::Ok, S::Error> {
-    serializer.serialize_str(&b64.encode(v.as_ref()))
+/// Trait for types that have an associated Turbo OS program ID.
+///
+/// # Associated Constants
+/// - `PROGRAM_ID`: A static string slice uniquely identifying the program.
+pub trait HasProgramId {
+    /// A Turbo OS program ID used for file paths and command routing.
+    const PROGRAM_ID: &'static str;
 }

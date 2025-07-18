@@ -1,4 +1,4 @@
-#![allow(unused, static_mut_refs, unexpected_cfgs)]
+#![allow(static_mut_refs, unexpected_cfgs)]
 
 pub mod audio;
 
@@ -14,7 +14,14 @@ pub use input::*;
 pub mod input;
 
 pub mod os;
-pub use os::server::{channel::ChannelHandler, command::CommandHandler};
+pub use os::{
+    client::WatchDocument,
+    server::{
+        channel::{ChannelHandler, ChannelSettings},
+        command::CommandHandler,
+    },
+    HasProgramId,
+};
 
 pub use sys::*;
 pub mod sys;
@@ -29,4 +36,4 @@ pub use serde;
 pub use serde_json;
 pub use serde_json::json;
 
-pub use turbo_genesis_macros::{channel, command, game, program, serialize};
+pub use turbo_genesis_macros::{game, serialize};

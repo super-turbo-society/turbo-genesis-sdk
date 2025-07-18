@@ -1,5 +1,4 @@
 use super::{flags, quad, utils};
-use crate::bounds::Bounds;
 use num_traits::NumCast;
 use quad::Quad;
 

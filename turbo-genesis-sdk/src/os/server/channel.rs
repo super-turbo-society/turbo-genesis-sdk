@@ -1,5 +1,4 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-use std::collections::BTreeMap;
 
 /// Channel settings
 #[derive(Debug, Clone)]
@@ -103,16 +102,16 @@ pub trait ChannelHandler {
     type Send: BorshSerialize;
     type Recv: BorshDeserialize;
     fn new() -> Self;
-    fn on_open(&mut self, settings: &mut ChannelSettings) -> Result<(), std::io::Error> {
+    fn on_open(&mut self, _settings: &mut ChannelSettings) -> Result<(), std::io::Error> {
         Ok(())
     }
-    fn on_connect(&mut self, user_id: &str) -> Result<(), std::io::Error> {
+    fn on_connect(&mut self, _user_id: &str) -> Result<(), std::io::Error> {
         Ok(())
     }
-    fn on_disconnect(&mut self, user_id: &str) -> Result<(), std::io::Error> {
+    fn on_disconnect(&mut self, _user_id: &str) -> Result<(), std::io::Error> {
         Ok(())
     }
-    fn on_data(&mut self, user_id: &str, data: Self::Recv) -> Result<(), std::io::Error> {
+    fn on_data(&mut self, _user_id: &str, _data: Self::Recv) -> Result<(), std::io::Error> {
         Ok(())
     }
     fn on_interval(&mut self) -> Result<(), std::io::Error> {

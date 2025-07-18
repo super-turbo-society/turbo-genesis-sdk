@@ -1,27 +1,25 @@
-use borsh::{BorshDeserialize, BorshSerialize};
+//! OS server interface
+//!
+//! This module exposes functions and macros for interacting with the host OS server
+//! environment, including random number generation, time access, event emission,
+//! and convenience macros for alerts and error bailing.
+
+use borsh::BorshDeserialize;
 
 pub mod channel;
 pub mod command;
 pub mod fs;
 
-/// Fills and returns a randomly generated value of any Copy type
-#[deprecated = "Use the random module instead. For example: random::u32()"]
-pub fn random_number<T: Default + Copy>() -> T {
-    let len = std::mem::size_of::<T>();
-    let buf: &mut [u8; 32] = &mut [0u8; 32];
-    turbo_genesis_ffi::os::server::random_bytes(buf.as_mut_ptr(), len);
-    let mut arr = [0u8; 32];
-    arr[..len].copy_from_slice(&buf[..len]);
-    unsafe { std::ptr::read_unaligned(arr.as_ptr() as *const T) }
-}
-
-/// Returns the number of seconds since the Unix epoch
-#[deprecated = "Use the time module instead. For example: time::now()"]
-pub fn now() -> u32 {
-    unsafe { turbo_genesis_ffi::os::server::secs_since_unix_epoch() }
-}
-
-/// Emits a custom event with type and payload
+/// Emits a custom event to the OS server with a given type and payload.
+///
+/// # Parameters
+/// - `event_type`: A string slice identifying the event type.
+/// - `data`: A byte slice containing the event payload.
+///
+/// # Example
+/// ```ignore
+/// emit("userLogin", &[1,2,3]);
+/// ```
 pub fn emit(event_type: &str, data: &[u8]) {
     turbo_genesis_ffi::os::server::emit_event(
         event_type.as_ptr(),
@@ -31,21 +29,33 @@ pub fn emit(event_type: &str, data: &[u8]) {
     );
 }
 
-/// Macro to emit an `alert` event with a formatted string
+/// Internal macro: format and emit an `alert` event.
+///
+/// # Usage
+/// ```ignore
+/// alert!("Value exceeded: {}", threshold);
+/// ```
 #[doc(hidden)]
 #[macro_export]
 macro_rules! __os_server_alert__ {
     ($($arg:tt)*) => {{
+        // Construct the message string
         let message = format!($($arg)*);
-        let bytes = message.as_bytes();
-        $crate::os::server::emit("alert", bytes);
+        // Emit as bytes under the "alert" type
+        $crate::os::server::emit("alert", message.as_bytes());
     }};
 }
 
+/// Public alias for `__os_server_alert__`, emits a formatted alert event.
 #[doc(inline)]
 pub use __os_server_alert__ as alert;
 
-/// Macro to easily return a custom error with a formatted message
+/// Internal macro: bail early with a formatted I/O error.
+///
+/// # Usage
+/// ```ignore
+/// bail!("Invalid state: {}", reason);
+/// ```
 #[doc(hidden)]
 #[macro_export]
 macro_rules! __os_server_bail__ {
@@ -54,5 +64,6 @@ macro_rules! __os_server_bail__ {
     };
 }
 
+/// Public alias for `__os_server_bail__`, returns a formatted `io::Error`.
 #[doc(inline)]
 pub use __os_server_bail__ as bail;
