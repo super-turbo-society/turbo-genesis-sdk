@@ -130,8 +130,9 @@ impl<Tx: BorshSerialize, Rx: BorshDeserialize> ChannelConnection<Tx, Rx> {
     /// * `Err(io::Error)` if connection failed, no messages, or deserialization failed.
     #[inline]
     pub fn recv(&self) -> io::Result<Rx> {
-        const STATUS_PENDING: u32 = 1;
-        const STATUS_FAILED: u32 = 2;
+        const STATUS_OK: u32 = 0;
+        const STATUS_EMPTY: u32 = 1;
+        const STATUS_NOT_CONNECTED: u32 = 2;
 
         let data = &mut [0; 4096]; // Buffer for received data
         let mut data_len = 0;
@@ -152,27 +153,16 @@ impl<Tx: BorshSerialize, Rx: BorshDeserialize> ChannelConnection<Tx, Rx> {
         );
 
         match status {
-            STATUS_PENDING | STATUS_FAILED => Err(io::Error::new(
-                io::ErrorKind::NotConnected,
-                "Connection closed",
-            )),
-            _ if data_len > 0 => {
-                let slice = &data[..data_len as usize];
-                Ok(Rx::try_from_slice(slice).map_err(|_| {
-                    io::Error::new(
-                        io::ErrorKind::InvalidData,
-                        "Failed to deserialize recv data",
-                    )
-                })?)
-            }
-            _ if err_len > 0 => Err(io::Error::new(
+            STATUS_OK => Rx::try_from_slice(&data[..data_len as usize]),
+            STATUS_EMPTY => Err(io::Error::new(
                 io::ErrorKind::Other,
+                "Message queue is empty",
+            )),
+            STATUS_NOT_CONNECTED if err_len > 0 => Err(io::Error::new(
+                io::ErrorKind::NotConnected,
                 String::from_utf8_lossy(&err[..err_len as usize]).to_string(),
             )),
-            _ => Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "No data received",
-            )),
+            _ => Err(io::Error::new(io::ErrorKind::NotConnected, "Network error")),
         }
     }
 }
