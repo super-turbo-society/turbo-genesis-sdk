@@ -5,7 +5,7 @@
 //! querying mouse position, button states, and intersection with bounding boxes, as well as
 //! transforming mouse coordinates according to the current camera view.
 
-use crate::{bounds::Bounds, canvas};
+use crate::{bounds::Bounds, camera, canvas};
 use borsh::BorshDeserialize;
 use std::ops::Deref;
 use turbo_genesis_abi::TurboMouse;
@@ -103,7 +103,7 @@ pub fn world() -> WorldMouse {
     };
 
     // Get current camera transform: position (x, y) and zoom (z).
-    let (x, y, z) = canvas::camera::xyz();
+    let (x, y, z) = camera::xyz();
 
     // Get the canvas resolution in pixels.
     let (w, h) = canvas::resolution();

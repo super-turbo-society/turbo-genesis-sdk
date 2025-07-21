@@ -8,6 +8,8 @@ pub mod bounds;
 pub use canvas::*;
 pub mod canvas;
 
+pub mod camera;
+
 pub mod encoding;
 
 pub use input::*;

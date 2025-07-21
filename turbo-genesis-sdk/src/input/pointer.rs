@@ -5,7 +5,7 @@
 //! It defines types and functions to query the current pointer state, position, and interactions
 //! with bounding boxes, supporting both screen and world coordinate systems.
 
-use crate::{bounds::Bounds, canvas};
+use crate::{bounds::Bounds, camera, canvas};
 use borsh::BorshDeserialize;
 use std::ops::Deref;
 use turbo_genesis_abi::{TurboMouse, TurboPointer};
@@ -109,7 +109,7 @@ pub fn world() -> WorldPointer {
     };
 
     // Get current camera transform: position (x, y) and zoom (z).
-    let (x, y, z) = canvas::camera::xyz();
+    let (x, y, z) = camera::xyz();
 
     // Get screen resolution in pixels.
     let (w, h) = canvas::resolution();

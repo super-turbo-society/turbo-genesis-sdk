@@ -34,7 +34,7 @@ use std::ops::Add;
 /// This is typically used to position bounds relative to game objects.
 pub fn world() -> Bounds {
     let (w, h) = crate::canvas::resolution();
-    let (x, y, z) = crate::canvas::camera::xyz();
+    let (x, y, z) = crate::camera::xyz();
     let w = (w as f32 * (1. / z)) as u32;
     let h = (h as f32 * (1. / z)) as u32;
     let x = (x as f32 - (w as f32 / 2.)) as i32;

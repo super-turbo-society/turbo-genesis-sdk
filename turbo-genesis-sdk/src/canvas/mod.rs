@@ -9,7 +9,6 @@ use num_traits::NumCast;
 
 // Modules and re-exports
 pub mod animation;
-pub mod camera;
 pub mod circ;
 pub mod ellipse;
 pub mod flags;

@@ -275,7 +275,7 @@ impl Circle {
 
         // If absolute positioning is enabled, adjust coordinates relative to the camera.
         if self.quad.absolute {
-            let (cx, cy) = crate::canvas::camera::xy(); // Retrieve camera coordinates.
+            let (cx, cy) = crate::camera::xy(); // Retrieve camera coordinates.
             let (w, h) = crate::canvas::resolution(); // Get canvas dimensions.
             dx += cx as i32 - (w as i32 / 2); // Center the sprite horizontally.
             dy += cy as i32 - (h as i32 / 2); // Center the sprite vertically.

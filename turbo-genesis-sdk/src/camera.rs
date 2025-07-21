@@ -1,5 +1,42 @@
-use crate::{bounds::Bounds, time, tween::*, Easing};
+//! Camera Control Module
+//!
+//! Provides a comprehensive API for querying and manipulating the in-game camera:
+//!
+//! - **Position Accessors**:  
+//!   - `xyz()`, `xy()`, `x()`, `y()`, `z()` to read the current camera coordinates and zoom.  
+//! - **Immediate Setters**:  
+//!   - `set_xyz`, `set_xy`, `set_x`, `set_y`, `set_z` for instant camera moves.  
+//!   - `move_xyz`, `move_xy`, `move_x`, `move_y`, `move_z` to adjust relative to the current position.  
+//!   - `reset`, `reset_x`, `reset_y`, `reset_xy`, `reset_z` to center or reset zoom.  
+//!   - Deprecated focus helpers (`focus_rect`, `focus_bounds`, `focus`) for centering on targets.
+//!
+//! - **Shake Effect**:  
+//!   - `shake(amount)`, `is_shaking()`, `shake_amount()`, `remove_shake()` for screen‐space camera shake.  
+//!   - Automatically restores original origin and applies randomized offsets.
+//!
+//! - **Pan/Tween**:  
+//!   - `pan_xyz`, `pan_xy`, `pan_x`, `pan_y` to smoothly interpolate the camera over a duration with easing.  
+//!   - `update()` to drive ongoing tweens and apply shake each frame.
+//!
+//! Internals use FFI calls to `turbo_genesis_ffi::canvas` for actual camera updates and
+//! a `Tween<(f32, f32, f32)>` under the hood for timed animations.  
+
+use crate::{time, tween::*, Easing};
 use num_traits::NumCast;
+
+/// Stores the last tick and the original camera center (before shake)
+#[derive(Clone, Copy)]
+struct ShakeEffect {
+    origin: (f32, f32),
+    amount: usize,
+}
+
+/// Global optional shake effect state.
+/// When `Some`, the camera will be shaken around `origin` by `amount` pixels.
+static mut SHAKE_EFFECT: Option<ShakeEffect> = None;
+
+/// Internal optional tween state for smooth camera pans.
+static mut CAMERA_TWEEN: Option<Tween<(f32, f32, f32)>> = None;
 
 /// Retrieves the current camera position as an (x, y, z) tuple.
 /// The values are filled by calling the FFI function `get_camera2`.
@@ -143,51 +180,10 @@ pub fn reset_z() {
     set_xyz(x, y, 1.0)
 }
 
-/// Centers the camera on a target rectangle defined by (x, y, w, h).
-///
-/// # Parameters
-/// - `x`, `y`: The top-left coordinates of the target rectangle.
-/// - `w`, `h`: The width and height of the target rectangle.
-#[deprecated = "use camera::focus instead"]
-pub fn focus_rect<X: NumCast, Y: NumCast, W: NumCast, H: NumCast>(x: X, y: Y, w: W, h: H) {
-    let x: f32 = NumCast::from(x).unwrap_or(0.0);
-    let y: f32 = NumCast::from(y).unwrap_or(0.0);
-    let w: f32 = NumCast::from(w).unwrap_or(0.0);
-    let h: f32 = NumCast::from(h).unwrap_or(0.0);
-    // Compute the center of the target rectangle.
-    let target_x = x + w / 2.0;
-    let target_y = y + h / 2.0;
-    // Center the camera on the computed target center.
-    set_xy(target_x, target_y);
-}
-
-/// Centers the camera on a target Bounds.
-#[deprecated = "use camera::focus instead"]
-pub fn focus_bounds(bounds: &Bounds) {
-    let x = bounds.x as f32;
-    let y = bounds.y as f32;
-    let w = bounds.w as f32;
-    let h = bounds.h as f32;
-    // Compute the center of the target rectangle.
-    let target_x = x + w / 2.0;
-    let target_y = y + h / 2.0;
-    // Center the camera on the computed target center.
-    set_xy(target_x, target_y);
-}
-
 /// Centers the camera on a target x and y position.
 pub fn focus((x, y): (i32, i32)) {
     set_xy(x, y);
 }
-
-/// Stores the last tick and the original camera center (before shake)
-#[derive(Clone, Copy)]
-struct ShakeEffect {
-    origin: (f32, f32),
-    amount: usize,
-}
-
-static mut SHAKE_EFFECT: Option<ShakeEffect> = None;
 
 /// Applies a screen-space shake around the last known stable camera position.
 /// Automatically updates the origin if the last shake was more than 1 frame ago.
@@ -214,36 +210,23 @@ pub fn shake<N: NumCast>(amount: N) {
     }
 }
 
+/// Returns the current shake intensity (in pixels).
 pub fn shake_amount() -> usize {
     unsafe { SHAKE_EFFECT.map_or(0, |shake| shake.amount) }
 }
 
+/// Returns `true` if a shake effect is currently active.
 pub fn is_shaking() -> bool {
     unsafe { SHAKE_EFFECT.map_or(0, |shake| shake.amount) > 0 }
 }
 
-pub fn reset_shake() {
+/// Stops any ongoing camera shake and restores the original position.
+pub fn remove_shake() {
     shake(0)
 }
 
-static mut CAMERA_TWEEN: Option<Tween<(f32, f32, f32)>> = None;
-
-/// Resets the CAMERA_TWEEN so camera movement is no longer tweened
-fn reset_camera_tween() {
-    unsafe {
-        CAMERA_TWEEN = None;
-    }
-}
-
-fn update_shake_origin() {
-    unsafe {
-        if let Some(shake) = SHAKE_EFFECT.as_mut() {
-            shake.origin = xy();
-        }
-    }
-}
-
-/// Eases the camera toward `target` over `duration` ticks using `easing`. Returns `true` when transition is done.
+/// Eases the camera toward `target` over `duration` ticks using `easing`.
+/// Returns `true` when the transition is complete.
 pub fn pan_xyz<X: NumCast, Y: NumCast>(
     target: (X, Y, f32),
     duration: usize,
@@ -287,18 +270,46 @@ pub fn pan_xyz<X: NumCast, Y: NumCast>(
     }
 }
 
+/// Eases the camera in x and y toward `target`, preserving the current zoom.
+/// Returns `true` when the transition is complete.
 pub fn pan_xy<X: NumCast, Y: NumCast>(target: (X, Y), duration: usize, easing: Easing) -> bool {
     pan_xyz((target.0, target.1, z()), duration, easing)
 }
 
-pub fn pan_x<X: NumCast>(target: X, duration: usize, easing: Easing) -> bool {
-    pan_xyz((target, y(), z()), duration, easing)
+/// Eases the camera’s x coordinate toward `x`, preserving y and zoom.
+pub fn pan_x<X: NumCast>(x: X, duration: usize, easing: Easing) -> bool {
+    pan_xyz((x, y(), z()), duration, easing)
 }
 
-pub fn pan_y<Y: NumCast>(target: Y, duration: usize, easing: Easing) -> bool {
-    pan_xyz((x(), target, z()), duration, easing)
+/// Eases the camera’s y coordinate toward `y`, preserving x and zoom.
+pub fn pan_y<Y: NumCast>(y: Y, duration: usize, easing: Easing) -> bool {
+    pan_xyz((x(), y, z()), duration, easing)
 }
 
+/// Eases the camera’s zoom to the `z` zoom level, preserving x and y position.
+pub fn pan_z(z: f32, duration: usize, easing: Easing) -> bool {
+    let (x, y) = xy();
+    pan_xyz((x, y, z), duration, easing)
+}
+
+/// Resets the CAMERA_TWEEN so camera movement is no longer tweened
+fn reset_camera_tween() {
+    unsafe {
+        CAMERA_TWEEN = None;
+    }
+}
+
+/// Updates the shake origin to the current camera position.
+fn update_shake_origin() {
+    unsafe {
+        if let Some(shake) = SHAKE_EFFECT.as_mut() {
+            shake.origin = xy();
+        }
+    }
+}
+
+/// Internal update loop for active tweens and shakes.
+/// Should be called once per frame to drive smooth camera movement.
 pub fn update() {
     unsafe {
         if let Some(tween) = CAMERA_TWEEN.as_mut() {
