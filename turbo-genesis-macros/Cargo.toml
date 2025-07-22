@@ -1,6 +1,6 @@
 [package]
 name = "turbo-genesis-macros"
-version = "1.0.0-alpha.9"
+version = "1.0.0-alpha.10"
 edition = "2021"
 description = "Turbo Genesis SDK Macros"
 license = "MIT"

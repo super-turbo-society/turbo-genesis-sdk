@@ -20,10 +20,7 @@ use std::{
     path::{Path, PathBuf},
 };
 use syn::{
-    parse::{Parse, ParseStream},
-    parse_macro_input,
-    spanned::Spanned,
-    Error, Item, ItemEnum, ItemStruct, LitStr,
+    parse::{Parse, ParseStream}, parse_macro_input, spanned::Spanned, Error, Fields, Item, ItemEnum, ItemStruct, LitStr
 };
 use turbo_genesis_abi::{
     TurboProgramChannelMetadata, TurboProgramCommandMetadata, TurboProgramMetadata,
@@ -156,8 +153,17 @@ pub fn serialize(_attr: TokenStream, item: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn game(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let item = parse_macro_input!(item as Item);
-    let ident = match &item {
-        Item::Struct(ItemStruct { ident, .. }) | Item::Enum(ItemEnum { ident, .. }) => ident,
+    let (ident, default_state) = match &item {
+        Item::Struct(ItemStruct { ident, fields, .. }) => {
+            if *fields == Fields::Unit {
+                (ident, quote! { #ident })
+            } else if fields.is_empty() {
+                (ident, quote! { #ident {} })
+            } else {
+                (ident, quote! { #ident::new() })
+            }
+        }
+        Item::Enum(ItemEnum { ident, .. }) => (ident, quote! { #ident::new() }),
         _ => {
             return quote! {
                 compile_error!("#[turbo::game] only supports structs and enums.");
@@ -175,10 +181,10 @@ pub fn game(_attr: TokenStream, item: TokenStream) -> TokenStream {
         pub unsafe extern "C" fn run() {
             use turbo::borsh::*;
             let mut state = match hot::load() {
-                Ok(bytes) => <#ident>::try_from_slice(&bytes).unwrap_or_else(|_| #ident::new()),
+                Ok(bytes) => <#ident>::try_from_slice(&bytes).unwrap_or_else(|_| #default_state),
                 Err(err) => {
                     log!("[turbo] Hot reload deserialization failed: {err:?}");
-                    #ident::new()
+                    #default_state
                 },
             };
             state.update();
@@ -194,7 +200,7 @@ pub fn game(_attr: TokenStream, item: TokenStream) -> TokenStream {
         #[cfg(all(not(turbo_hot_reload), not(turbo_no_run)))]
         pub unsafe extern "C" fn run() {
             static mut GAME_STATE: Option<#ident> = None;
-            let mut state = GAME_STATE.take().unwrap_or_else(|| #ident::new());
+            let mut state = GAME_STATE.take().unwrap_or_else(|| #default_state);
             state.update();
             turbo::camera::update();
             GAME_STATE = Some(state);
