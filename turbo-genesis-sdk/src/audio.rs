@@ -129,16 +129,14 @@ pub fn unmute(name: &str) {
     set_volume(name, vol);
 }
 
-/// Get the current volume of a sound in linear scale (0.0 to 1.0).
+/// Get the playback position.
 ///
-/// Internally converts decibels to linear percentage via `10^(dB/10)`.
-/// Values below 0.0001 are clamped to 0.0.
 ///
 /// # Parameters
 /// - `name`: Identifier of the sound asset.
 ///
 /// # Returns
-/// - `f32` volume in [0.0, 1.0].
+/// - `f32` for seconds.
 pub fn get_playback_position(name: &str) -> f32 {
     let ptr = name.as_ptr();
     let len = name.len() as u32;
