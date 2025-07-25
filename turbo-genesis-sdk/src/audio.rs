@@ -128,3 +128,19 @@ pub fn unmute(name: &str) {
     let vol = UNMUTE_VOLUMES.with(|map| *map.borrow().get(name).unwrap_or(&1.0));
     set_volume(name, vol);
 }
+
+/// Get the current volume of a sound in linear scale (0.0 to 1.0).
+///
+/// Internally converts decibels to linear percentage via `10^(dB/10)`.
+/// Values below 0.0001 are clamped to 0.0.
+///
+/// # Parameters
+/// - `name`: Identifier of the sound asset.
+///
+/// # Returns
+/// - `f32` volume in [0.0, 1.0].
+pub fn get_playback_position(name: &str) -> f32 {
+    let ptr = name.as_ptr();
+    let len = name.len() as u32;
+    turbo_genesis_ffi::audio::get_playback_position(ptr, len)
+}

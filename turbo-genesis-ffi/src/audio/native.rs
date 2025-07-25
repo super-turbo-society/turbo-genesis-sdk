@@ -19,3 +19,7 @@ pub fn get_volume(key_ptr: *const u8, key_len: u32) -> f32 {
 }
 
 pub fn set_volume(key_ptr: *const u8, key_len: u32, decibels: f32) {}
+
+pub fn get_playback_position(key_ptr: *const u8, key_len: u32) -> f32 {
+    0.0
+}
