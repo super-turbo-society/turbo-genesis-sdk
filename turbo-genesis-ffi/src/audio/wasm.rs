@@ -2,25 +2,25 @@
 #[link(wasm_import_module = "@turbo_genesis/audio")]
 unsafe extern "C" {
     #[link_name = "play_sound"]
-    fn _play_sound(key_ptr: *const u8, key_len: u32) -> u32;
+    unsafe fn _play_sound(key_ptr: *const u8, key_len: u32) -> u32;
 
     #[link_name = "pause_sound"]
-    fn _pause_sound(key_ptr: *const u8, key_len: u32) -> u32;
+    unsafe fn _pause_sound(key_ptr: *const u8, key_len: u32) -> u32;
 
     #[link_name = "stop_sound"]
-    fn _stop_sound(key_ptr: *const u8, key_len: u32) -> u32;
+    unsafe fn _stop_sound(key_ptr: *const u8, key_len: u32) -> u32;
 
     #[link_name = "is_sound_playing"]
-    fn _is_sound_playing(key_ptr: *const u8, key_len: u32) -> u32;
+    unsafe fn _is_sound_playing(key_ptr: *const u8, key_len: u32) -> u32;
 
     #[link_name = "get_volume"]
-    fn _get_volume(key_ptr: *const u8, key_len: u32) -> f32;
+    unsafe fn _get_volume(key_ptr: *const u8, key_len: u32) -> f32;
 
     #[link_name = "set_volume"]
-    fn _set_volume(key_ptr: *const u8, key_len: u32, decibels: f32);
+    unsafe fn _set_volume(key_ptr: *const u8, key_len: u32, decibels: f32);
 
     #[link_name = "get_sound_state"]
-    fn _get_sound_state(key_ptr: *const u8, key_len: u32) -> f32;
+    unsafe fn _get_sound_state(key_ptr: *const u8, key_len: u32) -> f32;
 }
 
 pub fn play_sound(key_ptr: *const u8, key_len: u32) -> u32 {
