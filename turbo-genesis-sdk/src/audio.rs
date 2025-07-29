@@ -142,3 +142,17 @@ pub fn seek_to(name: &str, seconds: f64) {
 
     turbo_genesis_ffi::audio::seek_to(ptr, len, seconds);
 }
+
+/// Get duration of sound
+/// Checks to make sure the duraction of the entire piece is longer than seconds given.
+///
+///
+/// # Parameters
+/// - `name`: Identifier of the sound asset.
+/// - `seconds`: Desired seconds.
+pub fn get_duration(name: &str) {
+    let ptr = name.as_ptr();
+    let len = name.len() as u32;
+
+    turbo_genesis_ffi::audio::get_duration(ptr, len);
+}

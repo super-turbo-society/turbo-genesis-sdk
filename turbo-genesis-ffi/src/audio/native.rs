@@ -21,3 +21,7 @@ pub fn get_volume(key_ptr: *const u8, key_len: u32) -> f32 {
 pub fn set_volume(key_ptr: *const u8, key_len: u32, decibels: f32) {}
 
 pub fn seek_to(key_ptr: *const u8, key_len: u32, seconds: f64) {}
+
+pub fn get_duration(key_ptr: *const u8, key_len: u32) -> f64 {
+    0.0
+}
