@@ -136,7 +136,7 @@ pub fn unmute(name: &str) {
 /// # Parameters
 /// - `name`: Identifier of the sound asset.
 /// - `seconds`: Desired seconds.
-pub fn seek_to(name: &str, seconds: f32) {
+pub fn seek_to(name: &str, seconds: f64) {
     let ptr = name.as_ptr();
     let len = name.len() as u32;
 
