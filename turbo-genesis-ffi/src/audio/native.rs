@@ -19,3 +19,7 @@ pub fn get_volume(key_ptr: *const u8, key_len: u32) -> f32 {
 }
 
 pub fn set_volume(key_ptr: *const u8, key_len: u32, decibels: f32) {}
+
+pub fn set_playback_rate_factor(key_ptr: *const u8, key_len: u32, factor: f64) {}
+
+pub fn set_playback_rate_semitones(key_ptr: *const u8, key_len: u32, semitones: f64) {}
