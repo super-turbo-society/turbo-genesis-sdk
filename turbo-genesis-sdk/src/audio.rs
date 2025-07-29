@@ -144,8 +144,6 @@ pub fn seek_to(name: &str, seconds: f64) {
 }
 
 /// Get duration of sound
-/// Checks to make sure the duraction of the entire piece is longer than seconds given.
-///
 ///
 /// # Parameters
 /// - `name`: Identifier of the sound asset.
