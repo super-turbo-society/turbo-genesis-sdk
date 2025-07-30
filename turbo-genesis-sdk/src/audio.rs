@@ -145,7 +145,7 @@ pub fn set_playback_rate_factor(name: &str, factor: f64) {
 
 /// Set the playback rate of the sound based on semitones.
 ///
-/// Values are clamped to between 0.5. or 2.
+/// Values are clamped to between -12 and 12.
 ///
 /// # Parameters
 /// - `name`: Identifier of the sound asset.
