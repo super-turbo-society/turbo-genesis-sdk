@@ -15,8 +15,8 @@ unsafe extern "C" {
     unsafe fn _set_volume(key_ptr: *const u8, key_len: u32, decibels: f32);
     #[link_name = "set_playback_rate_factor"]
     unsafe fn _set_playback_rate_factor(key_ptr: *const u8, key_len: u32, factor: f64);
-    #[link_name = "set_playbck_rate_semitones"]
-    unsafe fn _set_playbck_rate_semitones(key_ptr: *const u8, key_len: u32, semitones: f64);
+    #[link_name = "set_playback_rate_semitones"]
+    unsafe fn _set_playback_rate_semitones(key_ptr: *const u8, key_len: u32, semitones: f64);
 }
 
 pub fn play_sound(key_ptr: *const u8, key_len: u32) -> u32 {
