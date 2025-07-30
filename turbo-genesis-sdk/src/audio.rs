@@ -128,3 +128,29 @@ pub fn unmute(name: &str) {
     let vol = UNMUTE_VOLUMES.with(|map| *map.borrow().get(name).unwrap_or(&1.0));
     set_volume(name, vol);
 }
+
+/// Set playback time to seconds indicated.
+/// Checks to make sure the duraction of the entire piece is longer than seconds given.
+///
+///
+/// # Parameters
+/// - `name`: Identifier of the sound asset.
+/// - `seconds`: Desired seconds.
+pub fn seek_to(name: &str, seconds: f64) {
+    let ptr = name.as_ptr();
+    let len = name.len() as u32;
+
+    turbo_genesis_ffi::audio::seek_to(ptr, len, seconds);
+}
+
+/// Get duration of sound
+///
+/// # Parameters
+/// - `name`: Identifier of the sound asset.
+/// - `seconds`: Desired seconds.
+pub fn get_duration(name: &str) {
+    let ptr = name.as_ptr();
+    let len = name.len() as u32;
+
+    turbo_genesis_ffi::audio::get_duration(ptr, len);
+}

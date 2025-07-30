@@ -13,6 +13,10 @@ unsafe extern "C" {
     unsafe fn _get_volume(key_ptr: *const u8, key_len: u32) -> f32;
     #[link_name = "set_volume"]
     unsafe fn _set_volume(key_ptr: *const u8, key_len: u32, decibels: f32);
+    #[link_name = "seek_to"]
+    unsafe fn _seek_to(key_ptr: *const u8, key_len: u32, seconds: f64);
+    #[link_name = "get_duration"]
+    unsafe fn _get_duration(key_ptr: *const u8, key_len: u32);
 }
 
 pub fn play_sound(key_ptr: *const u8, key_len: u32) -> u32 {
@@ -37,4 +41,12 @@ pub fn get_volume(key_ptr: *const u8, key_len: u32) -> f32 {
 
 pub fn set_volume(key_ptr: *const u8, key_len: u32, decibels: f32) {
     unsafe { _set_volume(key_ptr, key_len, decibels) }
+}
+
+pub fn seek_to(key_ptr: *const u8, key_len: u32, seconds: f64) {
+    unsafe { _seek_to(key_ptr, key_len, seconds) }
+}
+
+pub fn get_duration(key_ptr: *const u8, key_len: u32) -> f64 {
+    unsafe { _get_duration(key_ptr, key_len) }
 }
