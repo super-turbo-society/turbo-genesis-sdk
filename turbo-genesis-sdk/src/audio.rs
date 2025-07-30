@@ -128,3 +128,31 @@ pub fn unmute(name: &str) {
     let vol = UNMUTE_VOLUMES.with(|map| *map.borrow().get(name).unwrap_or(&1.0));
     set_volume(name, vol);
 }
+
+/// Set the playback rate of the sound.
+///
+/// Values are clamped to between 0.5. or 2.
+///
+/// # Parameters
+/// - `name`: Identifier of the sound asset.
+/// - `factor`: Desired factor amount.
+pub fn set_playback_rate_factor(name: &str, factor: f64) {
+    let ptr = name.as_ptr();
+    let len = name.len() as u32;
+
+    turbo_genesis_ffi::audio::set_playback_rate_factor(ptr, len, factor);
+}
+
+/// Set the playback rate of the sound based on semitones.
+///
+/// Values are clamped to between -12 and 12.
+///
+/// # Parameters
+/// - `name`: Identifier of the sound asset.
+/// - `semitones`: semitone up or down
+pub fn set_playback_rate_semitones(name: &str, semitones: f64) {
+    let ptr = name.as_ptr();
+    let len = name.len() as u32;
+
+    turbo_genesis_ffi::audio::set_playback_rate_semitones(ptr, len, semitones);
+}
