@@ -21,22 +21,50 @@
 //! Internals use FFI calls to `turbo_genesis_ffi::canvas` for actual camera updates and
 //! a `Tween<(f32, f32, f32)>` under the hood for timed animations.  
 
-use crate::{time, tween::*, Easing};
+use crate::{sys, time, tween::*, Easing};
+use borsh::{BorshDeserialize, BorshSerialize};
 use num_traits::NumCast;
 
+static mut CAMERA_STATE: CameraState = CameraState::new();
+
+#[derive(Clone, Copy, Debug, Default, BorshDeserialize, BorshSerialize)]
+struct CameraState {
+    /// Optional camera shake effect
+    shake_effect: Option<CameraShakeEffect>,
+    /// Optional tween state for smooth camera pans.
+    position_tween: Option<Tween<(f32, f32, f32)>>,
+}
+impl CameraState {
+    const fn new() -> Self {
+        Self {
+            shake_effect: None,
+            position_tween: None,
+        }
+    }
+    fn get_mut() -> &'static mut Self {
+        unsafe { &mut CAMERA_STATE }
+    }
+    fn save() -> Result<(), std::io::Error> {
+        let cam_state = Self::get_mut();
+        let data = borsh::to_vec(cam_state)?;
+        sys::internal::set("camera", &data)
+    }
+    fn load() -> Result<(), std::io::Error> {
+        let data = sys::internal::get("camera")?;
+        let cam_state = Self::try_from_slice(&data)?;
+        unsafe {
+            CAMERA_STATE = cam_state;
+        }
+        Ok(())
+    }
+}
+
 /// Stores the last tick and the original camera center (before shake)
-#[derive(Clone, Copy)]
-struct ShakeEffect {
+#[derive(Clone, Copy, Debug, Default, BorshDeserialize, BorshSerialize)]
+struct CameraShakeEffect {
     origin: (f32, f32),
     amount: usize,
 }
-
-/// Global optional shake effect state.
-/// When `Some`, the camera will be shaken around `origin` by `amount` pixels.
-static mut SHAKE_EFFECT: Option<ShakeEffect> = None;
-
-/// Internal optional tween state for smooth camera pans.
-static mut CAMERA_TWEEN: Option<Tween<(f32, f32, f32)>> = None;
 
 /// Retrieves the current camera position as an (x, y, z) tuple.
 /// The values are filled by calling the FFI function `get_camera2`.
@@ -185,42 +213,41 @@ pub fn focus((x, y): (i32, i32)) {
     set_xy(x, y);
 }
 
-/// Applies a screen-space shake around the last known stable camera position.
-/// Automatically updates the origin if the last shake was more than 1 frame ago.
+/// Applies a screen-space shake amount (in pixels) around the last known stable camera position.
 pub fn shake<N: NumCast>(amount: N) {
     let amount = NumCast::from(amount).unwrap_or_default();
-    unsafe {
-        SHAKE_EFFECT = match SHAKE_EFFECT.take() {
-            // Revert to shake origin
-            Some(shake) if amount == 0 => {
-                let (x, y) = shake.origin;
-                turbo_genesis_ffi::canvas::set_camera(x, y, z());
-                None
-            }
-            // Update shake amount
-            Some(shake) => Some(ShakeEffect { amount, ..shake }),
-            // There is no shake to unset (no-op)
-            None if amount == 0 => None,
-            // Create a shake effect and set the origin
-            None => Some(ShakeEffect {
-                origin: xy(),
-                amount,
-            }),
+    let cam_state = CameraState::get_mut();
+    cam_state.shake_effect = match cam_state.shake_effect.take() {
+        // Revert to shake origin
+        Some(shake) if amount == 0 => {
+            let (x, y) = shake.origin;
+            turbo_genesis_ffi::canvas::set_camera(x, y, z());
+            None
         }
+        // Update shake amount
+        Some(shake) => Some(CameraShakeEffect { amount, ..shake }),
+        // There is no shake to unset (no-op)
+        None if amount == 0 => None,
+        // Create a shake effect and set the origin
+        None => Some(CameraShakeEffect {
+            origin: xy(),
+            amount,
+        }),
     }
 }
 
 /// Returns the current shake intensity (in pixels).
 pub fn shake_amount() -> usize {
-    unsafe { SHAKE_EFFECT.map_or(0, |shake| shake.amount) }
+    let cam_state = CameraState::get_mut();
+    cam_state.shake_effect.map_or(0, |shake| shake.amount)
 }
 
 /// Returns `true` if a shake effect is currently active.
 pub fn is_shaking() -> bool {
-    unsafe { SHAKE_EFFECT.map_or(0, |shake| shake.amount) > 0 }
+    shake_amount() > 0
 }
 
-/// Stops any ongoing camera shake and restores the original position.
+/// Stops any ongoing camera shake and restores the stable position.
 pub fn remove_shake() {
     shake(0)
 }
@@ -232,40 +259,39 @@ pub fn pan_xyz<X: NumCast, Y: NumCast>(
     duration: usize,
     easing: Easing,
 ) -> bool {
-    unsafe {
-        // Get current camera position
-        let curr = xyz();
-        match CAMERA_TWEEN.as_mut() {
-            None => {
-                // Hot reload or initial frame
-                if duration == 0 {
-                    let x: f32 = NumCast::from(target.0).unwrap_or(curr.0);
-                    let y: f32 = NumCast::from(target.1).unwrap_or(curr.1);
-                    let z = target.2;
-                    CAMERA_TWEEN = Some(Tween::new((x, y, z)).duration(0));
-                    turbo_genesis_ffi::canvas::set_camera(x, y, z);
-                    return true;
-                }
-                CAMERA_TWEEN = Some(Tween::new(curr).duration(0));
-                return false;
-            }
-            Some(tween) => {
-                // Initialize on first tick after manual reset
-                if time::tick() == 0 {
-                    *tween = Tween::new(curr).duration(0);
-                    return false;
-                }
-                // Update Tween
+    // Get current camera position
+    let curr = xyz();
+    let cam_state = CameraState::get_mut();
+    match cam_state.position_tween.as_mut() {
+        None => {
+            // Hot reload or initial frame
+            if duration == 0 {
                 let x: f32 = NumCast::from(target.0).unwrap_or(curr.0);
                 let y: f32 = NumCast::from(target.1).unwrap_or(curr.1);
                 let z = target.2;
-                tween.duration(duration);
-                tween.ease(easing);
-                tween.set((x, y, z));
-                let (x, y, z) = tween.get();
+                cam_state.position_tween = Some(Tween::new((x, y, z)).duration(0));
                 turbo_genesis_ffi::canvas::set_camera(x, y, z);
-                return tween.done();
+                return true;
             }
+            cam_state.position_tween = Some(Tween::new(curr).duration(0));
+            return false;
+        }
+        Some(tween) => {
+            // Initialize on first tick after manual reset
+            if time::tick() == 0 {
+                *tween = Tween::new(curr).duration(0);
+                return false;
+            }
+            // Update Tween
+            let x: f32 = NumCast::from(target.0).unwrap_or(curr.0);
+            let y: f32 = NumCast::from(target.1).unwrap_or(curr.1);
+            let z = target.2;
+            tween.duration(duration);
+            tween.ease(easing);
+            tween.set((x, y, z));
+            let (x, y, z) = tween.get();
+            turbo_genesis_ffi::canvas::set_camera(x, y, z);
+            return tween.done();
         }
     }
 }
@@ -292,42 +318,74 @@ pub fn pan_z(z: f32, duration: usize, easing: Easing) -> bool {
     pan_xyz((x, y, z), duration, easing)
 }
 
-/// Resets the CAMERA_TWEEN so camera movement is no longer tweened
+/// Unsets the camera position tween so camera movement is no longer eased
 fn reset_camera_tween() {
-    unsafe {
-        CAMERA_TWEEN = None;
-    }
+    let cam_state = CameraState::get_mut();
+    cam_state.position_tween = None;
 }
 
 /// Updates the shake origin to the current camera position.
 fn update_shake_origin() {
-    unsafe {
-        if let Some(shake) = SHAKE_EFFECT.as_mut() {
-            shake.origin = xy();
-        }
+    let cam_state = CameraState::get_mut();
+    if let Some(shake) = cam_state.shake_effect.as_mut() {
+        shake.origin = xy();
     }
+}
+
+/// Caches the CameraState before a hot reload
+pub(crate) fn on_before_hot_reload() -> Result<(), std::io::Error> {
+    CameraState::save()
+}
+
+/// Hydrates the CameraState after a hot reload
+pub(crate) fn on_after_hot_reload() -> Result<(), std::io::Error> {
+    CameraState::load()
+}
+
+/// Resets the CameraState when the game is manually reset
+pub(crate) fn on_reset() -> Result<(), std::io::Error> {
+    unsafe { CAMERA_STATE = CameraState::new() };
+    Ok(())
 }
 
 /// Internal update loop for active tweens and shakes.
 /// Should be called once per frame to drive smooth camera movement.
-pub fn update() {
-    unsafe {
-        if let Some(tween) = CAMERA_TWEEN.as_mut() {
-            let (mut x, mut y, z) = tween.get();
-            crate::text!("{:?}", (x, y); x = 128 , fixed = true);
-            if let Some(shake) = SHAKE_EFFECT.as_mut() {
-                shake.origin = (x, y);
-                let amount = shake.amount as f32;
-                x += crate::random::between(-amount, amount);
-                y += crate::random::between(-amount, amount);
-            }
-            turbo_genesis_ffi::canvas::set_camera(x, y, z);
-        } else if let Some(shake) = SHAKE_EFFECT.as_mut() {
+pub(crate) fn on_update() -> Result<(), std::io::Error> {
+    match CameraState::get_mut() {
+        CameraState {
+            shake_effect: None,
+            position_tween: None,
+        } => {
+            // no-op
+        }
+        CameraState {
+            shake_effect: Some(shake),
+            position_tween: None,
+        } => {
             let (x, y) = shake.origin;
             let amount = shake.amount as f32;
             let x = x + crate::random::between(-amount, amount);
             let y = y + crate::random::between(-amount, amount);
             turbo_genesis_ffi::canvas::set_camera(x, y, z());
         }
+        CameraState {
+            shake_effect: None,
+            position_tween: Some(position),
+        } => {
+            let (x, y, z) = position.get();
+            turbo_genesis_ffi::canvas::set_camera(x, y, z);
+        }
+        CameraState {
+            shake_effect: Some(shake),
+            position_tween: Some(position),
+        } => {
+            let (mut x, mut y, z) = position.get();
+            shake.origin = (x, y);
+            let amount = shake.amount as f32;
+            x += crate::random::between(-amount, amount);
+            y += crate::random::between(-amount, amount);
+            turbo_genesis_ffi::canvas::set_camera(x, y, z);
+        }
     }
+    Ok(())
 }

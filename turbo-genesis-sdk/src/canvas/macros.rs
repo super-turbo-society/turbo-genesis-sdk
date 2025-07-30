@@ -281,11 +281,26 @@ pub use crate::__text_box__ as text_box;
 #[doc(hidden)]
 #[macro_export]
 macro_rules! __text_box__ {
+    // Interpolation + key-value pairs.
+    ($string:expr, $( $arg:expr ),* ; $( $key:ident = $val:expr ),* $(,)*) => {{
+        let string = format!($string, $($arg),*);
+        let mut tb = $crate::canvas::text_box::TextBox::new(&string);
+        $(tb = $crate::__text_box__!(@set tb, $key, $val);)*
+        tb.draw();
+    }};
+    // No interpolation + key-value pairs.
     ($text:expr, $( $key:ident = $val:expr ),* $(,)*) => {{
         let mut tb = $crate::canvas::text_box::TextBox::new($text);
         $(tb = $crate::__text_box__!(@set tb, $key, $val);)*
         tb.draw();
     }};
+    // Interpolation + no key-value pairs.
+    ($string:expr, $( $arg:expr ),*$(,)*) => {{
+        let string = format!($string, $($arg),*);
+        let mut tb = $crate::canvas::text_box::TextBox::new(&string);
+        tb.draw();
+    }};
+    // No interpolation + no key-value pairs.
     ($text:expr) => {{
         let mut tb = $crate::canvas::text_box::TextBox::new($text);
         tb.draw();

@@ -39,3 +39,5 @@ pub use serde_json;
 pub use serde_json::json;
 
 pub use turbo_genesis_macros::{game, serialize};
+
+pub mod lifecycle;
