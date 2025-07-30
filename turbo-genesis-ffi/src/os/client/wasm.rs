@@ -188,9 +188,9 @@ pub fn watch_events(
     program_id_len: u32,
     event_type_ptr: *const u8,
     event_type_len: u32,
-    out_data_ptr: *const u8,
+    out_data_ptr: *mut u8,
     out_data_len_ptr: *mut u32,
-    out_err_ptr: *const u8,
+    out_err_ptr: *mut u8,
     out_err_len_ptr: *mut u32,
 ) -> u32 {
     unsafe {
