@@ -128,3 +128,16 @@ pub fn unmute(name: &str) {
     let vol = UNMUTE_VOLUMES.with(|map| *map.borrow().get(name).unwrap_or(&1.0));
     set_volume(name, vol);
 }
+
+/// Seeks the track using seconds.
+///
+///
+/// # Parameters
+/// - `name`: Identifier of the sound asset.
+/// - `seek_by`: Desired seconds to progress the sound.
+pub fn seek_by(name: &str, seconds: f32) {
+    let ptr = name.as_ptr();
+    let len = name.len() as u32;
+
+    turbo_genesis_ffi::audio::seek_by(ptr, len, seconds);
+}
