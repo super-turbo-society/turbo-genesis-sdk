@@ -128,3 +128,21 @@ pub fn unmute(name: &str) {
     let vol = UNMUTE_VOLUMES.with(|map| *map.borrow().get(name).unwrap_or(&1.0));
     set_volume(name, vol);
 }
+
+/// Set the loop region for a sound.
+///
+/// Negative `start` or `end` values indicate an open range (i.e., no bound).
+/// - `start < 0.0 && end < 0.0` disables looping
+/// - `start >= 0.0 && end < 0.0` loops from `start` to end
+/// - `start < 0.0 && end >= 0.0` loops from start to `end`
+/// - `start >= 0.0 && end >= 0.0` loops from `start` to `end`
+///
+/// # Parameters
+/// - `name`: Identifier of the sound asset.
+/// - `start`: Loop start in seconds (use -1.0 for None).
+/// - `end`: Loop end in seconds (use -1.0 for None).
+pub fn set_loop_region(name: &str, start: f64, end: f64) {
+    let ptr = name.as_ptr();
+    let len = name.len() as u32;
+    turbo_genesis_ffi::audio::set_loop_region(ptr, len, start, end);
+}
