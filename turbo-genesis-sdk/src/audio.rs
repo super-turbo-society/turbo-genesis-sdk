@@ -128,3 +128,17 @@ pub fn unmute(name: &str) {
     let vol = UNMUTE_VOLUMES.with(|map| *map.borrow().get(name).unwrap_or(&1.0));
     set_volume(name, vol);
 }
+
+/// Get the playback position.
+///
+///
+/// # Parameters
+/// - `name`: Identifier of the sound asset.
+///
+/// # Returns
+/// - `f32` for seconds.
+pub fn get_playback_position(name: &str) -> f32 {
+    let ptr = name.as_ptr();
+    let len = name.len() as u32;
+    turbo_genesis_ffi::audio::get_playback_position(ptr, len)
+}
