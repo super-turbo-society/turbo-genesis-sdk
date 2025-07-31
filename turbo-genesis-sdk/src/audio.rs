@@ -128,3 +128,17 @@ pub fn unmute(name: &str) {
     let vol = UNMUTE_VOLUMES.with(|map| *map.borrow().get(name).unwrap_or(&1.0));
     set_volume(name, vol);
 }
+
+/// Set the stereo panning of a sound.
+///
+/// -1.0 = full left, 0.0 = center, 1.0 = full right
+///
+/// # Parameters
+/// - `name`: Identifier of the sound asset.
+/// - `pan`: Stereo pan value from -1.0 to 1.0.
+pub fn set_panning(name: &str, pan: f32) {
+    let ptr = name.as_ptr();
+    let len = name.len() as u32;
+    let pan = pan.clamp(-1.0, 1.0);
+    turbo_genesis_ffi::audio::set_panning(ptr, len, pan);
+}
