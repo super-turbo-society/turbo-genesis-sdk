@@ -128,3 +128,16 @@ pub fn unmute(name: &str) {
     let vol = UNMUTE_VOLUMES.with(|map| *map.borrow().get(name).unwrap_or(&1.0));
     set_volume(name, vol);
 }
+
+/// Get full current sound state
+///
+/// # Parameters
+/// - `key`: key entry in the audio store.
+///
+/// Returns:
+/// f32
+pub fn get_sound_state(key: &str) -> f32 {
+    let key_ptr = key.as_ptr();
+    let key_len = key.len() as u32;
+    turbo_genesis_ffi::audio::get_sound_state(key_ptr, key_len)
+}
