@@ -7,6 +7,8 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 
+use turbo_genesis_abi::{LoopRange, SoundSetting};
+
 thread_local! {
     /// Stores the previous volumes of muted audio tracks by key,
     /// so they can be restored upon unmuting.
@@ -145,4 +147,51 @@ pub fn set_loop_region(name: &str, start: f64, end: f64) {
     let ptr = name.as_ptr();
     let len = name.len() as u32;
     turbo_genesis_ffi::audio::set_loop_region(ptr, len, start, end);
+}
+
+/// Get the loop region for a sound.
+///
+/// # Parameters
+/// - `name`: Identifier of the sound asset.
+
+pub fn get_loop_region(name: &str) {
+    let ptr = name.as_ptr();
+    let len = name.len() as u32;
+    turbo_genesis_ffi::audio::get_loop_region(ptr, len);
+}
+
+/// Get the loop region for a sound.
+///
+/// # Parameters
+/// - `name`: Identifier of the sound asset.
+
+pub fn set_sound_settings(name: &str, setting: SoundSetting) {
+    let name_ptr = name.as_ptr();
+    let name_len = name.len() as u32;
+
+    let (setting_key, value): (&str, u32) = match setting {
+        SoundSetting::Volume(v) => ("volume", v.to_bits()), // f32 to u32
+        SoundSetting::LoopRegion(LoopRange { .. }) => {
+            // This case doesn't make sense for a single u32 value
+            // You need to serialize both start and end in a different FFI if both are required
+            panic!("LoopRegion cannot be represented as a single u32");
+        }
+    };
+
+    let setting_ptr = setting_key.as_ptr();
+    let setting_len = setting_key.len() as u32;
+
+    turbo_genesis_ffi::audio::set_sound_setting(
+        name_ptr,
+        name_len,
+        setting_ptr,
+        setting_len,
+        value,
+    );
+}
+
+pub fn get_sound_settings(name: &str) {
+    let ptr = name.as_ptr();
+    let len = name.len() as u32;
+    turbo_genesis_ffi::audio::get_sound_settings(ptr, len);
 }

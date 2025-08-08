@@ -15,6 +15,10 @@ unsafe extern "C" {
     unsafe fn _set_volume(key_ptr: *const u8, key_len: u32, decibels: f32);
     #[link_name = "set_loop_region"]
     unsafe fn _set_loop_region(key_ptr: *const u8, key_len: u32, start: f64, end: f64);
+    #[link_name = "get_loop_region"]
+    unsafe fn _get_loop_region(key_ptr: *const u8, key_len: u32, start: f64, end: f64);
+    #[link_name = "set_sound_settings"]
+    unsafe fn _set_sound_settings(key_ptr: *const u8, key_len: u32);
 }
 
 pub fn play_sound(key_ptr: *const u8, key_len: u32) -> u32 {
@@ -43,4 +47,22 @@ pub fn set_volume(key_ptr: *const u8, key_len: u32, decibels: f32) {
 
 pub fn set_loop_region(key_ptr: *const u8, key_len: u32, start: f64, end: f64) {
     unsafe { _set_loop_region(key_ptr, key_len, start, end) }
+}
+
+pub fn get_loop_region(key_ptr: *const u8, key_len: u32) -> LoopRange {
+    unsafe { _get_loop_region(key_ptr, key_len) }
+}
+
+pub fn get_sound_settings(key_ptr: *const u8, key_len: u32) -> AudioSettings {
+    unsafe { _get_sound_settings(key_ptr, key_len) }
+}
+
+pub fn set_sound_setting(
+    key_ptr: *const u8,
+    key_len: u32,
+    setting_ptr: *const u8,
+    setting_len: u32,
+    value: u32,
+) {
+    unsafe { _set_sound_setting(key_ptr, key_len) }
 }
