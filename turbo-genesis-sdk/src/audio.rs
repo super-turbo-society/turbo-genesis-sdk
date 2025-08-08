@@ -7,7 +7,7 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 
-use turbo_genesis_abi::{LoopRange, SoundSetting};
+use turbo_genesis_abi::{LoopRange, TurboSoundSetting};
 
 thread_local! {
     /// Stores the previous volumes of muted audio tracks by key,
@@ -160,18 +160,15 @@ pub fn get_loop_region(name: &str) {
     turbo_genesis_ffi::audio::get_loop_region(ptr, len);
 }
 
-/// Get the loop region for a sound.
-///
-/// # Parameters
-/// - `name`: Identifier of the sound asset.
+//get and set sound settings.
 
-pub fn set_sound_settings(name: &str, setting: SoundSetting) {
+pub fn set_sound_settings(name: &str, setting: TurboSoundSetting) {
     let name_ptr = name.as_ptr();
     let name_len = name.len() as u32;
 
     let (setting_key, value): (&str, u32) = match setting {
-        SoundSetting::Volume(v) => ("volume", v.to_bits()), // f32 to u32
-        SoundSetting::LoopRegion(LoopRange { .. }) => {
+        TurboSoundSetting::Volume(v) => ("volume", v.to_bits()), // f32 to u32
+        TurboSoundSetting::LoopRegion(LoopRange { .. }) => {
             // This case doesn't make sense for a single u32 value
             // You need to serialize both start and end in a different FFI if both are required
             panic!("LoopRegion cannot be represented as a single u32");

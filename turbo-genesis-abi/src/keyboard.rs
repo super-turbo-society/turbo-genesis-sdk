@@ -236,15 +236,3 @@ pub enum TurboKeyCode {
     F34,
     F35,
 }
-
-#[derive(Debug, Clone)]
-pub struct LoopRange {
-    pub start: f64,
-    pub end: f64,
-}
-
-#[derive(Debug, Clone)]
-pub enum SoundSetting {
-    LoopRegion(LoopRange),
-    Volume(f32),
-}
