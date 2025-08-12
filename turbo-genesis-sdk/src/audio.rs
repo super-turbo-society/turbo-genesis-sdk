@@ -7,7 +7,7 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 
-use turbo_genesis_abi::{TurboSoundSetting, TurboSoundSettingKey};
+use turbo_genesis_abi::TurboSoundSetting;
 
 thread_local! {
     /// Stores the previous volumes of muted audio tracks by key,
@@ -167,7 +167,7 @@ pub fn set_sound_setting(name: &str, setting: TurboSoundSetting) {
     let name_len = name.len() as u32;
 
     // Serialize to bytes using borsh or serde
-    let setting_bytes = borsh::to_vec(setting).unwrap();
+    let setting_bytes = borsh::to_vec(&setting).unwrap();
     let setting_ptr = setting_bytes.as_ptr();
     let setting_len = setting_bytes.len() as u32;
 
@@ -177,5 +177,5 @@ pub fn set_sound_setting(name: &str, setting: TurboSoundSetting) {
 pub fn get_sound_settings(name: &str) {
     let ptr = name.as_ptr();
     let len = name.len() as u32;
-    turbo_genesis_ffi::audio::get_sound_settings(ptr, len);
+    turbo_genesis_ffi::audio::get_sound_setting(ptr, len);
 }

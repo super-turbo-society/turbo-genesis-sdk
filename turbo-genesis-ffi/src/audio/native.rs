@@ -32,4 +32,4 @@ pub fn set_sound_setting(
 ) {
 }
 
-pub fn get_sound_settings(_key_ptr: *const u8, _key_len: u32) {}
+pub fn get_sound_setting(_key_ptr: *const u8, _key_len: u32) {}
