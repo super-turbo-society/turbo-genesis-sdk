@@ -831,10 +831,11 @@ impl<'a> Sprite<'a> {
         let frame_index = self.props.frame.unwrap_or_else(|| {
             utils::sprite::get_frame_index(&sprite_data, self.props.animation_speed)
         }) % sprite_data.animation_frames.len();
+        let frame = sprite_data.animation_frames[frame_index];
 
         // Calculate the x and y position of the current sprite frame within the spritesheet
-        let sx = sprite_data.x + (sprite_data.width * frame_index as u32);
-        let sy = sprite_data.y;
+        let sx = frame.x;
+        let sy = frame.y;
 
         // Finally, draw the sprite using the calculated parameters.
         utils::sprite::draw(

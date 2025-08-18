@@ -6,8 +6,6 @@ static mut TURBO_SPRITE_DATA: BTreeMap<String, SpriteSourceData> = BTreeMap::new
 
 #[derive(Debug, Clone, Default, PartialEq, BorshDeserialize, BorshSerialize)]
 pub struct SpriteSourceData {
-    pub x: u32,
-    pub y: u32,
     pub width: u32,
     pub height: u32,
     pub animation_loop_count: u32,
@@ -26,6 +24,8 @@ pub enum SpriteAnimationDirection {
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, BorshDeserialize, BorshSerialize)]
 pub struct SpriteAnimationFrame {
+    pub x: u32,
+    pub y: u32,
     pub duration: f32,
 }
 

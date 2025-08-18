@@ -506,8 +506,9 @@ impl<'a> TextBox<'a> {
                 if let Some(glyph) = utils::sprite::get_source_data(&key) {
                     let dw = (glyph.width as f32 * self.scale) as u32;
                     let dh = (glyph.height as f32 * self.scale) as u32;
-                    let sx = glyph.x;
-                    let sy = glyph.y;
+                    let frame = glyph.animation_frames[0];
+                    let sx = frame.x;
+                    let sy = frame.y;
                     let sw = glyph.width as i32;
                     let sh = glyph.height as i32;
                     let dx = x as i32;
