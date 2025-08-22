@@ -152,6 +152,10 @@ impl<Tx: BorshSerialize, Rx: BorshDeserialize> ChannelConnection<Tx, Rx> {
             &mut err_len,
         );
 
+        if data_len as usize > data.len() {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, format!("Received data_len {} exceeds buffer size {}", data_len, data.len())));
+        }
+
         match status {
             STATUS_OK => Rx::try_from_slice(&data[..data_len as usize]),
             STATUS_EMPTY => Err(io::Error::new(
