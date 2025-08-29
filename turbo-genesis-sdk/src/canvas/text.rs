@@ -301,11 +301,14 @@ impl<'a> Text<'a> {
         }
 
         // Set the fixed positioning flag
-        let flags = if self.quad.fixed {
+        let mut flags = if self.quad.fixed {
             flags::POSITION_FIXED
         } else {
             0
         };
+
+        // Set the sprite cover flag
+        flags |= flags::SPRITE_COVER;
 
         // Apply opacity to the sprite's primary and background colors.
         let color = utils::color::apply_opacity(self.quad.color, self.quad.opacity);

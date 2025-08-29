@@ -268,6 +268,7 @@ macro_rules! __text__ {
     (@set $text:ident, xy, $val:expr) => { $text.position_xy($val) };
     (@set $text:ident, position, $val:expr) => { $text.position_xy($val) };
     (@set $text:ident, rotation, $val:expr) => { $text.rotation_deg($val) };
+    (@set $text:ident, scale, $val:expr) => { $text.scale($val) };
     (@set $text:ident, $key:ident, $val:expr) => { $text.$key($val) };
 }
 
