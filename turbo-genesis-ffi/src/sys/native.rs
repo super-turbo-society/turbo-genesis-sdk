@@ -34,6 +34,24 @@ pub fn get_local_storage(_: *mut u8, _: *mut u32) -> i32 {
     -1
 }
 
+pub fn set_internal_storage(
+    _key_ptr: *const u8,
+    _key_len: u32,
+    _data_ptr: *const u8,
+    _data_len: u32,
+) -> i32 {
+    -1
+}
+
+pub fn get_internal_storage(
+    _key_ptr: *const u8,
+    _key_len: u32,
+    _data_ptr: *mut u8,
+    _data_len: *mut u32,
+) -> i32 {
+    -1
+}
+
 pub fn millis_since_unix_epoch() -> u64 {
     0
 }

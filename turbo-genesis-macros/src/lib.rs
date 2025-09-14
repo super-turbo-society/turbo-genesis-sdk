@@ -20,7 +20,10 @@ use std::{
     path::{Path, PathBuf},
 };
 use syn::{
-    parse::{Parse, ParseStream}, parse_macro_input, spanned::Spanned, Error, Fields, Item, ItemEnum, ItemStruct, LitStr
+    parse::{Parse, ParseStream},
+    parse_macro_input,
+    spanned::Spanned,
+    Error, Fields, Item, ItemEnum, ItemStruct, LitStr,
 };
 use turbo_genesis_abi::{
     TurboProgramChannelMetadata, TurboProgramCommandMetadata, TurboProgramMetadata,
@@ -188,11 +191,37 @@ pub fn game(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 },
             };
             state.update();
-            turbo::camera::update();
+            if let Err(err) = turbo::lifecycle::on_update() {
+                turbo::log!("turbo::on_update error: {err:?}");
+            }
             if let Ok(bytes) = borsh::to_vec(&state) {
                 if let Err(err) = hot::save(&bytes) {
                     log!("[turbo] hot save failed: Error code {err}");
                 }
+            }
+        }
+
+        #[no_mangle]
+        #[cfg(all(turbo_hot_reload, not(turbo_no_run)))]
+        pub unsafe extern "C" fn on_before_hot_reload() {
+            if let Err(err) = turbo::lifecycle::on_before_hot_reload() {
+                turbo::log!("turbo::on_before_hot_reload error: {err:?}");
+            }
+        }
+
+        #[no_mangle]
+        #[cfg(all(turbo_hot_reload, not(turbo_no_run)))]
+        pub unsafe extern "C" fn on_after_hot_reload() {
+            if let Err(err) = turbo::lifecycle::on_after_hot_reload() {
+                turbo::log!("turbo::on_after_hot_reload error: {err:?}");
+            }
+        }
+
+        #[no_mangle]
+        #[cfg(all(turbo_hot_reload, not(turbo_no_run)))]
+        pub unsafe extern "C" fn on_reset() {
+            if let Err(err) = turbo::lifecycle::on_reset() {
+                turbo::log!("turbo::on_reset error: {err:?}");
             }
         }
 
@@ -202,7 +231,9 @@ pub fn game(_attr: TokenStream, item: TokenStream) -> TokenStream {
             static mut GAME_STATE: Option<#ident> = None;
             let mut state = GAME_STATE.take().unwrap_or_else(|| #default_state);
             state.update();
-            turbo::camera::update();
+            if let Err(err) = turbo::lifecycle::on_update() {
+                turbo::log!("turbo::on_update error: {err:?}");
+            }
             GAME_STATE = Some(state);
         }
 

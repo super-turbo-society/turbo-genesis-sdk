@@ -13,7 +13,7 @@
 //!
 //! Each submodule provides a focused set of functions and types to make it easy to write
 //! performant, interactive applications on the Turbo Genesis platform.
-
+pub(crate) mod internal;
 pub use macros::*;
 pub mod console;
 pub mod env;

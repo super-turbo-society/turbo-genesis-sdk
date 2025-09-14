@@ -224,17 +224,20 @@ impl<'a> NineSliceSprite<'a> {
 
     /// Draws the sprite using nine-slice scaling within the given target bounds.
     pub fn draw(&self) {
-        let source_data = match utils::sprite::get_source_data(self.sprite.name) {
-            Some(data) => data,
-            None => return,
+        let Some(sprite_data) = utils::sprite::get_source_data(self.sprite.name) else {
+            return;
         };
+        let frame_index = self.sprite.props.frame.unwrap_or_else(|| {
+            utils::sprite::get_frame_index(&sprite_data, self.sprite.props.animation_speed)
+        }) % sprite_data.animation_frames.len();
+        let frame = sprite_data.animation_frames[frame_index];
 
         let (ml, mt, mr, mb) = self.margins;
         let src = Bounds {
-            x: source_data.x as i32,
-            y: source_data.y as i32,
-            w: source_data.width,
-            h: source_data.height,
+            x: frame.x as i32,
+            y: frame.y as i32,
+            w: sprite_data.width,
+            h: sprite_data.height,
         };
 
         let target = self.target;

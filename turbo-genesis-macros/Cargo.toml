@@ -1,6 +1,6 @@
 [package]
 name = "turbo-genesis-macros"
-version = "1.0.0-alpha.10"
+version = "1.0.0"
 edition = "2021"
 description = "Turbo Genesis SDK Macros"
 license = "MIT"
@@ -19,5 +19,5 @@ serde_json = "1.0"
 sha2 = "0.10.9"
 syn = { version = "2.0", features = ["full", "extra-traits"] }
 toml_edit = "0.22"
-turbo-genesis-abi = { version = "1.0.0-alpha.5", path = "../turbo-genesis-abi" }
+turbo-genesis-abi = { version = "1.0.0", path = "../turbo-genesis-abi" }
 uuid = "1.17.0"
