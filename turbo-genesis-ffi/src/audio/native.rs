@@ -20,4 +20,12 @@ pub fn get_volume(key_ptr: *const u8, key_len: u32) -> f32 {
 
 pub fn set_volume(key_ptr: *const u8, key_len: u32, decibels: f32) {}
 
-pub fn get_sound_setting(_data_ptr: *mut u8, _len_ptr: *mut u32) {}
+pub fn get_sound_setting(
+    name_ptr: *const u8,
+    name_len: u32,
+    out_ptr: *mut u8,
+    out_len_ptr: *mut u32,
+) {
+}
+
+pub fn get_all_sound_settings(out_ptr: *mut u8, out_len_ptr: *mut u32) {}

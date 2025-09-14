@@ -3,32 +3,40 @@
 
 use std::collections::HashMap;
 
-use borsh::BorshDeserialize;
+use borsh::{BorshDeserialize, BorshSerialize};
 
 #[derive(Debug)]
-pub struct TurboSoundSetting {
-    pub loop_region: [f64; 2],
-    pub volume: f32,
-}
 
 /// Based on winit KeyCode which is based on the w3c UI Events spec.
 /// See [`KeyboardEvent.code`](https://w3c.github.io/uievents-code/#code-value-tables)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, BorshDeserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, BorshDeserialize)]
 pub enum TurboSoundSettingKey {
     LoopRegionStart,
     LoopRegionEnd,
     Volume,
 }
 
-// pub struct TurboSoundSetting {
-//     : BTreeMap<TurboKeyCode, TurboButton>,
-// }
+#[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]
+pub struct TurboSoundSetting {
+    /// Unique name/key for the sound
+    pub name: String,
+
+    /// Volume level (0–255)
+    pub loop_region: [f64; 2],
+    pub volume: f32,
+}
+
+pub struct Keys {
+    pub loop_region: [f64; 2],
+    pub volume: f32,
+}
 
 impl TurboSoundSetting {
-    pub fn new() -> Self {
+    pub fn new(&mut self) -> Self {
         Self {
-            loop_region: [0.0, 0.],
-            volume: 0.0,
+            name: "".to_owned(),
+            loop_region: [0.0, 0.0],
+            volume: 0.1,
         }
     }
     pub fn update(&mut self, updates: HashMap<TurboSoundSettingKey, f64>) {

@@ -5,7 +5,10 @@
 //! seamless user experience.
 
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
+
+use borsh::BorshDeserialize;
+use turbo_genesis_abi::TurboSoundSetting;
 
 thread_local! {
     /// Stores the previous volumes of muted audio tracks by key,
@@ -127,4 +130,30 @@ pub fn is_muted(name: &str) -> bool {
 pub fn unmute(name: &str) {
     let vol = UNMUTE_VOLUMES.with(|map| *map.borrow().get(name).unwrap_or(&1.0));
     set_volume(name, vol);
+}
+
+/// Retrieves a single sound setting by name using FFI.
+pub fn get_sound_setting(name: &str) -> TurboSoundSetting {
+    let mut data = vec![0u8; 1024];
+    let mut len: u32 = 0;
+
+    turbo_genesis_ffi::audio::get_sound_setting(
+        name.as_ptr(),
+        name.len() as u32,
+        data.as_mut_ptr(),
+        &mut len,
+    );
+
+    TurboSoundSetting::try_from_slice(&data[..len as usize])
+        .expect("Failed to deserialize TurboSoundSetting")
+}
+
+pub fn get_all_sound_settings() -> Vec<TurboSoundSetting> {
+    let mut data = vec![0u8; 4096];
+    let mut len: u32 = 0;
+
+    turbo_genesis_ffi::audio::get_all_sound_settings(data.as_mut_ptr(), &mut len);
+
+    Vec::<TurboSoundSetting>::try_from_slice(&data[..len as usize])
+        .expect("Failed to deserialize all sound settings")
 }
