@@ -5,7 +5,7 @@
 //! seamless user experience.
 
 use std::cell::RefCell;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 
 use borsh::BorshDeserialize;
 use turbo_genesis_abi::TurboSoundSetting;
@@ -72,13 +72,7 @@ pub fn is_playing(name: &str) -> bool {
 pub fn get_volume(name: &str) -> f32 {
     let ptr = name.as_ptr();
     let len = name.len() as u32;
-    let db = turbo_genesis_ffi::audio::get_volume(ptr, len);
-    let vol = 10f32.powf(db / 10.0);
-    if vol <= 0.0001 {
-        0.0
-    } else {
-        vol
-    }
+    turbo_genesis_ffi::audio::get_volume(ptr, len)
 }
 
 /// Set the volume of a sound using linear percentage (0.0 to 100.0).
@@ -91,12 +85,8 @@ pub fn get_volume(name: &str) -> f32 {
 pub fn set_volume(name: &str, volume: f32) {
     let ptr = name.as_ptr();
     let len = name.len() as u32;
-    let db = if volume <= 0.0 {
-        -80.0
-    } else {
-        10.0 * volume.log10()
-    };
-    turbo_genesis_ffi::audio::set_volume(ptr, len, db);
+
+    turbo_genesis_ffi::audio::set_volume(ptr, len, volume);
 }
 
 /// Mute a sound, saving its prior volume for restoration.
@@ -132,28 +122,18 @@ pub fn unmute(name: &str) {
     set_volume(name, vol);
 }
 
-/// Retrieves a single sound setting by name using FFI.
-pub fn get_sound_setting(name: &str) -> TurboSoundSetting {
-    let mut data = vec![0u8; 1024];
+pub fn sound_settings() -> Vec<TurboSoundSetting> {
+    let mut data = vec![0; 1024];
     let mut len: u32 = 0;
+    let len_ptr: *mut u32 = &mut len;
 
-    turbo_genesis_ffi::audio::get_sound_setting(
-        name.as_ptr(),
-        name.len() as u32,
-        data.as_mut_ptr(),
-        &mut len,
-    );
+    turbo_genesis_ffi::audio::sound_settings(data.as_mut_ptr(), len_ptr);
 
-    TurboSoundSetting::try_from_slice(&data[..len as usize])
-        .expect("Failed to deserialize TurboSoundSetting")
-}
-
-pub fn get_all_sound_settings() -> Vec<TurboSoundSetting> {
-    let mut data = vec![0u8; 4096];
-    let mut len: u32 = 0;
-
-    turbo_genesis_ffi::audio::get_all_sound_settings(data.as_mut_ptr(), &mut len);
-
-    Vec::<TurboSoundSetting>::try_from_slice(&data[..len as usize])
-        .expect("Failed to deserialize all sound settings")
+    let raw = &data[..len as usize];
+    match Vec::<TurboSoundSetting>::try_from_slice(raw) {
+        Ok(settings) => settings,
+        Err(_e) => {
+            vec![]
+        }
+    }
 }
