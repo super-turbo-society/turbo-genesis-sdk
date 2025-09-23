@@ -1,8 +1,6 @@
 //! Custom Sound Settings for Kira Static Handle.
 //!
 
-use std::fmt;
-
 use borsh::{BorshDeserialize, BorshSerialize};
 
 #[derive(Debug)]
@@ -20,15 +18,15 @@ pub enum TurboSoundSettingKey {
 pub struct TurboSoundSetting {
     /// Unique name/key for the sound
     pub name: String,
-
-    /// Volume level (0–255)
     pub loop_region: [f64; 2],
     pub volume: f32,
+    pub panning: f32,
 }
 
 pub struct Keys {
     pub loop_region: [f64; 2],
     pub volume: f32,
+    pub panning: f32,
 }
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
@@ -43,6 +41,7 @@ impl TurboSoundSetting {
             name: "".to_owned(),
             loop_region: [0.0, 0.0],
             volume: 100.0,
+            panning: 0,
         }
     }
 }
