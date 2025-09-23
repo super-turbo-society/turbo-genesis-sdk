@@ -89,6 +89,32 @@ pub fn set_volume(name: &str, volume: f32) {
     turbo_genesis_ffi::audio::set_volume(ptr, len, volume);
 }
 
+///
+/// # Parameters
+/// - `name`: Identifier of the sound asset.
+///
+/// # Returns
+/// - `f32` panning in [0.0, 1.0].
+pub fn get_panning(name: &str) -> f32 {
+    let ptr = name.as_ptr();
+    let len = name.len() as u32;
+    turbo_genesis_ffi::audio::get_panning(ptr, len)
+}
+
+/// Set the stereo panning of a sound.
+///
+/// -1.0 = full left, 0.0 = center, 1.0 = full right
+///
+/// # Parameters
+/// - `name`: Identifier of the sound asset.
+/// - `pan`: Stereo pan value from -1.0 to 1.0.
+pub fn set_panning(name: &str, pan: f32) {
+    let ptr = name.as_ptr();
+    let len = name.len() as u32;
+    let pan = pan.clamp(-1.0, 1.0);
+    turbo_genesis_ffi::audio::set_panning(ptr, len, pan);
+}
+
 /// Mute a sound, saving its prior volume for restoration.
 ///
 /// # Parameters

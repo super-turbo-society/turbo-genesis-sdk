@@ -13,9 +13,11 @@ unsafe extern "C" {
     unsafe fn _get_volume(key_ptr: *const u8, key_len: u32) -> f32;
     #[link_name = "set_volume"]
     unsafe fn _set_volume(key_ptr: *const u8, key_len: u32, decibels: f32);
+    #[link_name = "get_panning"]
+    unsafe fn _get_panning(key_ptr: *const u8, key_len: u32) -> f32;
     #[link_name = "set_panning"]
-    unsafe fn _set_panning(key_ptr: *const u8, key_len: u32, panning: f32);
-     #[link_name = "get_loop_region"]
+    unsafe fn _set_panning(key_ptr: *const u8, key_len: u32, pan: f32);
+    #[link_name = "get_loop_region"]
     unsafe fn _get_loop_region(key_ptr: *const u8, key_len: u32, out_ptr: u32);
     #[link_name = "set_loop_region"]
     unsafe fn _set_loop_region(key_ptr: *const u8, key_len: u32, start: f64, end: f64);
@@ -56,8 +58,12 @@ pub fn set_volume(key_ptr: *const u8, key_len: u32, decibels: f32) {
     unsafe { _set_volume(key_ptr, key_len, decibels) }
 }
 
-pub fn set_panning(key_ptr: *const u8, key_len: u32, panning: f32) {
-    unsafe { _set_panning(key_ptr, key_len, panning) }
+pub fn get_panning(key_ptr: *const u8, key_len: u32) -> f32 {
+    unsafe { _get_panning(key_ptr, key_len) }
+}
+
+pub fn set_panning(key_ptr: *const u8, key_len: u32, pan: f32) {
+    unsafe { _set_panning(key_ptr, key_len, pan) }
 }
 
 pub fn get_loop_region(key_ptr: *const u8, key_len: u32, out_ptr: u32) {
