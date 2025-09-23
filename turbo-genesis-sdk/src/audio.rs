@@ -122,7 +122,6 @@ pub fn unmute(name: &str) {
     set_volume(name, vol);
 }
 
-
 /// Get the loop region (start, end) for the sound data in seconds.
 ///
 /// # Parameters
@@ -140,13 +139,12 @@ pub fn get_loop_region(name: &str) -> (f64, f64) {
     let out_ptr = buf.as_mut_ptr();
 
     // Call into FFI (host writes [f64; 2] into buf)
- 
-     turbo_genesis_ffi::audio::get_loop_region(key_ptr, key_len, out_ptr as u32);
-    
+
+    turbo_genesis_ffi::audio::get_loop_region(key_ptr, key_len, out_ptr as u32);
 
     // Convert raw bytes back into (f64, f64)
     let start = f64::from_le_bytes(buf[0..8].try_into().unwrap());
-    let end   = f64::from_le_bytes(buf[8..16].try_into().unwrap());
+    let end = f64::from_le_bytes(buf[8..16].try_into().unwrap());
 
     (start, end)
 }
@@ -155,13 +153,12 @@ pub fn get_loop_region(name: &str) -> (f64, f64) {
 /// - `name`: Identifier of the sound asset.
 /// - `start': start of loop region.
 /// - 'end': end of loop region.
-pub fn set_loop_region(name: &str, start:f64, end:f64) {
+pub fn set_loop_region(name: &str, start: f64, end: f64) {
     let ptr = name.as_ptr();
     let len = name.len() as u32;
 
     turbo_genesis_ffi::audio::set_loop_region(ptr, len, start, end);
 }
-
 
 pub fn get_sound_setting(key: &str) -> Option<TurboSoundSetting> {
     // Prepare key
