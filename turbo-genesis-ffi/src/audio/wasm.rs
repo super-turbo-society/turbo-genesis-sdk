@@ -13,6 +13,14 @@ unsafe extern "C" {
     unsafe fn _get_volume(key_ptr: *const u8, key_len: u32) -> f32;
     #[link_name = "set_volume"]
     unsafe fn _set_volume(key_ptr: *const u8, key_len: u32, decibels: f32);
+    #[link_name = "get_sound_setting"]
+    unsafe fn _get_sound_setting(
+        key_ptr: *const u8,
+        key_len: u32,
+        data_ptr: *mut u8,
+        len_ptr: *mut u32,
+    );
+
     #[link_name = "sound_settings"]
     unsafe fn _sound_settings(data_ptr: *mut u8, len_ptr: *mut u32);
 
@@ -40,6 +48,10 @@ pub fn get_volume(key_ptr: *const u8, key_len: u32) -> f32 {
 
 pub fn set_volume(key_ptr: *const u8, key_len: u32, decibels: f32) {
     unsafe { _set_volume(key_ptr, key_len, decibels) }
+}
+
+pub fn get_sound_setting(key_ptr: *const u8, key_len: u32, data_ptr: *mut u8, len_ptr: *mut u32) {
+    unsafe { _get_sound_setting(key_ptr, key_len, data_ptr, len_ptr) }
 }
 
 pub fn sound_settings(data_ptr: *mut u8, len_ptr: *mut u32) {

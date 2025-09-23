@@ -122,6 +122,30 @@ pub fn unmute(name: &str) {
     set_volume(name, vol);
 }
 
+pub fn get_sound_setting(key: &str) -> Option<TurboSoundSetting> {
+    // Prepare key
+    let key_bytes = key.as_bytes();
+    let key_ptr = key_bytes.as_ptr();
+    let key_len = key_bytes.len() as u32;
+
+    // Prepare buffer for result
+    let mut data = vec![0u8; 256]; // Adjust capacity as needed
+    let mut len: u32 = 0;
+    let len_ptr: *mut u32 = &mut len;
+
+    // Call FFI
+
+    turbo_genesis_ffi::audio::get_sound_setting(key_ptr, key_len, data.as_mut_ptr(), len_ptr);
+
+    if len == 0 || (len as usize) > data.len() {
+        return None;
+    }
+
+    // Deserialize result
+    let raw = &data[..len as usize];
+    TurboSoundSetting::try_from_slice(raw).ok()
+}
+
 pub fn sound_settings() -> Vec<TurboSoundSetting> {
     let mut data = vec![0; 1024];
     let mut len: u32 = 0;
