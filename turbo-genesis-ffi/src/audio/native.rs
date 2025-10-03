@@ -28,6 +28,10 @@ pub fn set_panning(key_ptr: *const u8, key_len: u32, pan: f32) {}
 
 pub fn seek_to(key_ptr: *const u8, key_len: u32, seconds: f64) {}
 
+pub fn get_position(key_ptr: *const u8, key_len: u32) -> f64 {
+    0.0
+}
+
 pub fn sound_settings(_data_ptr: *mut u8, _len_ptr: *mut u32) {}
 
 pub fn get_loop_region(key_ptr: *const u8, key_len: u32, out_ptr: u32) {}

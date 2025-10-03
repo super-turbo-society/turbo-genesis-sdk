@@ -3,7 +3,6 @@
 
 use borsh::{BorshDeserialize, BorshSerialize};
 
-
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct TurboSoundSetting {
     pub loop_region: [f64; 2],

@@ -72,6 +72,10 @@ pub fn seek_to(key_ptr: *const u8, key_len: u32, seconds: f64) {
     unsafe { _seek_to(key_ptr, key_len, seconds) }
 }
 
+pub fn get_position(key_ptr: *const u8, key_len: u32) -> f64 {
+    unsafe { _get_position(key_ptr, key_len) }
+}
+
 pub fn get_loop_region(key_ptr: *const u8, key_len: u32, out_ptr: u32) {
     unsafe { _get_loop_region(key_ptr, key_len, out_ptr) }
 }

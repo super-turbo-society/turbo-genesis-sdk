@@ -85,8 +85,12 @@ pub fn get_volume(name: &str) -> f32 {
 pub fn set_volume(name: &str, volume: f32) {
     let ptr = name.as_ptr();
     let len = name.len() as u32;
-
-    turbo_genesis_ffi::audio::set_volume(ptr, len, volume);
+    let db = if volume <= 0.0 {
+        -80.0
+    } else {
+        10.0 * volume.log10()
+    };
+    turbo_genesis_ffi::audio::set_volume(ptr, len, db);
 }
 
 ///
@@ -127,6 +131,20 @@ pub fn seek_to(name: &str, seconds: f64) {
     let len = name.len() as u32;
 
     turbo_genesis_ffi::audio::seek_to(ptr, len, seconds);
+}
+
+/// Get the current playback position of a sound in seconds.
+
+///
+/// # Parameters
+/// - `name`: Identifier of the sound asset.
+///
+/// # Returns
+/// - `f64`.
+pub fn get_postion(name: &str) -> f64 {
+    let ptr = name.as_ptr();
+    let len = name.len() as u32;
+    turbo_genesis_ffi::audio::get_position(ptr, len)
 }
 
 /// Mute a sound, saving its prior volume for restoration.
@@ -207,7 +225,7 @@ pub fn get_sound_setting(key: &str) -> Option<TurboSoundSetting> {
     let key_len = key_bytes.len() as u32;
 
     // Prepare buffer for result
-    let mut data = vec![0u8; 256]; // Adjust capacity as needed
+    let data = &mut [0; 32];
     let mut len: u32 = 0;
     let len_ptr: *mut u32 = &mut len;
 
