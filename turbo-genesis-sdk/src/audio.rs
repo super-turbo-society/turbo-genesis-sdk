@@ -134,17 +134,16 @@ pub fn seek_to(name: &str, seconds: f64) {
 }
 
 /// Get the current playback position of a sound in seconds.
-
 ///
 /// # Parameters
 /// - `name`: Identifier of the sound asset.
 ///
 /// # Returns
 /// - `f64`.
-pub fn get_postion(name: &str) -> f64 {
+pub fn get_playback_postion(name: &str) -> f64 {
     let ptr = name.as_ptr();
     let len = name.len() as u32;
-    turbo_genesis_ffi::audio::get_position(ptr, len)
+    turbo_genesis_ffi::audio::get_playback_position(ptr, len)
 }
 
 /// Mute a sound, saving its prior volume for restoration.

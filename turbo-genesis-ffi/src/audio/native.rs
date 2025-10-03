@@ -28,7 +28,7 @@ pub fn set_panning(key_ptr: *const u8, key_len: u32, pan: f32) {}
 
 pub fn seek_to(key_ptr: *const u8, key_len: u32, seconds: f64) {}
 
-pub fn get_position(key_ptr: *const u8, key_len: u32) -> f64 {
+pub fn get_playback_position(key_ptr: *const u8, key_len: u32) -> f64 {
     0.0
 }
 
