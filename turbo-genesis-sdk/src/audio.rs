@@ -72,7 +72,13 @@ pub fn is_playing(name: &str) -> bool {
 pub fn get_volume(name: &str) -> f32 {
     let ptr = name.as_ptr();
     let len = name.len() as u32;
-    turbo_genesis_ffi::audio::get_volume(ptr, len)
+    let db = turbo_genesis_ffi::audio::get_volume(ptr, len);
+    let vol = 10f32.powf(db / 10.0);
+    if vol <= 0.0001 {
+        0.0
+    } else {
+        vol
+    }
 }
 
 /// Set the volume of a sound using linear percentage (0.0 to 1.0).
