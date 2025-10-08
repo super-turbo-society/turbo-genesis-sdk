@@ -1,6 +1,9 @@
 pub use button::*;
 mod button;
 
+pub use audio::*;
+pub mod audio;
+
 pub use gamepad::*;
 mod gamepad;
 

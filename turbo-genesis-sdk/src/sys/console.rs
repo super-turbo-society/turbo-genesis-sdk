@@ -12,7 +12,6 @@
 //! log("Player connected");
 //! ```  
 
-
 /// Sends a log message to the Turbo runtime's console output.
 ///
 /// This is a direct FFI call that passes a UTF-8 encoded string to the host.
