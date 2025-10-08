@@ -22,9 +22,11 @@ unsafe extern "C" {
     #[link_name = "set_loop_region"]
     unsafe fn _set_loop_region(key_ptr: *const u8, key_len: u32, start: f64, end: f64);
     #[link_name = "seek_to"]
-    unsafe fn seek_to(key_ptr: *const u8, key_len: u32, seconds: f64) {}
+    unsafe fn _seek_to(key_ptr: *const u8, key_len: u32, seconds:f64);
     #[link_name = "seek_by"]
-    unsafe fn seek_by(key_ptr: *const u8, key_len: u32, seconds: f64) {}
+    unsafe fn _seek_by(key_ptr: *const u8, key_len: u32, seconds: f64);
+    #[link_name = "get_playback_position"]
+    unsafe fn _get_playback_position(key_ptr: *const u8, key_len: u32) -> f64;
     #[link_name = "get_sound_setting"]
     unsafe fn _get_sound_setting(
         key_ptr: *const u8,

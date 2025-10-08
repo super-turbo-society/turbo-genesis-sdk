@@ -75,7 +75,7 @@ pub fn get_volume(name: &str) -> f32 {
     turbo_genesis_ffi::audio::get_volume(ptr, len)
 }
 
-/// Set the volume of a sound using linear percentage (0.0 to 100.0).
+/// Set the volume of a sound using linear percentage (0.0 to 1.0).
 ///
 /// Converts to decibels via `dB = 10 * log10(P)`. Values ≤ 0.0 are clamped to -80 dB.
 ///
