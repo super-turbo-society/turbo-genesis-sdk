@@ -260,19 +260,3 @@ pub fn get_sound_setting(key: &str) -> Option<TurboSoundSetting> {
     let raw = &data[..len as usize];
     TurboSoundSetting::try_from_slice(raw).ok()
 }
-
-pub fn sound_settings() -> Vec<TurboSoundSetting> {
-    let mut data = vec![0; 1024];
-    let mut len: u32 = 0;
-    let len_ptr: *mut u32 = &mut len;
-
-    turbo_genesis_ffi::audio::sound_settings(data.as_mut_ptr(), len_ptr);
-
-    let raw = &data[..len as usize];
-    match Vec::<TurboSoundSetting>::try_from_slice(raw) {
-        Ok(settings) => settings,
-        Err(_e) => {
-            vec![]
-        }
-    }
-}

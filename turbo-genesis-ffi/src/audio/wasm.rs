@@ -35,9 +35,6 @@ unsafe extern "C" {
         len_ptr: *mut u32,
     );
 
-    #[link_name = "sound_settings"]
-    unsafe fn _sound_settings(data_ptr: *mut u8, len_ptr: *mut u32);
-
 }
 
 pub fn play_sound(key_ptr: *const u8, key_len: u32) -> u32 {
@@ -93,8 +90,4 @@ pub fn set_loop_region(key_ptr: *const u8, key_len: u32, start: f64, end: f64) {
 
 pub fn get_sound_setting(key_ptr: *const u8, key_len: u32, data_ptr: *mut u8, len_ptr: *mut u32) {
     unsafe { _get_sound_setting(key_ptr, key_len, data_ptr, len_ptr) }
-}
-
-pub fn sound_settings(data_ptr: *mut u8, len_ptr: *mut u32) {
-    unsafe { _sound_settings(data_ptr, len_ptr) }
 }
