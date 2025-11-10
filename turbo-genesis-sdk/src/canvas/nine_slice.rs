@@ -30,6 +30,12 @@ impl<'a> NineSliceSprite<'a> {
         self.sprite.props.fixed = fixed;
     }
 
+    /// Sets the color
+    pub fn color(mut self, color: u32) -> Self {
+        self.sprite.props = self.sprite.props.color(color);
+        self
+    }
+
     /// Sets the nine-slice’s position.
     pub fn position<X: NumCast, Y: NumCast>(mut self, x: X, y: Y) -> Self {
         let x: i32 = NumCast::from(x).unwrap_or(self.target.x);
