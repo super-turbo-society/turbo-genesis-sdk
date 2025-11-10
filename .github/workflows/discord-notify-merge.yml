@@ -1,0 +1,53 @@
+name: Notify Discord on main branch commit
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  notify-discord:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Send Discord notification
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          AUTHOR=$(git log -1 --pretty=%an)
+          MESSAGE=$(git log -1 --pretty=%B)
+          COMMIT_URL="https://github.com/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}"
+          REPO_URL="https://github.com/${GITHUB_REPOSITORY}"
+          AUTHOR_URL="https://github.com/${AUTHOR}"
+
+          jq -n \
+            --arg repo "$GITHUB_REPOSITORY" \
+            --arg repo_url "$REPO_URL" \
+            --arg url "$COMMIT_URL" \
+            --arg author "$AUTHOR" \
+            --arg author_url "$AUTHOR_URL" \
+            --arg message "$MESSAGE" \
+            --arg commit "${GITHUB_SHA}" \
+            --arg timestamp "$TIMESTAMP" \
+            '{
+              "embeds": [{
+                "title": "🤩 New SDK commit!",
+                "description": ("Project **[\($repo)](\($repo_url))** received a new commit from **[\($author)](\($author_url))**."),
+                "color": 7506394,
+                "fields": [
+                  {"name": "Message", "value": $message, "inline": false},
+                  {"name": "Commit", "value": "[\($commit)](\($url))"}
+                ],
+                "footer": { "text": "Github Actions - Merge" },
+                "timestamp": $timestamp
+              }]
+            }' > payload.json
+
+          curl -H "Content-Type: application/json" \
+            -X POST \
+            -d @payload.json \
+            "$DISCORD_WEBHOOK"
