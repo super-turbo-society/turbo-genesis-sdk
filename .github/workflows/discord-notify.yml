@@ -40,7 +40,7 @@ jobs:
                   "description": ("Pull Request \($pr_number): [\($pr_title)](\($pr_url))"),
                   "color": 3447003,
                   "fields": [
-                    {"name": "Author", "value": "${pr_author}" }
+                    {"name": "Author", "value": pr_author }
                   ],
                   "footer": { "text": "PR Event" },
                   "timestamp": $timestamp
