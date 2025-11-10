@@ -36,7 +36,7 @@ jobs:
             '{
               "embeds": [{
                 "title": "🤩 New SDK commit!",
-                "description": ("Project **[\($repo)](\($repo_url))** received a new commit from **[\($author)](\($author_url))**."),
+                "description": ("Project **[\($repo)](\($repo_url))** received a new commit!"),
                 "color": 7506394,
                 "fields": [
                   {"name": "Message", "value": $message, "inline": false},
