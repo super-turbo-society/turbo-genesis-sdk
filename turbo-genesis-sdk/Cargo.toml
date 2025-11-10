@@ -1,6 +1,6 @@
 [package]
 name = "turbo-genesis-sdk"
-version = "5.1.0"
+version = "5.2.0"
 description = "Turbo Genesis SDK"
 license = "MIT"
 authors = ["@jozanza (jozanza@turbo.computer)"]
