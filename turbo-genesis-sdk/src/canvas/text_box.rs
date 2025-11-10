@@ -47,9 +47,9 @@ impl<'a> TextBox<'a> {
             align: Align::Left,
             start: 0,
             end: text.len(),
-            preserve_spaces: true,
-            preserve_tabs: true,
-            preserve_newlines: true,
+            preserve_spaces: false,
+            preserve_tabs: false,
+            preserve_newlines: false,
         }
     }
 
