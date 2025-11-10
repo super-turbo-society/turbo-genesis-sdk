@@ -21,7 +21,7 @@ jobs:
         run: |
           TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
-          if [ "${{ github.event_name }}" == "pull_request" ]; then
+          if [ ${{ github.event.action == 'opened' || github.event.action == 'synchronize' || github.event.action == 'reopened' }} ]; then
             PR_NUMBER="${{ github.event.pull_request.number }}"
             PR_TITLE="${{ github.event.pull_request.title }}"
             PR_URL="${{ github.event.pull_request.html_url }}"
@@ -40,7 +40,7 @@ jobs:
                   "description": ("Pull Request \($pr_number): [\($pr_title)](\($pr_url))"),
                   "color": 3447003,
                   "fields": [
-                    {"name": "Author", "value": $pr_author}
+                    {"name": "Author", "value": "${pr_author}" }
                   ],
                   "footer": { "text": "PR Event" },
                   "timestamp": $timestamp
