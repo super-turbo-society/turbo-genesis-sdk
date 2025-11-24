@@ -27,9 +27,19 @@ unsafe extern "C" {
     #[link_name = "get_local_storage"]
     unsafe fn _get_local_storage(ptr: *mut u8, len: *mut u32) -> i32;
     #[link_name = "set_internal_storage"]
-    unsafe fn _set_internal_storage(key_ptr: *const u8, key_len: u32, data_ptr: *const u8, data_len: u32) -> i32;
+    unsafe fn _set_internal_storage(
+        key_ptr: *const u8,
+        key_len: u32,
+        data_ptr: *const u8,
+        data_len: u32,
+    ) -> i32;
     #[link_name = "get_internal_storage"]
-    unsafe fn _get_internal_storage(key_ptr: *const u8, key_len: u32, data_ptr: *mut u8, data_len: *mut u32) -> i32;
+    unsafe fn _get_internal_storage(
+        key_ptr: *const u8,
+        key_len: u32,
+        data_ptr: *mut u8,
+        data_len: *mut u32,
+    ) -> i32;
     #[link_name = "millis_since_unix_epoch"]
     unsafe fn _millis_since_unix_epoch() -> u64;
 }
@@ -79,11 +89,21 @@ pub fn get_local_storage(ptr: *mut u8, len: *mut u32) -> i32 {
     unsafe { _get_local_storage(ptr, len) }
 }
 
-pub fn set_internal_storage(key_ptr: *const u8, key_len: u32, data_ptr: *const u8, data_len: u32) -> i32 {
+pub fn set_internal_storage(
+    key_ptr: *const u8,
+    key_len: u32,
+    data_ptr: *const u8,
+    data_len: u32,
+) -> i32 {
     unsafe { _set_internal_storage(key_ptr, key_len, data_ptr, data_len) }
 }
 
-pub fn get_internal_storage(key_ptr: *const u8, key_len: u32, data_ptr: *mut u8, data_len: *mut u32) -> i32 {
+pub fn get_internal_storage(
+    key_ptr: *const u8,
+    key_len: u32,
+    data_ptr: *mut u8,
+    data_len: *mut u32,
+) -> i32 {
     unsafe { _get_internal_storage(key_ptr, key_len, data_ptr, data_len) }
 }
 

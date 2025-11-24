@@ -2,7 +2,9 @@ use crate::TurboButton;
 use borsh::{BorshDeserialize, BorshSerialize};
 use num_traits::NumCast;
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, BorshDeserialize, BorshSerialize)]
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, BorshDeserialize, BorshSerialize,
+)]
 pub struct TurboPointer {
     /// The state of the left mouse button or touch
     pub state: TurboButton,
