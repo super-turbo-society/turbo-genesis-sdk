@@ -49,7 +49,7 @@ impl<'a> TextBox<'a> {
             end: text.len(),
             preserve_spaces: false,
             preserve_tabs: false,
-            preserve_newlines: false,
+            preserve_newlines: true,
         }
     }
 
