@@ -1,3 +1,6 @@
+pub use audio::*;
+mod audio;
+
 pub use button::*;
 mod button;
 

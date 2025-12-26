@@ -7,6 +7,8 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 
+use turbo_genesis_abi::TurboSoundSetting;
+
 thread_local! {
     /// Stores the previous volumes of muted audio tracks by key,
     /// so they can be restored upon unmuting.
@@ -127,4 +129,53 @@ pub fn is_muted(name: &str) -> bool {
 pub fn unmute(name: &str) {
     let vol = UNMUTE_VOLUMES.with(|map| *map.borrow().get(name).unwrap_or(&1.0));
     set_volume(name, vol);
+}
+
+/// Set the loop region for a sound.
+///
+/// Negative `start` or `end` values indicate an open range (i.e., no bound).
+/// - `start < 0.0 && end < 0.0` disables looping
+/// - `start >= 0.0 && end < 0.0` loops from `start` to end
+/// - `start < 0.0 && end >= 0.0` loops from start to `end`
+/// - `start >= 0.0 && end >= 0.0` loops from `start` to `end`
+///
+/// # Parameters
+/// - `name`: Identifier of the sound asset.
+/// - `start`: Loop start in seconds (use -1.0 for None).
+/// - `end`: Loop end in seconds (use -1.0 for None).
+pub fn set_loop_region(name: &str, start: f64, end: f64) {
+    let ptr = name.as_ptr();
+    let len = name.len() as u32;
+    turbo_genesis_ffi::audio::set_loop_region(ptr, len, start, end);
+}
+
+/// Get the loop region for a sound.
+///
+/// # Parameters
+/// - `name`: Identifier of the sound asset.
+
+pub fn get_loop_region(name: &str) {
+    let ptr = name.as_ptr();
+    let len = name.len() as u32;
+    turbo_genesis_ffi::audio::get_loop_region(ptr, len);
+}
+
+//get and set sound settings.
+
+pub fn set_sound_setting(name: &str, setting: TurboSoundSetting) {
+    let name_ptr = name.as_ptr();
+    let name_len = name.len() as u32;
+
+    // Serialize to bytes using borsh or serde
+    let setting_bytes = borsh::to_vec(&setting).unwrap();
+    let setting_ptr = setting_bytes.as_ptr();
+    let setting_len = setting_bytes.len() as u32;
+
+    turbo_genesis_ffi::audio::set_sound_setting(name_ptr, name_len, setting_ptr, setting_len);
+}
+
+pub fn get_sound_settings(name: &str) {
+    let ptr = name.as_ptr();
+    let len = name.len() as u32;
+    turbo_genesis_ffi::audio::get_sound_setting(ptr, len);
 }
