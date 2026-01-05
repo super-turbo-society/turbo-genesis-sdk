@@ -31,7 +31,7 @@ pub mod utils;
 ///
 /// # Returns
 /// A fully initialized [`sprite::Sprite`].
-pub fn sprite(file_stem: &str) -> sprite::Sprite {
+pub fn sprite(file_stem: &str) -> sprite::Sprite<'_> {
     sprite::Sprite::new(file_stem)
 }
 
@@ -46,7 +46,7 @@ pub fn sprite(file_stem: &str) -> sprite::Sprite {
 ///
 /// # Returns
 /// A [`nine_slice::NineSliceSprite`] configured with the given margins.
-pub fn nine_slice(file_stem: &str, margins: (u32, u32, u32, u32)) -> nine_slice::NineSliceSprite {
+pub fn nine_slice(file_stem: &str, margins: (u32, u32, u32, u32)) -> nine_slice::NineSliceSprite<'_> {
     nine_slice::NineSliceSprite::new(sprite::Sprite::new(file_stem), margins)
 }
 
@@ -128,7 +128,7 @@ pub fn path<X0: NumCast + Copy, Y0: NumCast + Copy, X1: NumCast + Copy, Y1: NumC
 ///
 /// # Returns
 /// A [`text::Text`] ready for rendering.
-pub fn text(string: &str) -> text::Text {
+pub fn text(string: &str) -> text::Text<'_> {
     text::Text::new(string)
 }
 

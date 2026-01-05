@@ -766,13 +766,11 @@ impl<'a> Sprite<'a> {
 
         // Set the cover flag and unsets the repeat flag
         if self.props.cover {
-            flags &= !flags::SPRITE_REPEAT;
             flags |= flags::SPRITE_COVER;
         }
 
         // Set the repeat flag and unsets the cover flag
         if self.props.repeat {
-            flags &= !flags::SPRITE_COVER;
             flags |= flags::SPRITE_REPEAT;
         }
 
@@ -852,12 +850,8 @@ impl<'a> Sprite<'a> {
             color,                    // Color with opacity applied.
             background_color,         // Background color with opacity applied.
             self.props.border_radius, // Border radius for rounded corners.
-            if !self.props.repeat {
-                0
-            } else {
-                (self.props.scale_x * 10000.) as u32
-            },
-            u32::from_be((self.props.scale_y * 10000.) as u32),
+            0,
+            0,
             self.props.origin_x, // Origin x-coordinate for transformations.
             self.props.origin_y, // Origin y-coordinate for transformations.
             self.props.rotation, // Rotation angle.
