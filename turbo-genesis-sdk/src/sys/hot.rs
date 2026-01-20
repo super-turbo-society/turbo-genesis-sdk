@@ -1,10 +1,10 @@
 //! Hot Storage Module
 //!
 //! **Note:** This module is intended for use during development
-//! 
+//!
 //! Provides a simple API for saving and loading application state to the Turbo runtime’s
 //! built-in hot storage. Designed for small to moderate data sizes (up to ~4 MB).
-//! 
+//!
 //!
 //! - `save(data: &[u8]) -> Result<i32, i32>`  
 //!   Store the given bytes. On success, returns the number of bytes remaining in storage.

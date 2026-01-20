@@ -13,6 +13,28 @@ unsafe extern "C" {
     unsafe fn _get_volume(key_ptr: *const u8, key_len: u32) -> f32;
     #[link_name = "set_volume"]
     unsafe fn _set_volume(key_ptr: *const u8, key_len: u32, decibels: f32);
+    #[link_name = "get_panning"]
+    unsafe fn _get_panning(key_ptr: *const u8, key_len: u32) -> f32;
+    #[link_name = "set_panning"]
+    unsafe fn _set_panning(key_ptr: *const u8, key_len: u32, pan: f32);
+    #[link_name = "get_loop_region"]
+    unsafe fn _get_loop_region(key_ptr: *const u8, key_len: u32, out_ptr: u32);
+    #[link_name = "set_loop_region"]
+    unsafe fn _set_loop_region(key_ptr: *const u8, key_len: u32, start: f64, end: f64);
+    #[link_name = "seek_to"]
+    unsafe fn _seek_to(key_ptr: *const u8, key_len: u32, seconds: f64);
+    #[link_name = "seek_by"]
+    unsafe fn _seek_by(key_ptr: *const u8, key_len: u32, seconds: f64);
+    #[link_name = "get_playback_position"]
+    unsafe fn _get_playback_position(key_ptr: *const u8, key_len: u32) -> f64;
+    #[link_name = "get_sound_setting"]
+    unsafe fn _get_sound_setting(
+        key_ptr: *const u8,
+        key_len: u32,
+        data_ptr: *mut u8,
+        len_ptr: *mut u32,
+    );
+
 }
 
 pub fn play_sound(key_ptr: *const u8, key_len: u32) -> u32 {
@@ -37,4 +59,35 @@ pub fn get_volume(key_ptr: *const u8, key_len: u32) -> f32 {
 
 pub fn set_volume(key_ptr: *const u8, key_len: u32, decibels: f32) {
     unsafe { _set_volume(key_ptr, key_len, decibels) }
+}
+
+pub fn get_panning(key_ptr: *const u8, key_len: u32) -> f32 {
+    unsafe { _get_panning(key_ptr, key_len) }
+}
+
+pub fn set_panning(key_ptr: *const u8, key_len: u32, pan: f32) {
+    unsafe { _set_panning(key_ptr, key_len, pan) }
+}
+
+pub fn seek_to(key_ptr: *const u8, key_len: u32, seconds: f64) {
+    unsafe { _seek_to(key_ptr, key_len, seconds) }
+}
+
+pub fn seek_by(key_ptr: *const u8, key_len: u32, seconds: f64) {
+    unsafe { _seek_by(key_ptr, key_len, seconds) }
+}
+
+pub fn get_playback_position(key_ptr: *const u8, key_len: u32) -> f64 {
+    unsafe { _get_playback_position(key_ptr, key_len) }
+}
+
+pub fn get_loop_region(key_ptr: *const u8, key_len: u32, out_ptr: u32) {
+    unsafe { _get_loop_region(key_ptr, key_len, out_ptr) }
+}
+pub fn set_loop_region(key_ptr: *const u8, key_len: u32, start: f64, end: f64) {
+    unsafe { _set_loop_region(key_ptr, key_len, start, end) }
+}
+
+pub fn get_sound_setting(key_ptr: *const u8, key_len: u32, data_ptr: *mut u8, len_ptr: *mut u32) {
+    unsafe { _get_sound_setting(key_ptr, key_len, data_ptr, len_ptr) }
 }

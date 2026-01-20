@@ -19,3 +19,23 @@ pub fn get_volume(key_ptr: *const u8, key_len: u32) -> f32 {
 }
 
 pub fn set_volume(key_ptr: *const u8, key_len: u32, decibels: f32) {}
+
+pub fn get_panning(key_ptr: *const u8, key_len: u32) -> f32 {
+    0.0
+}
+
+pub fn set_panning(key_ptr: *const u8, key_len: u32, pan: f32) {}
+
+pub fn seek_to(key_ptr: *const u8, key_len: u32, seconds: f64) {}
+
+pub fn seek_by(key_ptr: *const u8, key_len: u32, seconds: f64) {}
+
+pub fn get_playback_position(key_ptr: *const u8, key_len: u32) -> f64 {
+    0.0
+}
+
+pub fn get_loop_region(key_ptr: *const u8, key_len: u32, out_ptr: u32) {}
+
+pub fn set_loop_region(key_ptr: *const u8, key_len: u32, start: f64, end: f64) {}
+
+pub fn get_sound_setting(key_ptr: *const u8, key_len: u32, data_ptr: *mut u8, len_ptr: *mut u32) {}
